@@ -1,0 +1,34 @@
+import org.gradle.internal.jvm.Jvm
+apply plugin: 'java-library'
+apply plugin: 'kotlin'
+apply plugin: 'kotlin-kapt'
+apply from: '../publish-jitpack.gradle'
+
+sourceSets {
+    main.java.srcDirs += 'src/main/kotlin'
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+    implementation 'com.google.auto.service:auto-service:1.0-rc6'
+    kapt 'com.google.auto.service:auto-service:1.0-rc6'
+    implementation 'com.squareup:kotlinpoet:1.7.2'
+    implementation 'com.squareup:kotlinpoet-metadata:1.7.2'
+    implementation 'com.squareup:kotlinpoet-metadata-specs:1.7.2'
+    implementation project(":p2m-annotation")
+    compileOnly(files(Jvm.current().toolsJar))
+}
+
+sourceCompatibility = "8"
+targetCompatibility = "8"
+
+
+// the project will publish artifacts to jitpack,
+// that artifact info can be like ${groupId}.${rootProjectName}:${projectName}:${version}
+afterEvaluate {
+    // publish all for jitpack
+    tasks.findByName("install").dependsOn(":p2m-annotation:install")
+    tasks.findByName("install").dependsOn(":p2m-core:publishReleasePublicationToMavenLocal")
+    tasks.findByName("install").dependsOn(":p2m-plugin:publishPluginMavenPublicationToMavenLocal")
+}

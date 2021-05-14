@@ -1,0 +1,6 @@
+rootProject.name = "P2M"
+
+include ':p2m-annotation'
+include ':p2m-core'
+include ':p2m-compiler'
+include ':p2m-plugin'

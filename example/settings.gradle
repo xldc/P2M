@@ -1,0 +1,68 @@
+rootProject.name = "P2M-Example"
+
+buildscript {
+    repositories {
+        google()
+        jcenter()
+        mavenLocal()
+        maven { url 'https://jitpack.io' }
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:4.0.2'
+        classpath 'com.github.wangdaqi77.P2M:p2m-plugin:1.0.0' // P2M插件
+    }
+}
+
+apply plugin: "p2m-android"
+
+p2m {                                       // 声明组件化
+
+    app {                                   // 声明app壳，支持多个声明
+        include(":app") {                   // 声明project描述
+            projectDir = new File("./app")  // project路径
+        }
+        dependencies {                      // 依赖的模块
+            module("Login")
+            module("Main")
+        }
+    }
+
+    module("Login") {                       // 声明Login模块
+        include(":module-login")            // 声明project描述
+        runApp = false                      // 运行app开关
+
+        useRemote = false                   // 使用远端aar，默认false。为true时，对外提供依赖它的远端aar。
+        groupId = "com.repo"                // 组，主要用于确定发布的组，默认值模块名
+        versionName = "0.0.1"               // 版本，主要用于确定发布的版本，默认值unspecified
+    }
+
+    module("Main") {                        // 声明Main模块
+        include(":module-main")             // 声明project描述
+        dependencies {                      // 依赖的模块
+            module("Login")
+        }
+        runApp = false                      // 运行app开关, applicationId等配置在module-main/build.gradle中的whenRunApp{}
+
+        useRemote = false                   // 使用远端aar，默认false使用源码。为true时，对外提供它的远端aar。
+        groupId = "com.repo"                // 组，主要用于确定发布的组，默认值模块名
+        versionName = "0.0.1"               // 版本，主要用于确定发布的版本，默认值unspecified
+    }
+
+//    p2mMavenRepository {                    // 声明maven仓库用于发布和获取远端aar, 默认为mavenLocal()
+//        url = "your maven repository url"   // 你的仓库地址
+//        credentials {                       // 你的仓库标识
+//            username = "your user name"
+//            password = "your password"
+//        }
+//    }
+
+    app {                                   // 可以声明多个app壳
+        include(":app-b")                   // 声明project描述
+        dependencies {                      // 依赖的模块
+            module("Login")
+            module("Main")
+        }
+    }
+}
+

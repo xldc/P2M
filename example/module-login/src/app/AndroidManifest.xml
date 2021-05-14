@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.p2m.example.login">
+
+    <application
+        android:label="Login模块"
+        android:name="com.p2m.example.login.LoginApp"
+        android:theme="@style/Theme.AppCompat.Light.DarkActionBar"
+        >
+
+        <activity android:name="com.p2m.example.login.ui.LoginActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>

@@ -1,5 +1,5 @@
-group = 'com.github.wangdaqi77'
-version = '1.0.0'
+group = 'com.github.wangdaqi77.P2M'
+version = '0.0.1'
 afterEvaluate {
     if (plugins.hasPlugin('com.android.library')) {
         apply plugin: 'maven-publish'
@@ -9,7 +9,7 @@ afterEvaluate {
             publications {
                 "${buildType}"(MavenPublication) {
                     from components."${buildType}"
-                    groupId = 'com.github.wangdaqi77'
+                    groupId = group
                     artifactId = "${project.name}"
                     version = project.version
                 }

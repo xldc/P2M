@@ -1,12 +1,17 @@
 package com.p2m.gradle.utils
 
+import com.p2m.gradle.bean.settings.AppProjectConfig
+import com.p2m.gradle.bean.settings.BaseProjectConfig
+import com.p2m.gradle.bean.settings.ModuleProjectConfig
+
 class StatementClosureUtils {
 
-    static String getStatementMissingClosureTip(com.p2m.gradle.bean.settings.BaseProjectConfig moduleConfig, String closure, String paramsDesc, String closureDesc){
-        if (moduleConfig instanceof com.p2m.gradle.bean.settings.ModuleProjectConfig) {
+    @SuppressWarnings("UnnecessaryQualifiedReference")
+    static String getStatementMissingClosureTip(BaseProjectConfig moduleConfig, String closure, String paramsDesc, String closureDesc){
+        if (moduleConfig instanceof ModuleProjectConfig) {
             return  "\nMissing closure:${closure}, Please check config in settings.gradle.\n" +
                     StatementClosureUtils.getStatementClosureTip(moduleConfig, closure, paramsDesc, closureDesc)
-        }else if (moduleConfig instanceof com.p2m.gradle.bean.settings.AppProjectConfig){
+        }else if (moduleConfig instanceof AppProjectConfig){
             return  "\nMissing closure:${closure}, Please check config in settings.gradle.\n" +
                     StatementClosureUtils.getStatementClosureTip(moduleConfig, closure, paramsDesc, closureDesc)
         }else {
@@ -15,10 +20,9 @@ class StatementClosureUtils {
     }
 
 
-
-    static String getStatementClosureTip(com.p2m.gradle.bean.settings.BaseProjectConfig moduleConfig, String closure, String paramsDesc, String closureDesc){
+    static String getStatementClosureTip(BaseProjectConfig moduleConfig, String closure, String paramsDesc, String closureDesc){
         def paramsEmpty = paramsDesc == null
-        if (moduleConfig instanceof com.p2m.gradle.bean.settings.ModuleProjectConfig) {
+        if (moduleConfig instanceof ModuleProjectConfig) {
             if (paramsEmpty) {
                 return  "p2m {\n" +
                         "   module(${moduleConfig._moduleNamed.get()}) {\n" +
@@ -38,7 +42,7 @@ class StatementClosureUtils {
             }
 
 
-        }else if (moduleConfig instanceof com.p2m.gradle.bean.settings.AppProjectConfig){
+        }else if (moduleConfig instanceof AppProjectConfig){
             if (paramsEmpty) {
                 return  "p2m {\n" +
                         "   app {\n" +

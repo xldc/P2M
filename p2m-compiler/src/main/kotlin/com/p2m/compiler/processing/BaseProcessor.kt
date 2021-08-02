@@ -1,8 +1,6 @@
 package com.p2m.compiler.processing
 
-import com.p2m.annotation.module.api.EventObservation
 import com.p2m.compiler.utils.Logger
-import com.squareup.kotlinpoet.ClassName
 import javax.annotation.processing.AbstractProcessor
 import javax.annotation.processing.Filer
 import javax.annotation.processing.ProcessingEnvironment
@@ -16,7 +14,8 @@ abstract class BaseProcessor : AbstractProcessor() {
         const val PACKAGE_NAME_CORE = "com.p2m.core"
         const val PACKAGE_NAME_IMPL = "com.p2m.module.impl"
         const val PACKAGE_NAME_API = "com.p2m.module.api"
-        const val PACKAGE_NAME_LAUNCHER = "com.p2m.module.launcher"
+        const val PACKAGE_NAME_IMPL_LAUNCHER = "$PACKAGE_NAME_IMPL.launcher"
+
         const val CLASS_MODULE = "Module"
         const val CLASS_MODULE_EMPTY = "EmptyModule"
         const val CLASS_MODULE_API = "ModuleApi"
@@ -27,21 +26,9 @@ abstract class BaseProcessor : AbstractProcessor() {
         const val CLASS_API_SERVICE_EMPTY = "EmptyModuleService"
         const val CLASS_API_EVENT_EMPTY = "EmptyModuleEvent"
 
-        const val PACKAGE_NAME_MUTABLE_EVENT = "com.p2m.core.event.mutable"
-        val LIVE_EVENT_INTERFACES = mapOf(
-            EventObservation.LIKE_LIVE_DATA to "P2MLikeLiveDataLiveEvent",
-            EventObservation.NO_STICKY to "P2MNoStickyLiveEvent",
-            EventObservation.NO_LOSS to "P2MNoLossLiveEvent",
-            EventObservation.NO_STICKY_NO_LOSS to "P2MNoStickyNoLossLiveEvent",
-            EventObservation.MIXED to "P2MMixedLiveEvent"
-        )
-        val BACKGROUND_LIVE_EVENT_INTERFACES = mapOf(
-            EventObservation.LIKE_LIVE_DATA to "P2MLikeLiveDataBackgroundLiveEvent",
-            EventObservation.NO_STICKY to "P2MNoStickyBackgroundLiveEvent",
-            EventObservation.NO_LOSS to "P2MNoLossBackgroundLiveEvent",
-            EventObservation.NO_STICKY_NO_LOSS to "P2MNoStickyNoLossBackgroundLiveEvent",
-            EventObservation.MIXED to "P2MMixedBackgroundLiveEvent"
-        )
+        const val PACKAGE_NAME_EVENT = "com.p2m.core.event"
+        const val CLASS_LIVE_EVENT = "LiveEvent"
+        const val CLASS_BACKGROUND_EVENT = "BackgroundLiveEvent"
     }
 
     lateinit var options: Map<String, String>

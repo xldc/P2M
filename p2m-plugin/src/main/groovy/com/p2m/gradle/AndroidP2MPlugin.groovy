@@ -77,17 +77,10 @@ class AndroidP2MPlugin implements Plugin<Settings> {
             }
 
             @Override
-            void projectsEvaluated(Gradle gradle) {
-                gradle.allprojects{ p->
-                    println("projectsEvaluated ${p.name}    ${System.currentTimeMillis()}")
-
-                }
-            }
+            void projectsEvaluated(Gradle gradle) { }
 
             @Override
-            void buildFinished(BuildResult buildResult) {
-
-            }
+            void buildFinished(BuildResult buildResult) { }
         })
     }
 
@@ -160,9 +153,9 @@ class AndroidP2MPlugin implements Plugin<Settings> {
 
         localModuleProjectTable.values().forEach { LocalModuleProject moduleProject ->
             moduleProject.project.beforeEvaluate {
-                moduleProject.project.plugins.apply(moduleProject.isApp() ? "com.android.application" : "com.android.library")
-                moduleProject.project.plugins.apply("kotlin-android")
-                moduleProject.project.plugins.apply("kotlin-kapt")
+                moduleProject.project.plugins.apply(moduleProject.isApp() ? Constant.PLUGIN_ID_ANDROID_APP : Constant.PLUGIN_ID_ANDROID_LIBRARY)
+                moduleProject.project.plugins.apply(Constant.PLUGIN_ID_KOTLIN_ANDROID)
+                moduleProject.project.plugins.apply(Constant.PLUGIN_ID_KOTLIN_KAPT)
                 moduleProject.project.plugins.apply(ModuleWhenRunAppConfigPlugin)
                 moduleProject.project.plugins.apply(ProductModuleApiPlugin)
             }
@@ -177,9 +170,9 @@ class AndroidP2MPlugin implements Plugin<Settings> {
                         checkAppConfig(moduleProject)
                     }
                 } else {
-                    def mavenPublishPlugin = moduleProject.project.plugins.findPlugin("maven-publish")
+                    def mavenPublishPlugin = moduleProject.project.plugins.findPlugin(Constant.PLUGIN_ID_MAVEN_PUBLISH)
                     if (mavenPublishPlugin == null) {
-                        moduleProject.project.plugins.apply("maven-publish")
+                        moduleProject.project.plugins.apply(Constant.PLUGIN_ID_MAVEN_PUBLISH)
                     }
                     moduleProject.project.plugins.apply(LocalModuleProjectPlugin)
                 }
@@ -199,7 +192,7 @@ class AndroidP2MPlugin implements Plugin<Settings> {
                 appProject.project.plugins.apply(MainAppProjectPlugin)
             }
             appProject.project.beforeEvaluate {
-                appProject.project.plugins.apply("com.android.application")
+                appProject.project.plugins.apply(Constant.PLUGIN_ID_ANDROID_APP)
 
             }
             // checkAppConflictWhenEvaluated(appProject)
@@ -209,7 +202,7 @@ class AndroidP2MPlugin implements Plugin<Settings> {
     private def dependencyConfigCommon(Project rootProject) {
         rootProject.allprojects.each { project ->
             project.beforeEvaluate {
-                if (project.name != Constant.P2M_NAME_API && project.plugins.hasPlugin("com.android.library")) {
+                if (project.name != Constant.P2M_NAME_API && project.plugins.hasPlugin(Constant.PLUGIN_ID_ANDROID_LIBRARY)) {
                     project.dependencies.add("compileOnly", project._p2mApi())
                 }
             }
@@ -219,7 +212,10 @@ class AndroidP2MPlugin implements Plugin<Settings> {
     private def genP2MDependencyConfig(Project rootProject) {
         rootProject.allprojects {
             repositories {
-                maven { url 'https://jitpack.io' }
+                if (p2mConfig._isRepoLocal) {
+                    mavenLocal()
+                }
+                maven { url Constant.REPO_P2M_REMOTE }
             }
         }
 
@@ -248,7 +244,7 @@ class AndroidP2MPlugin implements Plugin<Settings> {
         // for remote aar
         while (iterator.hasNext()) {
             def moduleConfig = iterator.next()
-            if (moduleConfig.useRemote) { // 创建远端的module
+            if (moduleConfig.useRepo) { // 创建远端的module
                 def moduleProject = ProjectFactory.createRemoteModuleProject(moduleConfig)
                 moduleProjectConfigDependencies.put(moduleProject, moduleConfig._dependencyContainer._dependencies)
                 remoteModuleProjectTable[moduleConfig._moduleNamed] = moduleProject
@@ -263,7 +259,7 @@ class AndroidP2MPlugin implements Plugin<Settings> {
             iterator = moduleConfigs.iterator()
             while (iterator.hasNext()) {
                 def moduleConfig = iterator.next()
-                if (!moduleConfig.useRemote && NamedUtils.project(project.name) == moduleConfig._projectNamed) {
+                if (!moduleConfig.useRepo && NamedUtils.project(project.name) == moduleConfig._projectNamed) {
                     def moduleProject = ProjectFactory.createLocalModuleProject(moduleConfig)
                     moduleProject.project = rootProject.project(moduleConfig._projectNamed.include)
                     moduleProjectConfigDependencies.put(moduleProject, moduleConfig._dependencyContainer._dependencies)
@@ -345,7 +341,7 @@ class AndroidP2MPlugin implements Plugin<Settings> {
         p2mConfig.modulesConfig.forEach { key, moduleConfig ->
 
             println("====== include Module ${moduleConfig._moduleNamed.get()} ======")
-            if (moduleConfig.useRemote) {
+            if (moduleConfig.useRepo) {
                 println("include aar(group=${moduleConfig.groupId} version=${moduleConfig.versionName})")
             } else {
                 includeProject(settings, moduleConfig)
@@ -389,7 +385,8 @@ class AndroidP2MPlugin implements Plugin<Settings> {
     }
 
     private def checkAndLoadDevEnv(Settings settings) {
-        def dev = false
+        def isDevEnv = false
+        def isRepoLocal = false
         def localProperties = new Properties()
         def localPropertiesFile = new File(settings.buildscript.sourceFile.parentFile, "local.properties")
 
@@ -398,20 +395,25 @@ class AndroidP2MPlugin implements Plugin<Settings> {
                 localProperties.load(reader)
             }
 
-            if (localProperties.getProperty("p2m.dev") != null) {
-                dev = localProperties.getProperty("p2m.dev").toBoolean()
+            if (localProperties.getProperty(Constant.LOCAL_PROPERTY_DEV_ENV) != null) {
+                isDevEnv = localProperties.getProperty(Constant.LOCAL_PROPERTY_DEV_ENV).toBoolean()
+            }
+
+            if (localProperties.getProperty(Constant.LOCAL_PROPERTY_REPO_LOCAL) != null) {
+                isRepoLocal = localProperties.getProperty(Constant.LOCAL_PROPERTY_REPO_LOCAL).toBoolean()
             }
         }
 
-        if (dev) {
-            settings.include(":p2m-core")
-            settings.project(":p2m-core").projectDir = new File("../p2m-core")
-            settings.include(":p2m-compiler")
-            settings.project(":p2m-compiler").projectDir = new File("../p2m-compiler")
-            settings.include(":p2m-annotation")
-            settings.project(":p2m-annotation").projectDir = new File("../p2m-annotation")
+        if (isDevEnv) {
+            settings.include(":${Constant.PROJECT_NAME_P2M_CORE}")
+            settings.project(":${Constant.PROJECT_NAME_P2M_CORE}").projectDir = new File("../${Constant.PROJECT_NAME_P2M_CORE}")
+            settings.include(":${Constant.PROJECT_NAME_P2M_COMPILER}")
+            settings.project(":${Constant.PROJECT_NAME_P2M_COMPILER}").projectDir = new File("../${Constant.PROJECT_NAME_P2M_COMPILER}")
+            settings.include(":${Constant.PROJECT_NAME_P2M_ANNOTATION}")
+            settings.project(":${Constant.PROJECT_NAME_P2M_ANNOTATION}").projectDir = new File("../${Constant.PROJECT_NAME_P2M_ANNOTATION}")
         }
-        p2mConfig._devEnv = dev
+        p2mConfig._devEnv = isDevEnv
+        p2mConfig._isRepoLocal = isRepoLocal
     }
 
     private def evaluateConfig(Settings settings) {

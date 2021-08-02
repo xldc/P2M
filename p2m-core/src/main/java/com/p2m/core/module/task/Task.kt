@@ -4,10 +4,11 @@ import com.p2m.core.module.SafeModuleProvider
 import com.p2m.core.module.Module
 
 /**
- * A task is the smallest unit in a module to perform initialization.
+ * A task is the smallest unit in a module to perform necessary initialization.
  *
- * Only recommended to execute lightweight work, because [Task] is to complete the
- * module initialization design.
+ * It is design for the module complete necessary initialization.
+ *
+ * Note: Only recommended to execute lightweight work.
  *
  * @param INPUT set [input] when register a task.
  * @param OUTPUT set [output] when completed work, so should set it up in the [onExecute].

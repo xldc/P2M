@@ -18,6 +18,7 @@ class ModuleProjectUtils {
     static def collectAvailableModulesFromTop = { BaseProject baseProject ->
         def moduleProjects = new HashMap<String, BaseProject>()
         moduleProjects[baseProject.moduleName] = baseProject
+        //noinspection UnnecessaryQualifiedReference
         ModuleProjectUtils.putDependencies(baseProject.dependencies, moduleProjects)
         return moduleProjects
     }
@@ -25,6 +26,7 @@ class ModuleProjectUtils {
     private static def putDependencies = { Set<ModuleProject> dependencies, HashMap<String, BaseProject> moduleProjects ->
         dependencies.forEach { dependencyModule ->
             moduleProjects[dependencyModule.moduleName] = dependencyModule
+            //noinspection UnnecessaryQualifiedReference
             ModuleProjectUtils.putDependencies(dependencyModule.dependencies, moduleProjects)
         }
     }

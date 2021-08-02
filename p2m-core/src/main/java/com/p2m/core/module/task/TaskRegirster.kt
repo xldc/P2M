@@ -3,13 +3,10 @@ package com.p2m.core.module.task
 /**
  * Task register.
  */
-interface TaskRegister{
+interface TaskRegister {
 
     /**
      * Register a task.
-     *
-     * Only recommended to register lightweight tasks, because [Task] is to complete the
-     * module initialization design.
      *
      * @param clazz the task class.
      * @param input [Task.input] of [clazz] instance set to the value.

@@ -14,7 +14,7 @@ class RunAppConfigUtils {
         def project = baseProject.project
         AndroidUtils.forAppEachVariant(project) {  variant->
             variant.getPreBuildProvider().get().doFirst {
-                if (!"debug".equals(variant.buildType.name)) {
+                if ("debug" != variant.buildType.name) {
                     baseProject.error(" Property runApp=true only support debug mode. Please check that in settings.gradle.")
                 }
             }

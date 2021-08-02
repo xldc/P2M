@@ -464,19 +464,19 @@ class P2MProcessor : BaseProcessor() {
             launcherVarName,
             genModuleLauncherResult.launcherInterfaceClassName,
             KModifier.OVERRIDE
-        ).mutable(false).delegate("lazy(kotlin.LazyThreadSafetyMode.PUBLICATION) { ${genModuleLauncherResult.getImplInstanceStatement()} }").build()
+        ).mutable(false).delegate("lazy(kotlin.LazyThreadSafetyMode.SYNCHRONIZED) { ${genModuleLauncherResult.getImplInstanceStatement()} }").build()
 
         val serviceProperty = PropertySpec.builder(
             serviceVarName,
             genModuleServiceResult.serviceInterfaceClassName,
             KModifier.OVERRIDE
-        ).mutable(false).delegate("lazy(kotlin.LazyThreadSafetyMode.PUBLICATION) { ${genModuleServiceResult.getImplInstanceStatement()} }").build()
+        ).mutable(false).delegate("lazy(kotlin.LazyThreadSafetyMode.SYNCHRONIZED) { ${genModuleServiceResult.getImplInstanceStatement()} }").build()
 
         val eventProperty = PropertySpec.builder(
             eventVarName,
             genModuleEventResult.eventInterfaceClassName,
             KModifier.OVERRIDE
-        ).mutable(false).delegate("lazy(kotlin.LazyThreadSafetyMode.PUBLICATION) { ${genModuleEventResult.getImplInstanceStatement()} }").build()
+        ).mutable(false).delegate("lazy(kotlin.LazyThreadSafetyMode.SYNCHRONIZED) { ${genModuleEventResult.getImplInstanceStatement()} }").build()
 
         // 模块实现类
         val apiImplTypeSpecBuilder = TypeSpec
@@ -509,8 +509,7 @@ class P2MProcessor : BaseProcessor() {
         apiFileSpecBuilder: FileSpec.Builder,
         apiImplFileSpecBuilder: FileSpec.Builder
     ): GenModuleLauncherResult {
-        val launcherPackageName =
-            PACKAGE_NAME_LAUNCHER
+        val launcherPackageName = PACKAGE_NAME_IMPL_LAUNCHER
         val launcherInterfaceSimpleName = "${optionModuleName}ModuleLauncher"
         val launcherClassSimpleName = "Real$launcherInterfaceSimpleName"
 
@@ -584,7 +583,7 @@ class P2MProcessor : BaseProcessor() {
             launcherRealRefName,
             launcherClassName,
             KModifier.PRIVATE
-        ).mutable(false).delegate("lazy(kotlin.LazyThreadSafetyMode.PUBLICATION) { %T() }", launcherClassName).build()
+        ).mutable(false).delegate("lazy(kotlin.LazyThreadSafetyMode.SYNCHRONIZED) { %T() }", launcherClassName).build()
 
         val launcherImplTypeSpecBuilder = launcherInterfaceTypeSpec.toBuilder(
             TypeSpec.Kind.CLASS,
@@ -677,9 +676,6 @@ class P2MProcessor : BaseProcessor() {
 
         val serviceClassNameOrigin = serviceElement.className()
 
-
-
-
         // 服务接口
         val serviceInterfaceClassName = ClassName(apiPackageName, serviceInterfaceSimpleName)
         val serviceInterfaceTypeSpecBuilder = TypeSpec.interfaceBuilder(serviceInterfaceClassName)
@@ -755,7 +751,7 @@ class P2MProcessor : BaseProcessor() {
             serviceRealRefName,
             serviceClassNameOrigin,
             KModifier.PRIVATE
-        ).mutable(false).delegate("lazy(kotlin.LazyThreadSafetyMode.PUBLICATION) { %T() }", serviceClassNameOrigin).build()
+        ).mutable(false).delegate("lazy(kotlin.LazyThreadSafetyMode.SYNCHRONIZED) { %T() }", serviceClassNameOrigin).build()
 
         val serviceImplTypeSpecBuilder = serviceInterfaceTypeSpec.toBuilder(
             TypeSpec.Kind.CLASS,
@@ -806,6 +802,7 @@ class P2MProcessor : BaseProcessor() {
             optionModuleName,
             Event::class.java
         ) as? TypeElement
+        val eventInterfaceSimpleName = "${optionModuleName}ModuleEvent"
         val eventFieldElements = roundEnv.getElementsAnnotatedWith(EventField::class.java)
         val eventFieldMap = mutableMapOf(
             *(eventFieldElements.map { eventFieldElement ->
@@ -840,6 +837,7 @@ class P2MProcessor : BaseProcessor() {
 
             genEventClassForKotlin(
                 ModuleEventClassName,
+                eventInterfaceSimpleName,
                 eventElement,
                 apiPackageName,
                 implPackageName,
@@ -854,6 +852,7 @@ class P2MProcessor : BaseProcessor() {
 
     private fun genEventClassForKotlin(
         ModuleEventClassName: ClassName,
+        eventInterfaceSimpleName: String,
         eventElement: TypeElement,
         apiPackageName: String,
         implPackageName: String,
@@ -870,7 +869,7 @@ class P2MProcessor : BaseProcessor() {
         val eventClassNameOrigin = eventElement.className()
 
         // Event接口
-        val eventInterfaceClassName = ClassName(apiPackageName, "${eventElement.simpleName}")
+        val eventInterfaceClassName = ClassName(apiPackageName, eventInterfaceSimpleName)
         val eventInterfaceTypeSpecBuilder = TypeSpec.interfaceBuilder(eventInterfaceClassName)
             .addSuperinterface(ModuleEventClassName)
             .addKdoc("A event class of $optionModuleName module.\n")
@@ -886,10 +885,9 @@ class P2MProcessor : BaseProcessor() {
             val eventField = eventFieldMap[it.name]?.first
             val eventDoc = eventFieldMap[it.name]?.second
             val eventOn = eventField?.eventOn ?: EventOn.MAIN
-            val eventObservation = eventField?.eventObservation ?: EventObservation.LIKE_LIVE_DATA
             val eventClassName = when(eventOn) {
-                EventOn.MAIN-> ClassName(PACKAGE_NAME_MUTABLE_EVENT, LIVE_EVENT_INTERFACES[eventObservation]!!)
-                EventOn.BACKGROUND-> ClassName(PACKAGE_NAME_MUTABLE_EVENT, BACKGROUND_LIVE_EVENT_INTERFACES[eventObservation]!!)
+                EventOn.MAIN-> ClassName(PACKAGE_NAME_EVENT, CLASS_LIVE_EVENT)
+                EventOn.BACKGROUND-> ClassName(PACKAGE_NAME_EVENT, CLASS_BACKGROUND_EVENT)
             }
             eventClassNames[it.name] = eventClassName
             val propertySpecBuilder = PropertySpec.builder(
@@ -908,7 +906,7 @@ class P2MProcessor : BaseProcessor() {
 
 
         // Event代理类，代理被注解的类
-        val eventImplClassName = ClassName(implPackageName, "_${eventElement.simpleName}")
+        val eventImplClassName = ClassName(implPackageName, "_${eventInterfaceSimpleName}")
 
         // real属性
         val eventRealRefName = "eventReal"

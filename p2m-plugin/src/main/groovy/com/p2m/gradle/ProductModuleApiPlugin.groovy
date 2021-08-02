@@ -80,7 +80,6 @@ class ProductModuleApiPlugin implements Plugin<Project> {
                 group = Constant.P2M_MODULE_TASK_GROUP
                 description = "check ${moduleProject.getModuleName()} module for ${variantName}"
                 dependsOn(kaptKotlin)
-                propertiesConfigurableFile.set(p2mApiPropertiesConfigurableFileCollection.singleFile)
                 propertiesConfigurableFileCollection = p2mApiPropertiesConfigurableFileCollection
             }
 

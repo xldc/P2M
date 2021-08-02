@@ -7,7 +7,7 @@ package com.p2m.core.module
  *
  * Contains [LAUNCHER] and [SERVICE], which are defined internally by annotation by the module.
  */
-interface ModuleApi<LAUNCHER : ModuleLauncher, SERVICE : ModuleService, EVENT : ModuleEvent>{
+interface ModuleApi<LAUNCHER : ModuleLauncher, SERVICE : ModuleService, EVENT : ModuleEvent> {
      val launcher: LAUNCHER
      val service: SERVICE
      val event: EVENT

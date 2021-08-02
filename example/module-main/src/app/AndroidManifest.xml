@@ -16,7 +16,7 @@
         </activity>
 
         <activity
-            android:name="com.p2m.example.main.ui.MainActivity"
+            android:name="com.p2m.example.main.pre_api.MainActivity"
             android:configChanges="orientation|keyboardHidden|screenSize"
             android:launchMode="singleTask" />
     </application>

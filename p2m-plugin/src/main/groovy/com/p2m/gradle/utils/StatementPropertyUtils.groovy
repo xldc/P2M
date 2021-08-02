@@ -8,6 +8,7 @@ import com.p2m.gradle.bean.settings.ModuleProjectConfig
 
 class StatementPropertyUtils {
 
+    @SuppressWarnings("UnnecessaryQualifiedReference")
     static String getStatementMissingPropertyTip(BaseProjectConfig moduleConfig, String property){
         if (moduleConfig instanceof ModuleProjectConfig) {
             return  "\nMissing property:${property}, Please check config in settings.gradle.\n" +
@@ -20,6 +21,7 @@ class StatementPropertyUtils {
         }
     }
 
+    @SuppressWarnings("UnnecessaryQualifiedReference")
     static String getAppRunConfigStatementMissingPropertyTip(BaseSupportRunAppConfig runAppConfig, String property){
         if (runAppConfig instanceof P2MConfig) {
             return  "\nMissing property:${property}, Please check config in settings.gradle.\n" +

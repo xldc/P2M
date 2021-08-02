@@ -13,21 +13,17 @@ annotation class Event
 
 /**
  * Field annotated by [EventField], it will generate different event holder property
- * according to different [eventOn] and [eventObservation].
+ * according to different [eventOn].
  *
- * Default is [EventOn.MAIN] & [EventObservation.LIKE_LIVE_DATA].
+ * Default is [EventOn.MAIN].
  *
  * Use only in class annotated by [Event].
  *
  * @property eventOn specified thread to receive event.
- * @property eventObservation specified receive event function.
  */
 @Target(AnnotationTarget.PROPERTY)
 @Retention(AnnotationRetention.BINARY)
-annotation class EventField(
-    val eventOn: EventOn = EventOn.MAIN,
-    val eventObservation: EventObservation = EventObservation.LIKE_LIVE_DATA
-)
+annotation class EventField(val eventOn: EventOn = EventOn.MAIN)
 
 /**
  * Which thread to manage and dispatch event do you want.
@@ -35,17 +31,4 @@ annotation class EventField(
 enum class EventOn{
     MAIN,               // receive event on main thread
     BACKGROUND,         // receive event on background thread, not occupy main thread resources
-}
-
-/**
- * Which observation do you want for [EventField].
- *
- * See [live-event library](https://github.com/wangdaqi77/live-event/)
- */
-enum class EventObservation{
-    LIKE_LIVE_DATA,     // like LiveData, sticky and loss
-    NO_STICKY,          // no sticky a old event
-    NO_LOSS,            // no loss every event
-    NO_STICKY_NO_LOSS,  // NO_STICKY + NO_LOSS
-    MIXED,              // include all of the above
 }

@@ -1,29 +1,16 @@
 package com.p2m.gradle.task
 
 import org.gradle.api.file.ConfigurableFileCollection
-import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.internal.AbstractTask
-import org.gradle.api.model.ObjectFactory
-import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.InputFiles
-import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.TaskAction
 
-import javax.inject.Inject
 import java.nio.charset.StandardCharsets
 
 abstract class CheckModule extends AbstractTask {
-
-    @Inject
-    CheckModule(ObjectFactory objects){
-        propertiesConfigurableFile = objects.fileProperty()
-    }
-
+    
     @InputFiles
     ConfigurableFileCollection propertiesConfigurableFileCollection
-
-    @OutputFile
-    RegularFileProperty propertiesConfigurableFile
 
     @TaskAction
     void doCheck(){

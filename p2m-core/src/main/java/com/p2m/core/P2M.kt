@@ -9,7 +9,7 @@ import com.p2m.core.module.ModuleApi
 object P2M {
     private var context: Context? = null
     private lateinit var p2mConfigManager: P2MConfigManager
-    internal val innerModuleManager: InnerModuleManager by lazy(LazyThreadSafetyMode.PUBLICATION) {
+    internal val innerModuleManager: InnerModuleManager by lazy(LazyThreadSafetyMode.NONE) {
         InnerModuleManager(
             DefaultModuleManager,
             DefaultModuleManager

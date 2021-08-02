@@ -18,6 +18,7 @@ class P2MConfig extends BaseSupportRunAppConfig{
     }
 
     boolean _devEnv
+    boolean _isRepoLocal
 
     private final Map<ModuleNamed, ModuleProjectConfig> modulesConfig = new HashMap()
     private final List<AppProjectConfig> appProjectConfigs = new ArrayList<>()

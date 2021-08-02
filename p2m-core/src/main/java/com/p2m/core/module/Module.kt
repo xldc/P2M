@@ -6,67 +6,94 @@ import com.p2m.core.module.task.Task
 
 
 /**
- * A module project has one [Module] only.
+ * A module has one [Module] only.
  *
- * A [Module] has two stages: evaluate and executed.
+ * Module initialization has three stages, in the following order:
+ *  * evaluate, corresponds to [Module.onEvaluate].
+ *  * execute,  corresponds to [Task.onExecute].
+ *  * executed, corresponds to [Module.onExecuted].
  *
- * The evaluate stage corresponds to [onEvaluate] and the executed stage corresponds to
- * [onExecuted].
+ * The module initialization has the following formula:
+ *  * Within a module, the execution order must be
+ *  [Module.onEvaluate] > [Task.onExecute] > [Module.onExecuted].
+ *  * If module A depends on module B, the execution order must be
+ *  [Module.onExecuted] of module B > [Module.onExecuted] of module A.
+ *  * If module A depends on module B and B depends on C, the execution order must be
+ *  [Module.onExecuted] of module C > [Module.onExecuted] of module A.
  *
- * Example, has a Main module and a Login module, Main use Login, so it depend on Login module:
+ * Example, has a Main module and a Account module, Main use Login, so it depend on Account module:
  *
  * ```
- * class LoadLoginStatusTask : Task<SharedPreferences, Boolean>() {
+ * @Event
+ * interface AccountEvent : ModuleEvent {
+ *      @EventField
+ *      val loginState: Boolean
+ * }
+ *
+ * class LoadLoginStateTask : Task<UserDiskCache, Boolean>() {
+ *      // All dependant task complete executed already, can get they output here.
+ *      // All dependant module has been initialized, can get they module api here.
  *      // running in work thread.
  *      override fun onExecute(taskOutputProvider: TaskOutputProvider, moduleProvider: SafeModuleProvider) {
- *          val sp = input
- *          val loginSuccess = sp.getBoolean("login_success", false)
+ *          val userCache = input
+ *          val loginSuccess = userCache.readLoginSuccess()
  *          output = loginSuccess
  *      }
  * }
  *
- * @Event
- * interface LoginEvent : ModuleEvent {
- *      @EventField
- *      val loginStatus: Boolean
- * }
- *
  * @ModuleInitializer
- * class LoginModule : Module {
- *
+ * class AccountModule : Module {
+ *      // Register some task to complete necessary initialization.
+ *      // running in work thread.
  *      override fun onEvaluate(taskRegister: TaskRegister) {
- *          // register a task of LoadLoginStatusTask for login status.
- *          taskRegister.register(LoadLoginStatusTask::class.java, instance of SharedPreferences)
+ *          // register a task of LoadLoginStateTask for read login state from disk cache.
+ *          taskRegister.register(LoadLoginStateTask::class.java, instance of UserDiskCache)
  *      }
  *
- *      override fun onExecuted(taskOutputProvider: TaskOutputProvider, moduleProvider: SafeModuleProvider) {
- *          // LoadLoginStatusTask complete executed already.
- *          // get login status.
- *          val loginSuccess = taskOutputProvider.getOutputOf(LoadLoginStatusTask::class.java)
+ *      // All task of Account module complete executed already, can get they output here.
+ *      // All dependant module has been initialized, can get they module api here.
+ *      // running in main thread.
+ *      override fun onExecuted(
+ *          taskOutputProvider: TaskOutputProvider, moduleProvider: SafeModuleProvider
+ *      ) {
  *
- *          // save login status.
- *          moduleProvider.moduleOf(Login::class.java).event.loginStatus.setValue(loginSuccess)
+ *          // get login state.
+ *          val loginSuccess = taskOutputProvider.getOutputOf(LoadLoginStateTask::class.java)
+ *
+ *          // save login state to event holder.
+ *          moduleProvider
+ *              .moduleOf(Account::class.java)
+ *              .event
+ *              .loginState // you can set value, get value and observe by it.
+ *              .setValue(loginSuccess)
  *      }
  * }
  *
  * @ModuleInitializer
  * class MainModule : Module {
- *
+ *      // Register some task to complete necessary initialization.
+ *      // running in work thread.
  *      override fun onEvaluate(taskRegister: TaskRegister) {
  *          // register some task...
  *      }
  *
+ *      // All task of Main module complete executed already, can get they output here.
+ *      // All dependant module has been initialized, can get they module api here.
+ *      // running in main thread.
  *      override fun onExecuted(taskOutputProvider: TaskOutputProvider, moduleProvider: SafeModuleProvider) {
- *          // Login module has been initialized, get the module.
- *          val loginModule = provider.moduleOf(Login::class.java)
+ *          // Account module has been initialized, get the module api.
+ *          val accountModuleApi = moduleProvider.moduleOf(Account::class.java)
  *
- *          // observe a event for loginStatus.
- *          loginModule.event.loginStatus.observeForever { loginStatus ->
+ *          // observe loginState of Account.
+ *          accountModuleApi.event.loginState.observeForeverNoLoss { loginState ->
  *              // doing
  *          }
  *      }
  * }
  * ```
+ *
+ * Module begin initialization by call `P2M.driverBuilder().build().open()`
+ * in your custom application.
  *
  * see more: https://github.com/wangdaqi77/P2M
  *
@@ -84,8 +111,8 @@ interface OnEvaluateListener{
     /**
      * Evaluate stage of itself.
      *
-     * Here, you can use [taskRegister] to register some task for help initialize module
-     * fast, and then these tasks will be executed order.
+     * Here, you can use [TaskRegister] to register some task for help initialize module
+     * fast, and then these tasks will be executed in the order of dependencies.
      *
      * Note, it running in work thread.
      *
@@ -103,8 +130,8 @@ interface OnExecutedListener{
      *
      * Called when its all tasks be completed and all dependencies completed initialized.
      *
-     * Here, you can use [taskOutputProvider] to get some output of itself tasks,
-     * also use [moduleProvider] to get some dependency module.
+     * Here, you can use [TaskOutputProvider] to get some output of itself tasks,
+     * also use [SafeModuleProvider] to get some dependency module api.
      *
      * Note, it running in main thread.
      *

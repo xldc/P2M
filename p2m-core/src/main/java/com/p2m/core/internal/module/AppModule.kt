@@ -8,7 +8,7 @@ import com.p2m.core.module.SafeModuleProvider
 import com.p2m.core.module.task.*
 
 
-class AppModule(val context: Context, private val onEvaluateListener: OnEvaluateListener?, private val onExecutedListener: OnExecutedListener?) :
+internal class AppModule(val context: Context, private val onEvaluateListener: OnEvaluateListener?, private val onExecutedListener: OnExecutedListener?) :
     Module {
 
     override fun onEvaluate(taskRegister: TaskRegister) {

@@ -39,7 +39,7 @@ Project态与Module态简易对比：
 
 Module态
 --------
-一个Module态对应是一个模块，一个模块包含Api区和Source code区，Source code区可以访问自身和其所依赖模块Api区。
+一个Module态对应是一个模块，一个模块包含Api区和Source code区，Source code区可以访问自身和其所依赖模块的Api区。
 
 <img src="https://github.com/wangdaqi77/P2M/blob/master/assets/p2m_module_detail.png" width="450"  alt="image"/><br/>
 

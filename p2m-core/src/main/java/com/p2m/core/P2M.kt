@@ -1,7 +1,12 @@
 package com.p2m.core
 
 import android.content.Context
-import com.p2m.core.internal.InternalP2MDriver
+import com.p2m.core.config.P2MConfigManager
+import com.p2m.core.driver.P2MDriverBuilder
+import com.p2m.core.driver.P2MDriverState
+import com.p2m.core.internal.config.InternalP2MConfigManager
+import com.p2m.core.internal.deriver.InternalP2MDriver
+import com.p2m.core.internal.deriver.InternalP2MDriverBuilder
 import com.p2m.core.internal.module.DefaultModuleManager
 import com.p2m.core.internal.module.InnerModuleManager
 import com.p2m.core.module.ModuleApi
@@ -24,7 +29,17 @@ object P2M {
         if (::p2mConfigManager.isInitialized) {
             return p2mConfigManager
         }
-        return P2MConfigManager.newInstance().also { this.p2mConfigManager = it }
+        return InternalP2MConfigManager().also { this.p2mConfigManager = it }
+    }
+
+    /**
+     * Start a config.
+     */
+    fun config(block: P2MConfigManager.() -> Unit) {
+        if (!::p2mConfigManager.isInitialized) {
+            p2mConfigManager = InternalP2MConfigManager()
+        }
+        block(p2mConfigManager)
     }
 
     /**
@@ -34,10 +49,10 @@ object P2M {
      *
      */
     @JvmStatic
-    fun driverBuilder(context: Context): P2MDriver.Builder {
+    fun driverBuilder(context: Context): P2MDriverBuilder {
         val applicationContext = context.applicationContext
         P2M.context = applicationContext
-        return P2MDriver.Builder(applicationContext, innerModuleManager)
+        return InternalP2MDriverBuilder(applicationContext, innerModuleManager)
     }
 
     @JvmStatic

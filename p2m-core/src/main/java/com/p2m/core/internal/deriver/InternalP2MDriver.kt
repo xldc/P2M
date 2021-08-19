@@ -1,8 +1,8 @@
-package com.p2m.core.internal
+package com.p2m.core.internal.deriver
 
 import android.os.Looper
-import com.p2m.core.P2MDriver
-import com.p2m.core.P2MDriverState
+import com.p2m.core.driver.P2MDriver
+import com.p2m.core.driver.P2MDriverState
 import com.p2m.core.internal.module.AppModule
 import com.p2m.core.internal.execution.BeginDirection
 import com.p2m.core.internal.log.logI
@@ -10,9 +10,9 @@ import com.p2m.core.internal.log.logW
 import com.p2m.core.internal.module.ModuleGraphExecution
 import com.p2m.core.internal.module.ModuleGraph
 
-internal object InternalP2MDriver :P2MDriver, P2MDriverState {
+internal object InternalP2MDriver : P2MDriver, P2MDriverState {
 
-    internal lateinit var builder: P2MDriver.Builder
+    internal lateinit var builder: InternalP2MDriverBuilder
     override var opened: Boolean = false
     override var opening: Boolean = false
 

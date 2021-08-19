@@ -8,11 +8,13 @@ import com.p2m.core.log.Level
 class LoginApp : Application() {
     override fun onCreate() {
         super.onCreate()
-        P2M.getConfigManager().setLogger(object : ILogger {
+        P2M.config {
+            logger = object : ILogger {
                 override fun log(level: Level, msg: String, throwable: Throwable?) {
                     Log.e("P2M", msg)
                 }
-            })
+            }
+        }
         P2M.driverBuilder(this)
             .build()
             .open()

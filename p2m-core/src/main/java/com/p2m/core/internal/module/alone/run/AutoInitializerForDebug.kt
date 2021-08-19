@@ -14,13 +14,13 @@ internal class AutoInitializerForDebug : ContentProvider() {
 
     override fun onCreate(): Boolean {
         val context = context ?: return false
-        P2M.getConfigManager()
-            .setLogger(object :ILogger{
+        P2M.config {
+            logger = object : ILogger {
                 override fun log(level: Level, msg: String, throwable: Throwable?) {
                     Log.i("P2M", "AutoInitializer -> $msg")
                 }
-            })
-
+            }
+        }
 
         P2M.driverBuilder(context).build().open()
         return true

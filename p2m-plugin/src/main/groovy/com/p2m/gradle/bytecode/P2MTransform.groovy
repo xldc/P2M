@@ -144,7 +144,7 @@ public class P2MTransform extends Transform {
     }
 
     private void updateModuleStatusIfFindGenClass(String classFilePath, Collection<BaseProject> moduleProjects) {
-        String implModuleName = classFilePath.replace("com/p2m/module/impl/_", "").replace("Module.class", "")
+        String implModuleName = classFilePath.replace("com/p2m/module/impl/_", "").replace("ModuleInit.class", "")
         String moduleApiName = classFilePath.replace("com/p2m/module/api/", "").replace(".class", "")
         for (BaseProject moduleProject : moduleProjects) {
             ModuleProject baseProject = (ModuleProject) moduleProject
@@ -155,7 +155,7 @@ public class P2MTransform extends Transform {
             ) {
                 // println(this,  "classFilePath：" + classFilePath)
                 // println(this,  "implModuleName：" + implModuleName)
-                baseProject.setExistModuleProxyImplClass(true)
+                baseProject.existModuleInitProxyImplClass = true
                 return
             }
 
@@ -167,7 +167,7 @@ public class P2MTransform extends Transform {
             ) {
                 // println(this,  "classFilePath：" + classFilePath)
                 // println(this,  "moduleApiName：" + moduleApiName)
-                baseProject.setExistApiClass(true)
+                baseProject.existApiClass = true
                 return
             }
         }

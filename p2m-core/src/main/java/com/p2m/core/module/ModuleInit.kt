@@ -6,20 +6,20 @@ import com.p2m.core.module.task.Task
 
 
 /**
- * A module has one [Module] only.
+ * A module has one [ModuleInit] only.
  *
  * Module initialization has three stages, in the following order:
- *  * evaluate, corresponds to [Module.onEvaluate].
+ *  * evaluate, corresponds to [ModuleInit.onEvaluate].
  *  * execute,  corresponds to [Task.onExecute].
- *  * executed, corresponds to [Module.onExecuted].
+ *  * executed, corresponds to [ModuleInit.onExecuted].
  *
  * The module initialization has the following formula:
  *  * Within a module, the execution order must be
- *  [Module.onEvaluate] > [Task.onExecute] > [Module.onExecuted].
+ *  [ModuleInit.onEvaluate] > [Task.onExecute] > [ModuleInit.onExecuted].
  *  * If module A depends on module B, the execution order must be
- *  [Module.onExecuted] of module B > [Module.onExecuted] of module A.
+ *  [ModuleInit.onExecuted] of module B > [ModuleInit.onExecuted] of module A.
  *  * If module A depends on module B and B depends on C, the execution order must be
- *  [Module.onExecuted] of module C > [Module.onExecuted] of module A.
+ *  [ModuleInit.onExecuted] of module C > [ModuleInit.onExecuted] of module A.
  *
  * Example, has a Main module and a Account module, Main use Login, so it depend on Account module:
  *
@@ -42,7 +42,7 @@ import com.p2m.core.module.task.Task
  * }
  *
  * @ModuleInitializer
- * class AccountModule : Module {
+ * class AccountModuleInit : ModuleInit {
  *      // Register some task to complete necessary initialization.
  *      // running in work thread.
  *      override fun onEvaluate(taskRegister: TaskRegister) {
@@ -53,10 +53,7 @@ import com.p2m.core.module.task.Task
  *      // All task of Account module complete executed already, can get they output here.
  *      // All dependant module has been initialized, can get they module api here.
  *      // running in main thread.
- *      override fun onExecuted(
- *          taskOutputProvider: TaskOutputProvider, moduleProvider: SafeModuleProvider
- *      ) {
- *
+ *      override fun onExecuted(taskOutputProvider: TaskOutputProvider, moduleProvider: SafeModuleProvider) {
  *          // get login state.
  *          val loginSuccess = taskOutputProvider.getOutputOf(LoadLoginStateTask::class.java)
  *
@@ -70,7 +67,7 @@ import com.p2m.core.module.task.Task
  * }
  *
  * @ModuleInitializer
- * class MainModule : Module {
+ * class MainModuleInit : ModuleInit {
  *      // Register some task to complete necessary initialization.
  *      // running in work thread.
  *      override fun onEvaluate(taskRegister: TaskRegister) {
@@ -82,10 +79,10 @@ import com.p2m.core.module.task.Task
  *      // running in main thread.
  *      override fun onExecuted(taskOutputProvider: TaskOutputProvider, moduleProvider: SafeModuleProvider) {
  *          // Account module has been initialized, get the module api.
- *          val accountModuleApi = moduleProvider.moduleOf(Account::class.java)
+ *          val account = moduleProvider.moduleOf(Account::class.java)
  *
  *          // observe loginState of Account.
- *          accountModuleApi.event.loginState.observeForeverNoLoss { loginState ->
+ *          account.event.loginState.observeForeverNoLoss { loginState ->
  *              // doing
  *          }
  *      }
@@ -105,7 +102,7 @@ import com.p2m.core.module.task.Task
  * @see SafeModuleProvider SafeModuleProvider - get some module api.
  *
  */
-interface Module : OnEvaluateListener, OnExecutedListener
+interface ModuleInit : OnEvaluateListener, OnExecutedListener
 
 interface OnEvaluateListener{
     /**
@@ -144,7 +141,7 @@ interface OnExecutedListener{
     fun onExecuted(taskOutputProvider: TaskOutputProvider, moduleProvider: SafeModuleProvider)
 }
 
-class EmptyModule : Module {
+class EmptyModuleInit : ModuleInit {
 
     override fun onEvaluate(taskRegister: TaskRegister) { }
 

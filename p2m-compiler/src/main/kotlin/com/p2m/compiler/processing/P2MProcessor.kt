@@ -47,7 +47,7 @@ class P2MProcessor : BaseProcessor() {
     }
 
     private var genApiSource = false
-    private var genModuleSource = false
+    private var genModuleInitSource = false
     private var exportApiClassPath = mutableListOf<ClassName>()
     private var exportApiSourcePath = mutableListOf<ClassName>()
     
@@ -55,9 +55,9 @@ class P2MProcessor : BaseProcessor() {
 
     override fun process(annotations: MutableSet<out TypeElement>?, roundEnv: RoundEnvironment): Boolean {
         if (roundEnv.processingOver()){
-            // collect module api classes to write properties for plugin
-            // final be compile provide to dependant module
-            writeModuleApiProperties()
+            // collect classes of the module api scope, final they be compile
+            // into jar provide to dependant module.
+            collectModuleApiClassesToPropertiesFile()
             return true
         }
 
@@ -96,7 +96,7 @@ class P2MProcessor : BaseProcessor() {
 
     private fun genModuleApiProperties() = mutableMapOf<String, String>().apply {
         this["genApiSource"] = "$genApiSource"
-        this["genModuleSource"] = "$genModuleSource"
+        this["genModuleInitSource"] = "$genModuleInitSource"
         this["exportApiClassPath"] = exportApiClassPath.joinToString(",") { className ->
             // com.android.os.Test.InnerClass -> com/android/os/Test
             val prefix = className.packageName.replace(".", File.separator)
@@ -114,21 +114,21 @@ class P2MProcessor : BaseProcessor() {
     
     private fun genInitializationEnvForModule(roundEnv: RoundEnvironment) {
         val ImplPackageName = PACKAGE_NAME_IMPL
-        val ModuleClassName = ClassName.bestGuess("$PACKAGE_NAME_CORE.module.$CLASS_MODULE")
-        val moduleImplFileName = "_${optionModuleName}Module"
+        val ModuleInitClassName = ClassName.bestGuess("$PACKAGE_NAME_CORE.module.$CLASS_MODULE_INIT")
+        val moduleImplFileName = "_${optionModuleName}ModuleInit"
 
-        val moduleElement = roundEnv.getSingleTypeElementAnnotatedWith(
+        val moduleInitElement = roundEnv.getSingleTypeElementAnnotatedWith(
             mLogger,
             optionModuleName,
             ModuleInitializer::class.java
         ) as? TypeElement
 
-        check(moduleElement != null) {
+        check(moduleInitElement != null) {
             """
                 Must add source code in Module[${optionModuleName}]:
                 
                 @ModuleInitializer
-                class ${optionModuleName}Module:Module{
+                class ${optionModuleName}ModuleInit : ModuleInit{
 
                     override fun onEvaluate(taskRegister: TaskRegister) {
                         // Evaluate stage of itself.
@@ -148,19 +148,19 @@ class P2MProcessor : BaseProcessor() {
             """.trimIndent()
         }
 
-        moduleElement.checkKotlinClass()
+        moduleInitElement.checkKotlinClass()
         val implFileSpecBuilder = FileSpec
             .builder(ImplPackageName, moduleImplFileName)
             .addFileComment()
 
-        this.genModuleClassForKotlin(
-            moduleElement,
+        this.genModuleInitClassForKotlin(
+            moduleInitElement,
             ImplPackageName,
-            ModuleClassName,
+            ModuleInitClassName,
             implFileSpecBuilder
         )
         implFileSpecBuilder.build().writeTo(mFiler)
-        genModuleSource = true
+        genModuleInitSource = true
     }
 
     private fun genApiAndImpl(roundEnv: RoundEnvironment) {
@@ -246,18 +246,18 @@ class P2MProcessor : BaseProcessor() {
         // apiFileSpecBuilder.build().writeTo(apiSrcDir)
     }
 
-    private fun writeModuleApiProperties() {
+    private fun collectModuleApiClassesToPropertiesFile() {
         val propertiesFile = mFiler.createResource(StandardLocation.SOURCE_OUTPUT, "",
             FILE_NAME_PROPERTIES
         )
-        propertiesFile.openWriter().use(::writeModuleApiProperties)
+        propertiesFile.openWriter().use(::writeModuleApiClassesProperties)
 //        val apiSrcDirPath = apiSrcDir.toPath()
 //        Files.createDirectories(apiSrcDirPath)
 //        val outputPath = apiSrcDirPath.resolve(FILE_NAME_PROPERTIES)
 //        OutputStreamWriter(Files.newOutputStream(outputPath), StandardCharsets.UTF_8).use(::writeModuleApiProperties)
     }
 
-    private fun writeModuleApiProperties(writer: Writer) {
+    private fun writeModuleApiClassesProperties(writer: Writer) {
         genModuleApiProperties().forEach { (attr, value) ->
             writer.write("${attr}=${value}\n")
             mLogger.info("$optionModuleName -> module_api.properties ${attr}=${value}\n")
@@ -383,41 +383,40 @@ class P2MProcessor : BaseProcessor() {
         return launcherType to kdocsOfLauncherInterface
     }
 
-    private fun genModuleClassForKotlin(
-        moduleElement: TypeElement,
+    private fun genModuleInitClassForKotlin(
+        moduleInitElement: TypeElement,
         implPackageName: String,
-        ModuleClassName: ClassName,
+        ModuleInitClassName: ClassName,
         implFileSpecBuilder: FileSpec.Builder
     ): GenModuleResult {
 
-        // launcher类型源
-        val moduleClassNameOrigin = ClassName(moduleElement.packageName(), moduleElement.simpleName.toString())
+        val moduleInitClassNameOrigin = ClassName(moduleInitElement.packageName(), moduleInitElement.simpleName.toString())
 
-        check(moduleElement.interfaces.size != 0) { "${moduleElement.qualifiedName} must extends ${ModuleClassName.canonicalName}" }
-        check(moduleElement.interfaces.size == 1) { "${moduleElement.qualifiedName} must extends ${ModuleClassName.canonicalName} only." }
-        check(moduleElement.interfaces[0].toString() == ModuleClassName.canonicalName) { "${moduleElement.qualifiedName} must extends ${ModuleClassName.canonicalName}" }
+        check(moduleInitElement.interfaces.size != 0) { "${moduleInitElement.qualifiedName} must extends ${ModuleInitClassName.canonicalName}" }
+        check(moduleInitElement.interfaces.size == 1) { "${moduleInitElement.qualifiedName} must extends ${ModuleInitClassName.canonicalName} only." }
+        check(moduleInitElement.interfaces[0].toString() == ModuleInitClassName.canonicalName) { "${moduleInitElement.qualifiedName} must extends ${ModuleInitClassName.canonicalName}" }
 
         // 服务代理类，代理被注解的类
-        val moduleImplClassName = ClassName(implPackageName, "_${optionModuleName}Module")
-        val moduleRealRefName = "moduleReal"
-        val moduleImplTypeSpecBuilder = TypeSpec.classBuilder(moduleImplClassName)
-        moduleImplTypeSpecBuilder.addSuperinterface(ModuleClassName, delegate = CodeBlock.of(moduleRealRefName) )
-        moduleImplTypeSpecBuilder.primaryConstructor(
+        val moduleInitImplClassName = ClassName(implPackageName, "_${optionModuleName}ModuleInit")
+        val moduleInitRealRefName = "moduleInitReal"
+        val moduleInitImplTypeSpecBuilder = TypeSpec.classBuilder(moduleInitImplClassName)
+        moduleInitImplTypeSpecBuilder.addSuperinterface(ModuleInitClassName, delegate = CodeBlock.of(moduleInitRealRefName) )
+        moduleInitImplTypeSpecBuilder.primaryConstructor(
             FunSpec
                 .constructorBuilder()
                 .addParameter(
-                    ParameterSpec.builder(moduleRealRefName, ModuleClassName)
-                        .defaultValue("%T()", moduleClassNameOrigin)
+                    ParameterSpec.builder(moduleInitRealRefName, ModuleInitClassName)
+                        .defaultValue("%T()", moduleInitClassNameOrigin)
                         .build()
                 )
                 .build()
         )
 
-        val moduleImplTypeSpec = moduleImplTypeSpecBuilder.build()
+        val moduleImplTypeSpec = moduleInitImplTypeSpecBuilder.build()
 
         implFileSpecBuilder.addType(moduleImplTypeSpec)
 
-        return GenModuleResult(moduleImplClassName)
+        return GenModuleResult(moduleInitImplClassName)
     }
 
     private fun genApiClassForKotlin(

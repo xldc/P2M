@@ -5,7 +5,7 @@ import com.p2m.core.internal.execution.Execution
 import com.p2m.core.internal.log.logI
 import java.util.concurrent.*
 
-internal abstract class AbsGraphExecution<NODE : Node, KEY, GRAPH : Graph<NODE, KEY>> :  Execution {
+internal abstract class AbsGraphExecution<NODE : Node, KEY, GRAPH : Graph<NODE, KEY>> : Execution {
 
     private var ownerThread: Thread? = null
     private var quit = false
@@ -50,12 +50,12 @@ internal abstract class AbsGraphExecution<NODE : Node, KEY, GRAPH : Graph<NODE, 
         messageQueue.put(runnable)
     }
 
-    private fun runGraph(graph: GRAPH, direction: BeginDirection, onComplete:()->Unit) {
+    private fun runGraph(graph: GRAPH, direction: BeginDirection, onComplete: () -> Unit) {
         val function = { stage: Stage<NODE> ->
             check(!stage.hasRing) {
-                "Cannot be interdependent："+ stage.ringNodes!!
-                        .map { "[${it.key.name}, ${it.value.name}]" }
-                        .joinToString()
+                "Cannot be interdependent：" + stage.ringNodes!!
+                    .map { "[${it.key.name}, ${it.value.name}]" }
+                    .joinToString()
             }
             runStage(stage) {
                 val count = graph.stageCompletedCount.incrementAndGet()
@@ -71,7 +71,7 @@ internal abstract class AbsGraphExecution<NODE : Node, KEY, GRAPH : Graph<NODE, 
         }
     }
 
-    private fun runStage(stage: Stage<NODE>, onComplete:()->Unit) {
+    private fun runStage(stage: Stage<NODE>, onComplete: () -> Unit) {
         if (stage.isEmpty) return
         check(!stage.hasRing) { "Prohibit interdependence between nodes." }
         stage.nodes?.run {
@@ -87,13 +87,13 @@ internal abstract class AbsGraphExecution<NODE : Node, KEY, GRAPH : Graph<NODE, 
         }
     }
 
-    abstract fun runNode(node:NODE, onComplete:()->Unit)
+    abstract fun runNode(node: NODE, onDependsNodeComplete: () -> Unit)
 
     abstract fun onCompletedForGraph(graph: GRAPH)
-    
-    abstract fun onCompletedForStage(stage:Stage<NODE>)
 
-    abstract fun onCompletedForNode(node:NODE)
+    abstract fun onCompletedForStage(stage: Stage<NODE>)
+
+    abstract fun onCompletedForNode(node: NODE)
 
     private interface ExitRunnable : Runnable
 }

@@ -15,10 +15,10 @@ class ModuleGraphClassAdapter extends ClassVisitor {
 
     @Override
     MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
-        if (name == "genModules") {
-            // println("visitMethod -> genModules")
+        if (name == "genModuleInits") {
+            // println("visitMethod -> genModuleInits")
             def methodVisitor = cv.visitMethod(access, name, descriptor, signature, exceptions)
-            return new GenModulesMethodVisitor(api, methodVisitor, access, name, descriptor, p2mProject)
+            return new GenModuleInitsMethodVisitor(api, methodVisitor, access, name, descriptor, p2mProject)
         } else if (name == "genApis") {
             // println("visitMethod -> genApis")
             def methodVisitor = cv.visitMethod(access, name, descriptor, signature, exceptions)

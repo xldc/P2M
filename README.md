@@ -56,16 +56,16 @@ Api区根据Source code区源码由P2M注解处理器生成，包含以下内容
 #### Source code区如何访问Api区
 当Api区需要更新时，我们必须先[编译Api区](#如何编译Api区)，这是访问Api区的前提。能编写代码的区域都属于Source code区，我们在Source code区访问Api区：
 ```kotlin
-val apiOfA = P2M.moduleOf<A>()          // 获取模块A的Api区
+val a = P2M.moduleOf<A>()          // 获取模块A的Api区
 
-val launcherOfA = apiOfA.launcher       // Api区中的launcher
-val serviceOfA = apiOfA.service         // Api区中的service
-val eventOfA = apiOfA.event             // Api区中的event
+val launcherOfA = a.launcher       // Api区中的launcher
+val serviceOfA = a.service         // Api区中的service
+val eventOfA = a.event             // Api区中的event
 ```
 
 ### Source code区
 Source code区是指编写和存放代码的区域，每个模块的Source code区是对外隐藏的，包含以下内容：
- * Module init      - 模块初始化，关联@ModuleInitializer注解，同一模块内只能注解一个类且必须实现Module接口，每个模块必须声明此类，由开发者编码完成；
+ * Module init      - 模块初始化，关联@ModuleInitializer注解，同一模块内只能注解一个类且必须实现ModuleInit接口，每个模块必须声明此类，由开发者编码完成；
  * Implementation   - Api区的具体实现区，由P2M注解处理器生成，该部分开发者无需感知；
  * Feature code     - 编写功能代码区，由开发者编码完成。
 
@@ -103,7 +103,7 @@ Source code区是指编写和存放代码的区域，每个模块的Source code�
 ├── module-account                          // 模块Account
 │   ├── src
 │   │   └── main/kotlin/package
-│   │       ├── AccountInitializer.kt       // 模块Account初始化类
+│   │       ├── AccountModuleInit.kt        // 模块Account初始化类
 │   │       ├── AccountEvent.kt             // 模块Account定义事件类
 │   │       ├── AccountService.kt           // 模块Account服务类
 │   │       ├── LoginUserInfo.kt            // 登录用户信息数据类
@@ -113,7 +113,7 @@ Source code区是指编写和存放代码的区域，每个模块的Source code�
 ├── module-main                             // 模块Main
 │   ├── src
 │   │   └── main/kotlin/package
-│   │       ├── MainInitializer.kt          // 模块Main初始化类
+│   │       ├── MainModuleInit.kt           // 模块Main初始化类
 │   │       └── MainActivity.kt             // 主界面
 │   └── build.gradle
 ├── build.gradle
@@ -150,7 +150,7 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:4.0.2'            // 插件支持3.6.0以上版本，
+        classpath 'com.android.tools.build:gradle:4.0.2'            // 插件支持4.0.0以上版本，gradle 6.1.1以上
         classpath 'com.github.wangdaqi77.P2M:p2m-plugin:last version'
     }
 }
@@ -260,7 +260,7 @@ p2m {
  * Module init区是开机的地方，根据需求和模块的职责来设计所必须初始化工作。
     ```kotlin
     @ModuleInitializer
-    class AccountInitializer : Module {
+    class AccountModuleInit : ModuleInit {
 
         // 运行在子线程，用于注册模块内的任务，组织任务的依赖关系
         override fun onEvaluate(taskRegister: TaskRegister) {
@@ -278,15 +278,15 @@ p2m {
             val loginState = taskOutputProvider.getOutputOf(LoadLoginStateTask::class.java) // 获取登录状态
             val loginInfo = taskOutputProvider.getOutputOf(LoadLastUserTask::class.java)    // 获取用户信息
 
-            val accountModuleApi = moduleProvider.moduleOf(Account::class.java)  // 找到自身的Api区，在Module init区不能调用P2M.moduleOf()
-            accountModuleApi.event.loginState.setValue(loginState ?: false)      // 保存到事件持有者，提供给被依赖的模块使用
-            accountModuleApi.event.loginInfo.setValue(loginInfo)                 // 保存到事件持有者，提供给被依赖的模块使用
+            val account = moduleProvider.moduleOf(Account::class.java)  // 找到自身的Api区，在Module init区不能调用P2M.moduleOf()
+            account.event.loginState.setValue(loginState ?: false)      // 保存到事件持有者，提供给被依赖的模块使用
+            account.event.loginInfo.setValue(loginInfo)                 // 保存到事件持有者，提供给被依赖的模块使用
 
             // 一般APP先显示闪屏页，因此监听时需要忽略粘值。
-            accountModuleApi.event.loginState.observeForeverNoSticky(Observer { loginState ->
+            account.event.loginState.observeForeverNoSticky(Observer { loginState ->
                 if (!loginState) {
                     // 登录失效跳转登录界面
-                    accountModuleApi.launcher.newActivityIntentOfLoginActivity(moduleProvider.context).run {
+                    account.launcher.newActivityIntentOfLoginActivity(moduleProvider.context).run {
                         addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         moduleProvider.context.startActivity(this)

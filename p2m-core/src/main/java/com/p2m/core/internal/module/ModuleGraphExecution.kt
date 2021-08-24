@@ -7,7 +7,7 @@ import com.p2m.core.internal.log.logI
 import com.p2m.core.internal.module.task.TaskOutputProviderImplForModule
 import com.p2m.core.internal.module.task.TaskGraph
 import com.p2m.core.internal.module.task.TaskGraphExecution
-import com.p2m.core.module.EmptyModule
+import com.p2m.core.module.EmptyModuleInit
 import java.util.concurrent.*
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -36,8 +36,8 @@ internal class ModuleGraphExecution(override val graph: ModuleGraph, private val
 
     override val messageQueue: BlockingQueue<Runnable> = ArrayBlockingQueue<Runnable>(graph.moduleSize)
 
-    override fun runNode(node: ModuleNode, onComplete: () -> Unit) {
-        if (node.isStartedConsiderNotifyCompleted(onComplete)) return
+    override fun runNode(node: ModuleNode, onDependsNodeComplete: () -> Unit) {
+        if (node.isStartedConsiderNotifyCompleted(onDependsNodeComplete)) return
 
         // Started
         node.state = ModuleNode.State.STARTED
@@ -54,20 +54,22 @@ internal class ModuleGraphExecution(override val graph: ModuleGraph, private val
             node.state = ModuleNode.State.DEPENDING
             node.depending(evaluatingWhenDependingIdle)
 
-            if (node.module is EmptyModule) { // empty
+            if (node.moduleInit is EmptyModuleInit) { // empty
+                node.executed()
+                // Completed
                 node.state = ModuleNode.State.COMPLETED
-                onComplete()
+                onDependsNodeComplete()
                 return@Runnable
             }
 
             // Executing
             node.state = ModuleNode.State.EXECUTING
             node.executing()
-            postTask(Runnable{
+            postTask(Runnable {
                 node.executed()
                 // Completed
                 node.state = ModuleNode.State.COMPLETED
-                onComplete()
+                onDependsNodeComplete()
             })
         })
     }
@@ -82,7 +84,7 @@ internal class ModuleGraphExecution(override val graph: ModuleGraph, private val
 
     private fun ModuleNode.evaluating() {
         logI("Module-Graph-Node-$moduleName onEvaluate()")
-        module.onEvaluate(taskContainer)
+        moduleInit.onEvaluate(taskContainer)
     }
 
     private fun ModuleNode.depending(evaluatingWhenDependingIdle: () -> Unit) {
@@ -92,24 +94,24 @@ internal class ModuleGraphExecution(override val graph: ModuleGraph, private val
         }
 
         val countDownLatch = CountDownLatch(dependNodes.size)
-        val complete = {
-            // Sub node init be Completed.
+        val onDependsNodeComplete = {
+            // Depends node be Completed.
             countDownLatch.countDown()
         }
 
         dependNodes.forEach { dependNode ->
-            runNode(dependNode, complete)
+            runNode(dependNode, onDependsNodeComplete)
         }
 
         evaluatingWhenDependingIdle()
 
-        // Wait sub node init be Completed.
+        // Wait Depends node be Completed.
         countDownLatch.await()
     }
 
     private fun ModuleNode.executed() {
         logI("Module-Graph-Node-$moduleName onExecuted()")
-        module.onExecuted(TaskOutputProviderImplForModule(taskContainer), provider)
+        moduleInit.onExecuted(TaskOutputProviderImplForModule(taskContainer), provider)
         moduleProvider.registerModule(apiClass, api)
     }
 
@@ -122,11 +124,11 @@ internal class ModuleGraphExecution(override val graph: ModuleGraph, private val
     }
     
     override fun onCompletedForStage(stage: Stage<ModuleNode>) {
-        logI("Module-Graph-Stage${stage.name} Completed.")
+        // logI("Module-Graph-Stage${stage.name} Completed.")
     }
 
     override fun onCompletedForNode(node: ModuleNode) {
-        logI("Module-Graph-Stage-Node-${node.moduleName} Completed.")
+        logI("Module-Graph-Node-${node.moduleName} Completed.")
     }
 
 }

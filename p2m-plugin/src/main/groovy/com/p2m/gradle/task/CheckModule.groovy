@@ -19,14 +19,14 @@ abstract class CheckModule extends AbstractTask {
             def split = line.split("=")
             def attr = split[0]
             def value = split[1]
-            if (attr == "genModuleSource") {
+            if (attr == "genModuleInitSource") {
                 def exist = value.toBoolean()
                 if (!exist) {
                     throw project.logger.error("""
 Must add source code in Module[${project.p2mProject.getModuleName()}]：
 
 @ModuleInitializer
-class ${project.p2mProject.getModuleName()}Module:Module{
+class ${project.p2mProject.getModuleName()}ModuleInit : ModuleInit{
 
     override fun onEvaluate(taskRegister: TaskRegister) {
         // Evaluate stage of itself.

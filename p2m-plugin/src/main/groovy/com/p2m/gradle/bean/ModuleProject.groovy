@@ -2,7 +2,7 @@ package com.p2m.gradle.bean
 
 
 abstract class ModuleProject extends BaseProject {
-    boolean existModuleProxyImplClass
+    boolean existModuleInitProxyImplClass
     boolean existApiClass
 
     String groupId

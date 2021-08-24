@@ -4,25 +4,24 @@ import com.p2m.core.app.APP_MODULE_NAME
 import com.p2m.core.app.App
 import com.p2m.core.internal.graph.Graph
 import com.p2m.core.internal.graph.Stage
-import com.p2m.core.internal.log.logI
 import com.p2m.core.module.ModuleApi
-import com.p2m.core.module.Module
+import com.p2m.core.module.ModuleInit
 import java.lang.IllegalStateException
 import java.util.concurrent.atomic.AtomicInteger
 
 @Suppress("SameParameterValue", "unused")
-internal class ModuleGraph private constructor(private val topModule: AppModule) : Graph<ModuleNode, String> {
-    private val modules: HashMap<String, Module> = HashMap()
+internal class ModuleGraph private constructor(private val topModuleInit: AppModuleInit) : Graph<ModuleNode, String> {
+    private val moduleInits: HashMap<String, ModuleInit> = HashMap()
     private val apiClasses: HashMap<String,Class<out ModuleApi<*, *, *>>> = HashMap()
     private val apis: HashMap<String, ModuleApi<*, *, *>> = HashMap()
     private val nodes: HashMap<String, ModuleNode> = HashMap()
     val moduleSize
-        get() = modules.size
+        get() = moduleInits.size
     override var stageSize = 0
     override var stageCompletedCount = AtomicInteger()
 
     companion object{
-        internal fun fromTop(appModule: AppModule): ModuleGraph {
+        internal fun fromTopModuleInit(appModule: AppModuleInit): ModuleGraph {
             return ModuleGraph(appModule)
         }
     }
@@ -31,14 +30,14 @@ internal class ModuleGraph private constructor(private val topModule: AppModule)
         collectView()
     }
 
-    private fun genTopModule(appModule: AppModule) {
-        genModule(APP_MODULE_NAME, appModule)
+    private fun genTopModule(appModule: AppModuleInit) {
+        genModuleInit(APP_MODULE_NAME, appModule)
         genApi(APP_MODULE_NAME, App())
         genApiClass(APP_MODULE_NAME, App::class.java)
     }
 
-    private fun genModule(moduleName: String, module: Module) {
-        modules[moduleName] = module
+    private fun genModuleInit(moduleName: String, moduleInit: ModuleInit) {
+        moduleInits[moduleName] = moduleInit
     }
 
     private fun genApi(moduleName: String, api: ModuleApi<*, *, *>) {
@@ -192,8 +191,8 @@ internal class ModuleGraph private constructor(private val topModule: AppModule)
     }
 
     private fun collectView(){
-        genTopModule(topModule)
-        genModules()
+        genTopModule(topModuleInit)
+        genModuleInits()
         genApis()
         genApiClasses()
     }
@@ -204,22 +203,22 @@ internal class ModuleGraph private constructor(private val topModule: AppModule)
         dependTop()
     }
 
-    private fun genModules() { }
+    private fun genModuleInits() { }
 
     private fun genApis() { }
 
     private fun genApiClasses() { }
 
     private fun genNodes() {
-        modules.iterator().forEach {
+        moduleInits.iterator().forEach {
             val moduleName = it.key
             val module = it.value
 
             val api = apis[moduleName]
                 ?: throw IllegalStateException("未知错误，每个模块包含一个模块和api模块")
             val apiClass = apiClasses[moduleName]
-            val safeModuleProviderImpl = SafeModuleProviderImpl(topModule.context, moduleName, api)
-            nodes[moduleName] = ModuleNode(moduleName, module, api, apiClass!!, safeModuleProviderImpl, module is AppModule)
+            val safeModuleProviderImpl = SafeModuleProviderImpl(topModuleInit.context, moduleName, api)
+            nodes[moduleName] = ModuleNode(moduleName, module, api, apiClass!!, safeModuleProviderImpl, module is AppModuleInit)
         }
     }
 

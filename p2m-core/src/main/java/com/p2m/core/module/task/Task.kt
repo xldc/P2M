@@ -1,7 +1,7 @@
 package com.p2m.core.module.task
 
 import com.p2m.core.module.SafeModuleProvider
-import com.p2m.core.module.Module
+import com.p2m.core.module.ModuleInit
 
 /**
  * A task is the smallest unit in a module to perform necessary initialization.
@@ -13,7 +13,7 @@ import com.p2m.core.module.Module
  * @param INPUT set [input] when register a task.
  * @param OUTPUT set [output] when completed work, so should set it up in the [onExecute].
  *
- * @see Module - How to register a task? and how to use a task?
+ * @see ModuleInit - How to register a task? and how to use a task?
  */
 abstract class Task<INPUT, OUTPUT> {
 
@@ -28,7 +28,7 @@ abstract class Task<INPUT, OUTPUT> {
 
     /**
      *
-     * The task executing, called after [Module.onEvaluate] and before [Module.onExecuted].
+     * The task executing, called after [ModuleInit.onEvaluate] and before [ModuleInit.onExecuted].
      *
      * NOTE: Running in work thread.
      *

@@ -3,14 +3,13 @@ package com.p2m.example.account.module_init
 import android.content.Intent
 import androidx.lifecycle.Observer
 import com.p2m.annotation.module.ModuleInitializer
-import com.p2m.core.P2M
 import com.p2m.core.module.*
 import com.p2m.module.api.Account
 import com.p2m.core.module.task.TaskOutputProvider
 import com.p2m.core.module.task.TaskRegister
 
 @ModuleInitializer
-class AccountInitializer : Module {
+class AccountModuleInit : ModuleInit {
 
     // 运行在子线程，用于注册模块内的任务，组织任务的依赖关系
     override fun onEvaluate(taskRegister: TaskRegister) {
@@ -28,15 +27,15 @@ class AccountInitializer : Module {
         val loginState = taskOutputProvider.getOutputOf(LoadLoginStateTask::class.java) // 获取登录状态
         val loginInfo = taskOutputProvider.getOutputOf(LoadLastUserTask::class.java)    // 获取用户信息
 
-        val accountModuleApi = moduleProvider.moduleOf(Account::class.java)  // 找到自身的Api区，在Module init区不能调用P2M.moduleOf()
-        accountModuleApi.event.loginState.setValue(loginState ?: false)      // 保存到事件持有者，提供给被依赖的模块使用
-        accountModuleApi.event.loginInfo.setValue(loginInfo)                 // 保存到事件持有者，提供给被依赖的模块使用
+        val account = moduleProvider.moduleOf(Account::class.java)  // 找到自身的Api区，在Module init区不能调用P2M.moduleOf()
+        account.event.loginState.setValue(loginState ?: false)      // 保存到事件持有者，提供给被依赖的模块使用
+        account.event.loginInfo.setValue(loginInfo)                 // 保存到事件持有者，提供给被依赖的模块使用
 
         // 一般APP先显示闪屏页，因此监听时需要忽略粘值。
-        accountModuleApi.event.loginState.observeForeverNoSticky(Observer { loginState ->
+        account.event.loginState.observeForeverNoSticky(Observer { loginState ->
             if (!loginState) {
                 // 登录失效跳转登录界面
-                accountModuleApi.launcher.newActivityIntentOfLoginActivity(moduleProvider.context).run {
+                account.launcher.newActivityIntentOfLoginActivity(moduleProvider.context).run {
                     addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     moduleProvider.context.startActivity(this)

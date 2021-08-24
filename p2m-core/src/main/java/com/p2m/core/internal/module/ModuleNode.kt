@@ -3,11 +3,11 @@ package com.p2m.core.internal.module
 import com.p2m.core.internal.graph.Node
 import com.p2m.core.internal.module.task.TaskContainerImpl
 import com.p2m.core.module.ModuleApi
-import com.p2m.core.module.Module
+import com.p2m.core.module.ModuleInit
 
 internal class ModuleNode constructor(
     val moduleName: String,
-    val module: Module,
+    val moduleInit: ModuleInit,
     val api: ModuleApi<*, *, *>,
     val apiClass: Class<out ModuleApi<*, *, *>>,
     val provider: SafeModuleProviderImpl,

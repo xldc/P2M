@@ -16,8 +16,8 @@ abstract class BaseProcessor : AbstractProcessor() {
         const val PACKAGE_NAME_API = "com.p2m.module.api"
         const val PACKAGE_NAME_IMPL_LAUNCHER = "$PACKAGE_NAME_IMPL.launcher"
 
-        const val CLASS_MODULE = "Module"
-        const val CLASS_MODULE_EMPTY = "EmptyModule"
+        const val CLASS_MODULE_INIT = "ModuleInit"
+        const val CLASS_MODULE_Init_EMPTY = "EmptyModule"
         const val CLASS_MODULE_API = "ModuleApi"
         const val CLASS_API_LAUNCHER = "ModuleLauncher"
         const val CLASS_API_SERVICE = "ModuleService"

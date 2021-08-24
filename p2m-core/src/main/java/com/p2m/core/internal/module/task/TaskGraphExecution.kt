@@ -35,8 +35,8 @@ internal class TaskGraphExecution(override val graph: TaskGraph): AbsGraphExecut
 
     override val messageQueue: BlockingQueue<Runnable> = ArrayBlockingQueue<Runnable>(graph.taskSize)
 
-    override fun runNode(node:TaskNode, onComplete:()->Unit) {
-        if (node.isStartedConsiderNotifyCompleted(onComplete)) return
+    override fun runNode(node: TaskNode, onDependsNodeComplete: () -> Unit) {
+        if (node.isStartedConsiderNotifyCompleted(onDependsNodeComplete)) return
 
         // Started
         node.state = TaskNode.State.STARTED
@@ -47,7 +47,7 @@ internal class TaskGraphExecution(override val graph: TaskGraph): AbsGraphExecut
 
             if (node.isTop) {
                 node.state = TaskNode.State.COMPLETED
-                onComplete()
+                onDependsNodeComplete()
                 return@Runnable
             }
 
@@ -57,7 +57,7 @@ internal class TaskGraphExecution(override val graph: TaskGraph): AbsGraphExecut
 
             // Completed
             node.state = TaskNode.State.COMPLETED
-            onComplete()
+            onDependsNodeComplete()
         })
     }
 
@@ -67,21 +67,21 @@ internal class TaskGraphExecution(override val graph: TaskGraph): AbsGraphExecut
         }
 
         val countDownLatch = CountDownLatch(dependNodes.size)
-        val complete = {
-            // Sub node init be Completed.
+        val onDependsNodeComplete = {
+            // Depends node be Completed.
             countDownLatch.countDown()
         }
 
         dependNodes.forEach { dependNode ->
-            runNode(dependNode, complete)
+            runNode(dependNode, onDependsNodeComplete)
         }
 
-        // Wait sub node init be Completed.
+        // Wait Depends node be Completed.
         countDownLatch.await()
     }
 
     private fun TaskNode.executing() {
-        logI("${graph.moduleName}-Task-Graph-Stage-Node-${taskName} onExecute()")
+        logI("${graph.moduleName}-Task-Graph-Node-${taskName} onExecute()")
         task.inputObj = input
         task.onExecute(safeTaskProvider, graph.safeModuleProvider)
     }
@@ -89,19 +89,19 @@ internal class TaskGraphExecution(override val graph: TaskGraph): AbsGraphExecut
     override fun asyncTask(runnable: Runnable) {
         executor.execute(runnable)
     }
-    
+
     override fun onCompletedForGraph(graph: TaskGraph) {
         logI("${graph.moduleName}-Task-Graph Completed.")
     }
 
     override fun onCompletedForStage(stage: Stage<TaskNode>) {
-        if(stage.nodes?.firstOrNull()?.isTop != true) {
-            logI("${graph.moduleName}-Task-Graph-Stage${stage.name} Completed.")
-        }
+        // if (stage.nodes?.firstOrNull()?.isTop != true) {
+        //     logI("${graph.moduleName}-Task-Graph-Stage${stage.name} Completed.")
+        // }
     }
-    
+
     override fun onCompletedForNode(node: TaskNode) {
         if (node.task is TopTask) return
-        logI("${graph.moduleName}-Task-Graph-Stage-Node-${node.taskName} Completed.")
+        logI("${graph.moduleName}-Task-Graph-Node-${node.taskName} Completed.")
     }
 }

@@ -117,28 +117,6 @@ class AndroidP2MPlugin implements Plugin<Settings> {
         }
     }
 
-//    private def checkAppConflictWhenEvaluated(BaseProject project) {
-//        AndroidUtils.forAppEachVariant(project.project) { variant ->
-//            variant.getPreBuildProvider().get().doFirst {
-//                checkAppConflict(project)
-//            }
-//        }
-//    }
-//
-//    private void checkAppConflict(BaseProject owner) {
-//        def dependencies = owner.dependencies
-//        for (int i = 0; i < dependencies.size(); i++) {
-//            ModuleProject moduleProject = dependencies[i]
-//            if (moduleProject.isApp()) {
-//                moduleProject.error(
-//                        "Only one can runApp=true, ${ModuleProjectUtils.getStatement(owner)} depend on ${ModuleProjectUtils.getStatement(moduleProject)}, " +
-//                                "please check that in settings.gradle."
-//                )
-//            }
-//            // checkAppConflict(moduleProject)
-//        }
-//    }
-
     private def configRemoteModuleProject(Project rootProject) {
         remoteModuleProjectTable.values().forEach { RemoteModuleProject moduleProject ->
         }
@@ -193,7 +171,6 @@ class AndroidP2MPlugin implements Plugin<Settings> {
             }
             appProject.project.beforeEvaluate {
                 appProject.project.plugins.apply(Constant.PLUGIN_ID_ANDROID_APP)
-
             }
             // checkAppConflictWhenEvaluated(appProject)
         }
@@ -299,11 +276,7 @@ class AndroidP2MPlugin implements Plugin<Settings> {
 
 
     private def configDependenciesToProjectDependencies = { BaseProject ownerProject, ownerConfigDependencies, Map<ModuleNamed, ModuleProject> moduleTable ->
-        // moduleGraph.addDepends(project.moduleNamed, configDependencies)
         if (ownerConfigDependencies == null) return
-//        if (project instanceof AppProject) {
-//            moduleGraph.setTopNode(project.moduleNamed)
-//        }
         ownerConfigDependencies.forEach { ModuleNamed dependencyModuleNamed ->
             if (moduleTable[dependencyModuleNamed] == null) {
                 ownerProject.error("Dependency ${NamedUtils.getStatement(dependencyModuleNamed)} not exist, Please check in settings.gradle.")
@@ -318,7 +291,6 @@ class AndroidP2MPlugin implements Plugin<Settings> {
 
 
     private static def includeProject(Settings settings, BaseProjectConfig projectConfig) {
-        println("include(\"${projectConfig._projectPath}\")")
         settings.include(projectConfig._projectPath)
         if (projectConfig._projectDescriptorClosure != null) {
             def obj = settings.project(projectConfig._projectPath)
@@ -331,22 +303,20 @@ class AndroidP2MPlugin implements Plugin<Settings> {
 
         if (!existRunAppModule) {
             p2mConfig.appProjectConfigs.forEach { appProjectConfig ->
-                println("============ include App ============")
+                println("include App[${appProjectConfig._projectPath}]")
                 includeProject(settings, appProjectConfig)
-                println("========================================")
             }
 
         }
 
         p2mConfig.modulesConfig.forEach { key, moduleConfig ->
 
-            println("====== include Module ${moduleConfig._moduleNamed.get()} ======")
             if (moduleConfig.useRepo) {
-                println("include aar(group=${moduleConfig.groupId} version=${moduleConfig.versionName})")
+                println("include Module ${moduleConfig._moduleNamed.get()}[remote aar(group=${moduleConfig.groupId} version=${moduleConfig.versionName})]")
             } else {
+                println("include Module ${moduleConfig._moduleNamed.get()}[${moduleConfig._projectPath}]")
                 includeProject(settings, moduleConfig)
             }
-            println("========================================")
         }
     }
 
@@ -362,33 +332,13 @@ class AndroidP2MPlugin implements Plugin<Settings> {
                 throw new P2MSettingsException(StatementClosureUtils.getStatementMissingClosureTip(moduleConfig, "include", moduleConfig._projectNamed.include, "projectDir = new File(\"your project path\")"))
             }
         }
-
-
-/*        def projectName = moduleConfig.projectName
-        if (projectName == null || projectName.isEmpty()) {
-            throw new P2MSettingsException(StatementPropertyUtils.getStatementMissingPropertyTip(moduleConfig, "projectName"))
-        }
-
-        def projectDir = moduleConfig.projectDir ?: new File(settings.getRootProject().projectDir, projectName)
-        projectDir = new File(projectDir.absolutePath)
-        moduleConfig.projectDir = projectDir
-
-        if (!projectDir.exists()) {
-            throw new P2MSettingsException("\nPlease check config in settings.gradle.\n" +
-                    StatementPropertyUtils.getStatementPropertyTip(moduleConfig, "projectDir") +
-                    "Path:${moduleConfig.projectDir} is not exists. Please create the project dir." +
-                    "\n"
-            )
-        }
-
-        moduleConfig.projectNamed = NamedUtils.project(projectName)*/
     }
 
     private def checkAndLoadDevEnv(Settings settings) {
         def isDevEnv = false
         def isRepoLocal = false
         def localProperties = new Properties()
-        def localPropertiesFile = new File(settings.buildscript.sourceFile.parentFile, "local.properties")
+        def localPropertiesFile = new File(settings.rootDir, "local.properties")
 
         if (localPropertiesFile.exists()) {
             localPropertiesFile.withReader('UTF-8') { reader ->

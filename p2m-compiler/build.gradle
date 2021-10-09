@@ -22,13 +22,3 @@ dependencies {
 
 sourceCompatibility = "8"
 targetCompatibility = "8"
-
-
-// the project will publish artifacts to jitpack,
-// that artifact info can be like ${groupId}.${rootProjectName}:${projectName}:${version}
-afterEvaluate {
-    // publish all for jitpack
-    tasks.findByName("install").dependsOn(":p2m-annotation:install")
-    tasks.findByName("install").dependsOn(":p2m-core:publishReleasePublicationToMavenLocal")
-    tasks.findByName("install").dependsOn(":p2m-plugin:publishPluginMavenPublicationToMavenLocal")
-}

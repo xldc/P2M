@@ -17,8 +17,6 @@ abstract class BaseProject {
         return false
     }
 
-
-
     String getModuleName() {
         return moduleNamed.get()
     }

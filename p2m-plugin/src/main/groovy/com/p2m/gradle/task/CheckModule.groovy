@@ -7,9 +7,8 @@ import org.gradle.api.tasks.TaskAction
 
 import java.nio.charset.StandardCharsets
 
-abstract class CheckModule extends AbstractTask {
+class CheckModule extends AbstractTask {
     
-    @InputFiles
     ConfigurableFileCollection propertiesConfigurableFileCollection
 
     @TaskAction

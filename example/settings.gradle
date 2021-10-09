@@ -3,13 +3,13 @@ rootProject.name = "P2M-Example"
 buildscript {
     repositories {
         google()
-        jcenter()
+        mavenCentral()
         mavenLocal()
         maven { url 'https://jitpack.io' }
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:4.0.2'        // 支持3.6.0以上
+        classpath 'com.android.tools.build:gradle:4.0.2'        // 支持3.4.0以上
         classpath 'com.github.wangdaqi77.P2M:p2m-plugin:0.0.2'  // P2M插件
     }
 }
@@ -49,7 +49,7 @@ p2m {                                       // 声明组件化
         useRepo = false                     // 使用远端aar，默认false使用源码。为true时，对外提供它的远端aar。
     }
 
-//    p2mMavenRepository {                    // 声明maven仓库用于发布和获取远端aar, 默认为current user/.m2/repository
+//    p2mMavenRepository {                    // 声明maven仓库用于发布和获取远端aar, 默认为mavenLocal()
 //        url = "your maven repository url"   // 仓库地址
 //        credentials {                       // 登录仓库的用户
 //            username = "your user name"

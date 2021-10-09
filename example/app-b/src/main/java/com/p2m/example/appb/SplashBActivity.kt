@@ -10,7 +10,7 @@ import com.p2m.module.api.Account
 import com.p2m.module.api.Main
 
 
-class SplashActivity : AppCompatActivity() {
+class SplashBActivity : AppCompatActivity() {
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {

@@ -4,6 +4,10 @@ P2M
 
 一个简单、高效、安全、完整的Android组件化框架库。
 
+支持环境:
+ * AGP：3.4.0+（7.0以下）
+ * Gradle：6.1.1+（7.0以下）
+
 P2M是什么？
 ---------
 P2M是完整的组件化工具，支持单独编译、单独运行、打包到仓库等主要功能。
@@ -144,13 +148,13 @@ P2M项目配置
 buildscript {
     repositories {
         google()
-        jcenter()
+        mavenCentral()
         mavenLocal()
         maven { url 'https://jitpack.io' }
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:4.0.2'            // 插件支持4.0.0以上版本，gradle 6.1.1以上
+        classpath 'com.android.tools.build:gradle:4.0.2'            // AGP支持3.4.0+、Gradle 6.1.1+
         classpath 'com.github.wangdaqi77.P2M:p2m-plugin:last version'
     }
 }
@@ -388,7 +392,7 @@ Q&A
             useRepo = false                     // false表示使用源码，true表示依赖仓库aar
         }
 
-        p2mMavenRepository {                    // 声明maven仓库用于发布和获取远端aar, 默认为current user/.m2/repository
+        p2mMavenRepository {                    // 声明maven仓库用于发布和获取远端aar, 默认为mavenLocal()
             url = "your maven repository url"   // 仓库地址
             credentials {                       // 登录仓库的用户
                 username = "your user name"
@@ -423,7 +427,7 @@ Q&A
             useRepo = true                      // false表示使用源码，true表示依赖仓库aar
         }
 
-        p2mMavenRepository {                    // 声明maven仓库用于发布和获取远端aar, 默认为current user/.m2/repository
+        p2mMavenRepository {                    // 声明maven仓库用于发布和获取远端aar, 默认为mavenLocal()
             url = "your maven repository url"   // 仓库地址
             credentials {                       // 登录仓库的用户
                 username = "your user name"

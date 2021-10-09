@@ -6,7 +6,7 @@ import com.p2m.core.P2M
 import com.p2m.core.log.ILogger
 import com.p2m.core.log.Level
 
-class MyApp: Application() {
+class MyBApp: Application() {
 
     override fun onCreate() {
         super.onCreate()

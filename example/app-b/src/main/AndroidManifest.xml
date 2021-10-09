@@ -3,7 +3,7 @@
     package="com.p2m.example.appb">
 
     <application
-        android:name="com.p2m.example.appb.MyApp"
+        android:name="com.p2m.example.appb.MyBApp"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="P2M example app-b"
@@ -12,7 +12,7 @@
         android:theme="@style/AppTheme">
 
         <activity
-            android:name="com.p2m.example.appb.SplashActivity"
+            android:name="com.p2m.example.appb.SplashBActivity"
             android:configChanges="orientation|keyboardHidden|screenSize"
             android:theme="@style/NoActionBarTheme">
             <intent-filter>

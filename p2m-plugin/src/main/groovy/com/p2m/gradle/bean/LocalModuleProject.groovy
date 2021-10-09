@@ -5,6 +5,6 @@ class LocalModuleProject extends ModuleProject {
     boolean runApp                      // 可以运行
     @Override
     String toString() {
-        return "${getModuleName()}[ project(${project.path}) ]"
+        return "Module ${getModuleName()}[${project.path}]"
     }
 }

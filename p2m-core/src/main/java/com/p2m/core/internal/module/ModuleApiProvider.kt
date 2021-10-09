@@ -37,7 +37,7 @@ internal object DefaultModuleManager : ModuleProvider, ModuleRegister {
     }
 
     @Suppress("UNCHECKED_CAST")
-    override fun <MODULE_API : ModuleApi<*, *, *>> moduleOf(clazz: Class<MODULE_API>): MODULE_API {
+    override fun <MODULE_API : ModuleApi<*, *, *>> moduleApiOf(clazz: Class<MODULE_API>): MODULE_API {
         return apis[clazz] as MODULE_API
     }
 
@@ -57,10 +57,10 @@ internal class SafeModuleProviderImpl constructor(override val context: Context,
         return selfApi as MODULE_API
     }
 
-    override fun<MODULE_API : ModuleApi<*, *, *>> moduleOf(clazz: Class<MODULE_API>): MODULE_API{
+    override fun<MODULE_API : ModuleApi<*, *, *>> moduleApiOf(clazz: Class<MODULE_API>): MODULE_API{
         if (checkSelf(clazz)) {
             return getSelf(clazz)
         }
-        return P2M.innerModuleManager.moduleOf(clazz)
+        return DefaultModuleManager.moduleApiOf(clazz)
     }
 }

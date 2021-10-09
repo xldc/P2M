@@ -59,7 +59,7 @@ import com.p2m.core.module.task.Task
  *
  *          // save login state to event holder.
  *          moduleProvider
- *              .moduleOf(Account::class.java)
+ *              .moduleApiOf(Account::class.java)
  *              .event
  *              .loginState // you can set value, get value and observe by it.
  *              .setValue(loginSuccess)
@@ -79,7 +79,7 @@ import com.p2m.core.module.task.Task
  *      // running in main thread.
  *      override fun onExecuted(taskOutputProvider: TaskOutputProvider, moduleProvider: SafeModuleProvider) {
  *          // Account module has been initialized, get the module api.
- *          val account = moduleProvider.moduleOf(Account::class.java)
+ *          val account = moduleProvider.moduleApiOf(Account::class.java)
  *
  *          // observe loginState of Account.
  *          account.event.loginState.observeForeverNoLoss { loginState ->

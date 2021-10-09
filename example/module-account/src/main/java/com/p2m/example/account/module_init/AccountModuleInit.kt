@@ -27,7 +27,7 @@ class AccountModuleInit : ModuleInit {
         val loginState = taskOutputProvider.getOutputOf(LoadLoginStateTask::class.java) // 获取登录状态
         val loginInfo = taskOutputProvider.getOutputOf(LoadLastUserTask::class.java)    // 获取用户信息
 
-        val account = moduleProvider.moduleOf(Account::class.java)  // 找到自身的Api区，在Module init区不能调用P2M.moduleOf()
+        val account = moduleProvider.moduleApiOf(Account::class.java)  // 找到自身的Api区，在Module init区不能调用P2M.moduleApiOf()
         account.event.loginState.setValue(loginState ?: false)      // 保存到事件持有者，提供给被依赖的模块使用
         account.event.loginInfo.setValue(loginInfo)                 // 保存到事件持有者，提供给被依赖的模块使用
 

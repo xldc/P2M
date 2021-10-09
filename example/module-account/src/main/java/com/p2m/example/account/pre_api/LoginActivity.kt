@@ -57,7 +57,7 @@ class LoginActivity : AppCompatActivity() {
         userDiskCache.saveLoginState(true)
         userDiskCache.saveLoginUserInfo(loginUserInfo)
         
-        P2M.moduleOf(Account::class.java).event.run {
+        P2M.moduleApiOf(Account::class.java).event.run {
             loginState.setValue(true)        // 发送登录状态事件
             loginInfo.setValue(loginUserInfo)      // 发送用户信息事件
             loginSuccess.setValue(Unit)            // 发送主动登录成功事件

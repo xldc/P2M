@@ -14,7 +14,7 @@ import com.p2m.core.module.ModuleApi
 object P2M {
     private var context: Context? = null
     private lateinit var p2mConfigManager: P2MConfigManager
-    internal val innerModuleManager: InnerModuleManager by lazy(LazyThreadSafetyMode.NONE) {
+    private val innerModuleManager: InnerModuleManager by lazy(LazyThreadSafetyMode.NONE) {
         InnerModuleManager(
             DefaultModuleManager,
             DefaultModuleManager
@@ -59,20 +59,20 @@ object P2M {
     fun getDriverState(): P2MDriverState = InternalP2MDriver
 
     /**
-     * Get a module of [clazz].
+     * Get a module api of [clazz].
      *
      * @param clazz its class name is defined module name in settings.gradle.
      */
     @JvmStatic
-    fun <MODULE_API : ModuleApi<*, *, *>> moduleOf(clazz: Class<MODULE_API>): MODULE_API {
-        check(!getDriverState().opening) { "P2M driver is opening. At this time, you can get a module only by call SafeModuleProvider.moduleOf()." }
+    fun <MODULE_API : ModuleApi<*, *, *>> moduleApiOf(clazz: Class<MODULE_API>): MODULE_API {
+        check(!getDriverState().opening) { "P2M driver is opening. At this time, you can get a module only by call SafeModuleProvider.moduleApiOf()." }
         check(getDriverState().opened) { "Must call P2M.driverBuilder().build().open() before when call here." }
-        return innerModuleManager.moduleOf(clazz)
+        return innerModuleManager.moduleApiOf(clazz)
     }
 
     @JvmStatic
-    inline fun <reified MODULE_API : ModuleApi<*, *, *>> moduleOf(): MODULE_API {
-        return moduleOf(MODULE_API::class.java)
+    inline fun <reified MODULE_API : ModuleApi<*, *, *>> moduleApiOf(): MODULE_API {
+        return moduleApiOf(MODULE_API::class.java)
     }
 
     @JvmStatic

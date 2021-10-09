@@ -451,11 +451,11 @@ class P2MProcessor : BaseProcessor() {
             .interfaceBuilder(moduleApiInterfaceClassName)
             .addSuperinterface(superModuleParameterizedTypeName)
             .addKdoc("A api class of $optionModuleName module.\n")
-            .addKdoc("Use `P2M.moduleOf<${optionModuleName}>()` to get the instance.\n")
+            .addKdoc("Use `P2M.moduleApiOf<${optionModuleName}>()` to get the instance.\n")
             .addKdoc("\n")
-            .addKdoc("@see %T - $launcherVarName, use `P2M.moduleOf<$optionModuleName>().$launcherVarName` to get the instance.\n", genModuleLauncherResult.launcherInterfaceClassName)
-            .addKdoc("@see %T - $serviceVarName, use `P2M.moduleOf<$optionModuleName>().$serviceVarName` to get the instance.\n", genModuleServiceResult.serviceInterfaceClassName)
-            .addKdoc("@see %T - $eventVarName, use `P2M.moduleOf<$optionModuleName>().$eventVarName` to get the instance.\n", genModuleEventResult.eventInterfaceClassName)
+            .addKdoc("@see %T - $launcherVarName, use `P2M.moduleApiOf<$optionModuleName>().$launcherVarName` to get the instance.\n", genModuleLauncherResult.launcherInterfaceClassName)
+            .addKdoc("@see %T - $serviceVarName, use `P2M.moduleApiOf<$optionModuleName>().$serviceVarName` to get the instance.\n", genModuleServiceResult.serviceInterfaceClassName)
+            .addKdoc("@see %T - $eventVarName, use `P2M.moduleApiOf<$optionModuleName>().$eventVarName` to get the instance.\n", genModuleEventResult.eventInterfaceClassName)
 
         val moduleAbsTypeSpec = moduleAbsTypeSpecBuilder.build()
 
@@ -557,7 +557,7 @@ class P2MProcessor : BaseProcessor() {
         val launcherInterfaceTypeSpecBuilder = TypeSpec.interfaceBuilder(launcherInterfaceClassName)
             .addSuperinterface(ModuleLauncherClassName)
             .addKdoc("A launcher class of $optionModuleName module.\n")
-            .addKdoc("Use `P2M.moduleOf<${optionModuleName}>().launcher` to get the instance.\n")
+            .addKdoc("Use `P2M.moduleApiOf<${optionModuleName}>().launcher` to get the instance.\n")
             .addKdoc("\n")
         kdocsOfLauncherInterface.forEach { launcherInterfaceTypeSpecBuilder.addKdoc(it) }
 
@@ -680,7 +680,7 @@ class P2MProcessor : BaseProcessor() {
         val serviceInterfaceTypeSpecBuilder = TypeSpec.interfaceBuilder(serviceInterfaceClassName)
             .addSuperinterface(ModuleServiceClassName)
             .addKdoc("A service class of $optionModuleName module.\n")
-            .addKdoc("Use `P2M.moduleOf<${optionModuleName}>().service` to get the instance.\n")
+            .addKdoc("Use `P2M.moduleApiOf<${optionModuleName}>().service` to get the instance.\n")
             .addKdoc("\n")
             .addKdoc("@see %T - origin.", serviceClassNameOrigin)
             .addKdoc("\n")
@@ -872,7 +872,7 @@ class P2MProcessor : BaseProcessor() {
         val eventInterfaceTypeSpecBuilder = TypeSpec.interfaceBuilder(eventInterfaceClassName)
             .addSuperinterface(ModuleEventClassName)
             .addKdoc("A event class of $optionModuleName module.\n")
-            .addKdoc("Use `P2M.moduleOf<${optionModuleName}>().event` to get the instance.\n")
+            .addKdoc("Use `P2M.moduleApiOf<${optionModuleName}>().event` to get the instance.\n")
             .addKdoc("\n")
             .addKdoc("@see %T - origin.", eventClassNameOrigin)
             .addKdoc("\n")

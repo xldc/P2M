@@ -60,7 +60,7 @@ Api区根据Source code区源码由P2M注解处理器生成，包含以下内容
 #### Source code区如何访问Api区
 当Api区需要更新时，我们必须先[编译Api区](#如何编译Api区)，这是访问Api区的前提。能编写代码的区域都属于Source code区，我们在Source code区访问Api区：
 ```kotlin
-val a = P2M.moduleOf<A>()          // 获取模块A的Api区
+val a = P2M.moduleApiOf<A>()          // 获取模块A的Api区
 
 val launcherOfA = a.launcher       // Api区中的launcher
 val serviceOfA = a.service         // Api区中的service
@@ -203,7 +203,7 @@ p2m {
         ```kotlin
         /**
          * A launcher class of Account module.
-         * Use `P2M.moduleOf<Account>().launcher` to get the instance.
+         * Use `P2M.moduleApiOf<Account>().launcher` to get the instance.
          *
          * Use [newActivityIntentOfLoginActivity] to launch [com.p2m.example.account.pre_api.LoginActivity].
          */
@@ -223,7 +223,7 @@ p2m {
         ```kotlin
         /**
          * A service class of Account module.
-         * Use `P2M.moduleOf<Account>().service` to get the instance.
+         * Use `P2M.moduleApiOf<Account>().service` to get the instance.
          *
          * @see com.p2m.example.account.pre_api.AccountService - origin.
          */
@@ -250,7 +250,7 @@ p2m {
         ```kotlin
         /**
          * A event class of Account module.
-         * Use `P2M.moduleOf<Account>().event` to get the instance.
+         * Use `P2M.moduleApiOf<Account>().event` to get the instance.
          *
          * @see com.p2m.example.account.pre_api.AccountEvent - origin.
          */
@@ -282,7 +282,7 @@ p2m {
             val loginState = taskOutputProvider.getOutputOf(LoadLoginStateTask::class.java) // 获取登录状态
             val loginInfo = taskOutputProvider.getOutputOf(LoadLastUserTask::class.java)    // 获取用户信息
 
-            val account = moduleProvider.moduleOf(Account::class.java)  // 找到自身的Api区，在Module init区不能调用P2M.moduleOf()
+            val account = moduleProvider.moduleApiOf(Account::class.java)  // 找到自身的Api区，在Module init区不能调用P2M.moduleApiOf()
             account.event.loginState.setValue(loginState ?: false)      // 保存到事件持有者，提供给被依赖的模块使用
             account.event.loginInfo.setValue(loginInfo)                 // 保存到事件持有者，提供给被依赖的模块使用
 

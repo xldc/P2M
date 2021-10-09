@@ -20,13 +20,13 @@ class MainModuleInit : ModuleInit {
 
     // 运行在主线程，当所有的依赖模块开机成功且自身模块的任务执行完毕时调用
     override fun onExecuted(taskOutputProvider: TaskOutputProvider, moduleProvider: SafeModuleProvider) {
-        val account = moduleProvider.moduleOf(Account::class.java)
+        val account = moduleProvider.moduleApiOf(Account::class.java)
         
         // 登录成功跳转主页
         account.event.loginSuccess.observeForeverNoSticky(object: BackgroundObserver<Unit>(ObserveOn.BACKGROUND) {
             override fun onChanged(t: Unit) {
                 // 登录成功启动主界面
-                moduleProvider.moduleOf(Main::class.java)
+                moduleProvider.moduleApiOf(Main::class.java)
                     .launcher
                     .newActivityIntentOfMainActivity(moduleProvider.context)
                     .run {

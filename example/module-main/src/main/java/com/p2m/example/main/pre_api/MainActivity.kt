@@ -21,7 +21,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.main_activity_main)
 
         // 监听用户信息事件
-        P2M.moduleOf(Account::class.java)
+        P2M.moduleApiOf(Account::class.java)
             .event
             .loginInfo
             .observe(this, Observer { loginInfo ->
@@ -36,7 +36,7 @@ class MainActivity : AppCompatActivity() {
 
         // 退出登录
         findViewById<Button>(R.id.main_btn_logout).setOnClickListener {
-            P2M.moduleOf(Account::class.java)
+            P2M.moduleApiOf(Account::class.java)
                 .service
                 .logout()
             finish()

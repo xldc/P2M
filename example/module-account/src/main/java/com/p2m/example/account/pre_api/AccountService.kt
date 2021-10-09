@@ -12,7 +12,7 @@ class AccountService{
      */
     fun logout(){
         
-        P2M.moduleOf(Account::class.java)
+        P2M.moduleApiOf(Account::class.java)
             .event
             .apply {
                 val userDiskCache = UserDiskCache(P2M.getContext())

@@ -196,7 +196,7 @@ p2m {
    * launcher - 对外提供登录界面的Intent，因此在Feature code区定义：
         ```kotlin
         @Launcher
-        class LoginActivity : Activity()
+        class LoginActivity : Activity() // 具体实现请查看示例源码
         ```
 
         编译后将在Api区生成以下代码：
@@ -215,7 +215,7 @@ p2m {
    * service - 对外提供退出登录的服务方法，因此在Feature code区定义：
         ```kotlin
         @Service
-        class AccountService {
+        class AccountService { // 具体实现请查看示例源码
             fun logout() { }
         }
         ```
@@ -236,10 +236,10 @@ p2m {
         ```kotlin
         @Event
         interface AccountEvent{
-            @EventField(eventOn = EventOn.MAIN)         // 发送、订阅接收事件在主线程
+                                                        // 发送、订阅接收事件在主线程
             val loginInfo: LoginUserInfo?               // 登录用户信息
 
-            @EventField(eventOn = EventOn.MAIN)         // 发送、订阅接收事件在主线程
+            @EventField                                 // 发送、订阅接收事件在主线程
             val loginState: Boolean                     // 登录状态
 
             @EventField(eventOn = EventOn.BACKGROUND)   // 发送、订阅接收事件不占用主线程资源
@@ -261,7 +261,7 @@ p2m {
         }
         ```
 
- * Module init区是开机的地方，根据需求和模块的职责来设计所必须初始化工作。
+ * Module init区是模块开机的地方，根据需求和模块的职责来设计所必须初始化工作。
     ```kotlin
     @ModuleInitializer
     class AccountModuleInit : ModuleInit {
@@ -285,18 +285,6 @@ p2m {
             val account = moduleProvider.moduleApiOf(Account::class.java)  // 找到自身的Api区，在Module init区不能调用P2M.moduleApiOf()
             account.event.loginState.setValue(loginState ?: false)      // 保存到事件持有者，提供给被依赖的模块使用
             account.event.loginInfo.setValue(loginInfo)                 // 保存到事件持有者，提供给被依赖的模块使用
-
-            // 一般APP先显示闪屏页，因此监听时需要忽略粘值。
-            account.event.loginState.observeForeverNoSticky(Observer { loginState ->
-                if (!loginState) {
-                    // 登录失效跳转登录界面
-                    account.launcher.newActivityIntentOfLoginActivity(moduleProvider.context).run {
-                        addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        moduleProvider.context.startActivity(this)
-                    }
-                }
-            })
         }
     }
 
@@ -305,7 +293,7 @@ p2m {
 
         // 运行在子线程，当所有的依赖模块完成开机且自身依赖的任务执行完毕时调用
         override fun onExecute(taskOutputProvider: TaskOutputProvider, moduleProvider: SafeModuleProvider) {
-            val input = input // input 1
+            val input = input // input的值是1
             Log.i("LoadLoginStateTask", "onExecute input: $input")
 
             val userDiskCache = UserDiskCache(moduleProvider.context)
@@ -322,7 +310,7 @@ p2m {
 
             // 查询用户信息
             if (loginState == true) {
-                val input = input // input 2
+                val input = input // input的值是2
                 Log.i("LoadLastUserTask", "onExecute input: $input")
 
                 val userDiskCache = UserDiskCache(moduleProvider.context)

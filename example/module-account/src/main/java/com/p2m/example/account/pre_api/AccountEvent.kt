@@ -12,7 +12,7 @@ interface AccountEvent{
      *
      * 信息发生变化时发送事件
      */
-    @EventField
+    // @EventField 默认
     val loginInfo: LoginUserInfo?
 
     /**

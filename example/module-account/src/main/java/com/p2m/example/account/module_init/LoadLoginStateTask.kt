@@ -11,7 +11,7 @@ class LoadLoginStateTask: Task<String, Boolean>() {
 
     // 运行在子线程，当所有的依赖模块完成开机且自身依赖的任务执行完毕时调用
     override fun onExecute(taskOutputProvider: TaskOutputProvider, moduleProvider: SafeModuleProvider) {
-        val input = input // input 1
+        val input = input // input的值是1
         Log.i("LoadLoginStateTask", "onExecute input: $input")
 
         val userDiskCache = UserDiskCache(moduleProvider.context)

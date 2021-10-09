@@ -16,7 +16,7 @@ class LoadLastUserTask: Task<String, LoginUserInfo>() {
 
         // 查询用户信息
         if (loginState == true) {
-            val input = input // input 2
+            val input = input // input的值是2
             Log.i("LoadLastUserTask", "onExecute input: $input")
 
             val userDiskCache = UserDiskCache(moduleProvider.context)

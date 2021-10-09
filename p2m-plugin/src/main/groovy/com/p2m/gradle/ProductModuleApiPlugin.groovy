@@ -61,15 +61,12 @@ class ProductModuleApiPlugin implements Plugin<Project> {
                 return
             }
 
-            def apiJarName = "p2m-module-api-${moduleProject.getModuleName()}.jar"
-            def apiSourceJarName = "p2m-module-api-${moduleProject.getModuleName()}-sources.jar"
+            def apiJarName = "p2m-${moduleProject.getModuleName()}-module-api.jar"
+            def apiSourceJarName = "p2m-${moduleProject.getModuleName()}-module-api-sources.jar"
             def p2mApiJarDir = new File(project.buildDir, "generated/p2m/jar/${variantName}")
             def p2mKaptSrcDir = new File(project.buildDir, "generated/source/kapt/${variantName}")
             def p2mApiPropertiesFile = new File(p2mKaptSrcDir, "module_api.properties")
-            def p2mApiJarFile =  new File(p2mApiJarDir, apiJarName)
-            def p2mApiSourceJarFile =  new File(p2mApiJarDir, apiSourceJarName)
             def p2mApiPropertiesConfigurableFileCollection = project.files(p2mApiPropertiesFile)
-            def p2mApiJarConfigurableFileCollection = project.files(p2mApiJarFile, p2mApiSourceJarFile)
             p2mApiPropertiesConfigurableFileCollection.builtBy(kaptKotlin)
 
             def checkModuleProvider = project.tasks.register("checkModule${variantTaskMiddleName}", CheckModule.class)
@@ -149,16 +146,14 @@ class ProductModuleApiPlugin implements Plugin<Project> {
                 }
             }
 
-            variant.javaCompileProvider.configure{
+            variant.javaCompileProvider.configure {
                 dependsOn(checkModuleProvider, compileApiProvider, compileApiSourceProvider)
             }
 
-            p2mApiJarConfigurableFileCollection.builtBy(compileApiProvider, compileApiSourceProvider)
-            project.configurations
-                    .maybeCreate("${variantName}P2MApi")
-                    .dependencies
-                    .add(project.dependencies.create(p2mApiJarConfigurableFileCollection))
-
+            project.artifacts {
+                "${variantName}P2MApi"(compileApiProvider)
+                "${variantName}P2MApi"(compileApiSourceProvider)
+            }
         }
 
     }

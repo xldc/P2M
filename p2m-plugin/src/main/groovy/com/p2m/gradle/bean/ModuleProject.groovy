@@ -10,10 +10,10 @@ abstract class ModuleProject extends BaseProject {
     String versionName
 
     String getModuleArtifactId(){
-        return "p2m-module-${getModuleNameLowerCase()}"
+        return "p2m-${getModuleNameLowerCase()}-module"
     }
 
     String getApiArtifactId(){
-        return "p2m-module-${getModuleNameLowerCase()}-api"
+        return "p2m-${getModuleNameLowerCase()}-module-api"
     }
 }

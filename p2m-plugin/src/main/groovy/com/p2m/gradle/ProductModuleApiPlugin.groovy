@@ -65,19 +65,19 @@ class ProductModuleApiPlugin implements Plugin<Project> {
             def apiSourceJarName = "p2m-${moduleProject.getModuleName()}-module-api-sources.jar"
             def p2mApiJarDir = new File(project.buildDir, "generated/p2m/jar/${variantName}")
             def p2mKaptSrcDir = new File(project.buildDir, "generated/source/kapt/${variantName}")
-            def p2mApiPropertiesFile = new File(p2mKaptSrcDir, "module_api.properties")
+            def p2mApiPropertiesFile = new File(p2mKaptSrcDir, "p2m_module_api.properties")
             def p2mApiPropertiesConfigurableFileCollection = project.files(p2mApiPropertiesFile)
             p2mApiPropertiesConfigurableFileCollection.builtBy(kaptKotlin)
 
-            def checkModuleProvider = project.tasks.register("checkModule${variantTaskMiddleName}", CheckModule.class)
-            def compileApiProvider = project.tasks.register("compileApi${variantTaskMiddleName}", ApiJar.class)
-            def compileApiSourceProvider = project.tasks.register("compileApiSource${variantTaskMiddleName}", ApiSourceJar.class)
+            def checkModuleProvider = project.tasks.register("${Constant.P2M_TASK_NAME_PREFIX_CHECK_MODULE}${variantTaskMiddleName}", CheckModule.class)
+            def compileApiProvider = project.tasks.register("${Constant.P2M_TASK_NAME_PREFIX_COMPILE_MODULE_API}${variantTaskMiddleName}", ApiJar.class)
+            def compileApiSourceProvider = project.tasks.register("${Constant.P2M_TASK_NAME_PREFIX_COMPILE_MODULE_API_SOURCE}${variantTaskMiddleName}", ApiSourceJar.class)
 
             checkModuleProvider.configure {
                 group = Constant.P2M_MODULE_TASK_GROUP
                 description = "check ${moduleProject.getModuleName()} module for ${variantName}"
                 dependsOn(kaptKotlin)
-                propertiesConfigurableFileCollection = p2mApiPropertiesConfigurableFileCollection
+                propertiesFile.set(p2mApiPropertiesConfigurableFileCollection.getSingleFile())
             }
 
             compileApiProvider.configure {
@@ -90,6 +90,8 @@ class ProductModuleApiPlugin implements Plugin<Project> {
                 destinationDir = p2mApiJarDir
                 inputKaptDirCollection = kaptKotlin.get().destinationDir // for UP-TO-DATE
                 inputKotlinCompilerOutput = compileKotlin.get().source // for UP-TO-DATE
+                // value like java/lang/String
+                List<String> exportApiClassPathList = new ArrayList<>()
 
                 doFirst {
 

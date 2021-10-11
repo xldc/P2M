@@ -13,7 +13,4 @@ class ApiJar extends Jar {
     @InputFiles
     FileTree inputKotlinCompilerOutput
 
-    // java/lang/String
-    List<String> exportApiClassPathList = new ArrayList<>()
-
 }

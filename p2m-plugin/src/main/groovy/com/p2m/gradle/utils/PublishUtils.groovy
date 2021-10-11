@@ -73,8 +73,8 @@ class PublishUtils {
                         version moduleProject.versionName
                         setGroupId moduleProject.groupId
                         setArtifactId moduleProject.apiArtifactId
-                        artifact project.tasks.named("compileApi${variantTaskMiddleName}").get()
-                        artifact project.tasks.named("compileApiSource${variantTaskMiddleName}").get()
+                        artifact project.tasks.named("${Constant.P2M_TASK_NAME_PREFIX_COMPILE_MODULE_API}${variantTaskMiddleName}").get()
+                        artifact project.tasks.named("${Constant.P2M_TASK_NAME_PREFIX_COMPILE_MODULE_API_SOURCE}${variantTaskMiddleName}").get()
 
                         if (!project._p2mDevEnv) {
                             pom.withXml {

@@ -1,19 +1,25 @@
 package com.p2m.gradle.task
 
-import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.internal.AbstractTask
-import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.TaskAction
 
 import java.nio.charset.StandardCharsets
 
 class CheckModule extends AbstractTask {
-    
-    ConfigurableFileCollection propertiesConfigurableFileCollection
+
+
+    private RegularFileProperty propertiesFile = project.objects.fileProperty()
+
+    @InputFile
+    RegularFileProperty getPropertiesFile() {
+        return propertiesFile
+    }
 
     @TaskAction
     void doCheck(){
-        def file = propertiesConfigurableFileCollection.getSingleFile()
+        def file = propertiesFile.get().asFile
         file.newReader(StandardCharsets.UTF_8.name()).eachLine { line ->
             def split = line.split("=")
             def attr = split[0]

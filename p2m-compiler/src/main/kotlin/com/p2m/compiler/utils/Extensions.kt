@@ -46,7 +46,7 @@ fun Element.className(): ClassName {
     check(this is TypeElement) {
         "must is TypeElement"
     }
-    return (this as TypeElement).className()
+    return this.className()
 }
 
 /**
@@ -77,6 +77,7 @@ fun VariableElement.isNullable(): Boolean =
  * Maps a variable to its TypeName, applying necessary transformations
  * for Java primitive types & mirroring the variable's nullability settings.
  */
+@Suppress("DEPRECATION")
 fun VariableElement.asPreparedType(): TypeName =
     this.asType()
         .asTypeName()

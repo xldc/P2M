@@ -35,10 +35,13 @@ class Constant {
     public static final P2M_NAME_API = "p2m-core"
     public static final P2M_NAME_ANNOTATION = "p2m-annotation"
     public static final P2M_NAME_COMPILER = "p2m-compiler"
-    public static final P2M_VERSION = "0.0.2"
+    public static final P2M_VERSION = "0.0.3"
     public static final P2M_MODULE_AAR_REPO_NAME = "p2mMavenRepository"
     public static final P2M_PUBLISH_TASK_GROUP = "p2mPublish"
     public static final P2M_MODULE_TASK_GROUP = "p2m"
 
     public static final P2M_CONFIGURATION_NAME_SUFFIX_MODULE_API = "P2MModuleApi"
+    public static final P2M_TASK_NAME_PREFIX_COMPILE_MODULE_API = "p2mCompileApi"
+    public static final P2M_TASK_NAME_PREFIX_COMPILE_MODULE_API_SOURCE = "p2mCompileApiSource"
+    public static final P2M_TASK_NAME_PREFIX_CHECK_MODULE = "p2mCheckModule"
 }

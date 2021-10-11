@@ -12,7 +12,7 @@ buildscript {
 
     dependencies {
         classpath 'com.android.tools.build:gradle:4.0.2'        // 支持3.4.0以上
-        classpath 'com.github.wangdaqi77.P2M:p2m-plugin:0.0.3'  // P2M插件
+        classpath 'com.github.wangdaqi77.P2M:p2m-plugin:0.0.5'  // P2M插件
     }
 }
 

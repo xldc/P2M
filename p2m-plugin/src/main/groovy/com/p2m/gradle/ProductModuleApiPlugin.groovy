@@ -25,7 +25,7 @@ class ProductModuleApiPlugin implements Plugin<Project> {
     void apply(Project project) {
         moduleProject = project.p2mProject
 
-        ModuleProjectUtils.maybeCreateConfigurationForP2MApi(moduleProject)
+        ModuleProjectUtils.maybeCreateModuleApiConfiguration(moduleProject)
 
         moduleProject.project.kapt.arguments {
             if (options == null) return
@@ -151,8 +151,8 @@ class ProductModuleApiPlugin implements Plugin<Project> {
             }
 
             project.artifacts {
-                "${variantName}P2MApi"(compileApiProvider)
-                "${variantName}P2MApi"(compileApiSourceProvider)
+                "$variantName$Constant.P2M_CONFIGURATION_NAME_SUFFIX_MODULE_API"(compileApiProvider)
+                "$variantName$Constant.P2M_CONFIGURATION_NAME_SUFFIX_MODULE_API"(compileApiSourceProvider)
             }
         }
 

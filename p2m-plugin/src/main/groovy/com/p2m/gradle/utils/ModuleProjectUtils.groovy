@@ -8,9 +8,9 @@ import com.p2m.gradle.bean.ProjectNamed
 import org.gradle.api.artifacts.Configuration
 
 class ModuleProjectUtils {
-    static def maybeCreateConfigurationForP2MApi = { ModuleProject moduleProject ->
+    static def maybeCreateModuleApiConfiguration = { ModuleProject moduleProject ->
         AndroidUtils.forEachVariant(moduleProject.project){ BaseVariant variant->
-            Configuration c = moduleProject.project.configurations.maybeCreate("${variant.buildType.name}P2MApi")
+            Configuration c = moduleProject.project.configurations.maybeCreate("$variant.buildType.name$Constant.P2M_CONFIGURATION_NAME_SUFFIX_MODULE_API")
             c.canBeResolved = false
             c.canBeConsumed = true
         }

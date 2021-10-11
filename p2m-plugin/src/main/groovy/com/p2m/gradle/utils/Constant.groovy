@@ -20,14 +20,14 @@ class Constant {
     public static final PLUGIN_ID_KOTLIN_KAPT = "kotlin-kapt"
     public static final PLUGIN_ID_MAVEN_PUBLISH = "maven-publish"
 
-    public static final PROJECT_NAME_P2M_ANNOTATION = "p2m-annotation"
-    public static final PROJECT_NAME_P2M_COMPILER = "p2m-compiler"
-    public static final PROJECT_NAME_P2M_CORE = "p2m-core"
+    public static final P2M_PROJECT_NAME_P2M_ANNOTATION = "p2m-annotation"
+    public static final P2M_PROJECT_NAME_P2M_COMPILER = "p2m-compiler"
+    public static final P2M_PROJECT_NAME_P2M_CORE = "p2m-core"
 
     public static final REPO_P2M_REMOTE = "https://jitpack.io"
 
     public static final LOCAL_PROPERTY_DEV_ENV = "p2m.dev"
-    public static final LOCAL_PROPERTY_REPO_LOCAL = "p2m.repo.local"
+    public static final LOCAL_PROPERTY_USE_LOCAL_REPO_FOR_P2M_PROJECT = "p2m.useLocalRepoForP2MProject"
 
     public static final FILE_GEN_XML_COMMENT = "<!--DON'T EDIT! auto gen by P2M.-->"
     public static final FILE_GEN_CODE_COMMENT = "// DON'T EDIT! auto gen by P2M."
@@ -39,4 +39,6 @@ class Constant {
     public static final P2M_MODULE_AAR_REPO_NAME = "p2mMavenRepository"
     public static final P2M_PUBLISH_TASK_GROUP = "p2mPublish"
     public static final P2M_MODULE_TASK_GROUP = "p2m"
+
+    public static final P2M_CONFIGURATION_NAME_SUFFIX_MODULE_API = "P2MModuleApi"
 }

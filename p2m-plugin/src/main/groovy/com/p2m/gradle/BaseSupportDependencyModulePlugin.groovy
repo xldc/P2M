@@ -57,7 +57,7 @@ abstract class BaseSupportDependencyModulePlugin extends BaseModulePlugin {
     def localDependsOn = { Project project, DependencyHandler dependencyHandler, ModuleProject moduleProject ->
         dependencyHandler.add("runtimeOnly", moduleProject.project)
         AndroidUtils.forEachVariant(project) { BaseVariant variant ->
-            dependencyHandler.add("${variant.buildType.name}CompileOnly", dependencyHandler.project(path: moduleProject.project.path, configuration: "${variant.buildType.name}P2MApi"))
+            dependencyHandler.add("${variant.buildType.name}CompileOnly", dependencyHandler.project(path: moduleProject.project.path, configuration: "$variant.buildType.name$Constant.P2M_CONFIGURATION_NAME_SUFFIX_MODULE_API"))
         }
     }
 }

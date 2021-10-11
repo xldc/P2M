@@ -26,12 +26,12 @@ import org.gradle.util.ConfigureUtil
 class AndroidP2MPlugin implements Plugin<Settings> {
     // private def moduleGraph = new ModuleGraph()
     private P2MConfig p2mConfig
-    boolean existRunAppModule = false
-    ModuleProjectConfig supportRunAppModuleProjectConfig
+    private boolean existRunAppModule = false
+    private ModuleProjectConfig supportRunAppModuleProjectConfig
 
-    Map<ModuleNamed, ModuleProject> moduleProjectTable = new HashMap()
-    Map<ModuleNamed, LocalModuleProject> localModuleProjectTable = new HashMap<>()
-    Map<ModuleNamed, RemoteModuleProject> remoteModuleProjectTable = new HashMap<>()
+    private Map<ModuleNamed, ModuleProject> moduleProjectTable = new HashMap()
+    private Map<ModuleNamed, LocalModuleProject> localModuleProjectTable = new HashMap<>()
+    private Map<ModuleNamed, RemoteModuleProject> remoteModuleProjectTable = new HashMap<>()
 
     @Override
     void apply(final Settings settings) {
@@ -39,19 +39,15 @@ class AndroidP2MPlugin implements Plugin<Settings> {
         p2mConfig = settings.extensions.create("p2m", P2MConfig.class, settings)
         settings.gradle.addBuildListener(new BuildListener() {
             @Override
-            void buildStarted(Gradle gradle) {
-
-            }
+            void buildStarted(Gradle gradle) { }
 
             @Override
             void settingsEvaluated(Settings settings1) {
+                loadDevEnvForDeveloper(settings)
 
+                evaluateModulesFromConfigExtensions(settings)
 
-                checkAndLoadDevEnv(settings)
-
-                evaluateConfig(settings)
-
-                startInclude(settings)
+                startIncludeModulesByConfig(settings)
             }
 
             @Override
@@ -59,21 +55,22 @@ class AndroidP2MPlugin implements Plugin<Settings> {
                 settings.gradle.removeListener(this)
 
                 def rootProject = gradle.rootProject
-                rootProject.ext.p2mDevEnv = p2mConfig._devEnv
-                genP2MDependencyConfig(rootProject)
+                rootProject.ext._p2mDevEnv = p2mConfig._devEnv
+
+                genP2MProjectDependencyConfig(rootProject)
 
                 genModuleProjectTable(rootProject)
 
-                configLocalModuleProject(rootProject)
+                configLocalModuleProject()
 
-                configRemoteModuleProject(rootProject)
+                configRemoteModuleProject()
 
                 if (!existRunAppModule) {
                     configAppProject(rootProject)
                 }
 
-                dependencyConfigCommon(rootProject)
-
+                // 为所有apply "com.android.library"插件的项目编译时依赖P2M project
+                dependencyP2MProjectForAllApplyAndroidLibraryPluginProject(rootProject)
             }
 
             @Override
@@ -84,7 +81,7 @@ class AndroidP2MPlugin implements Plugin<Settings> {
         })
     }
 
-    private def checkAppConfig(BaseProject project) {
+    private static def checkAppConfig(BaseProject project) {
         def applicationId = project.project.android.defaultConfig.applicationId
         if (applicationId == null) {
             project.error(
@@ -92,7 +89,6 @@ class AndroidP2MPlugin implements Plugin<Settings> {
                         Please configure at the end in ${project.project.projectDir.absolutePath}/build.gradle.
                         p2mRunAppBuildGradle {
                             android {
-                            
                                 defaultConfig{
                                     applicationId "your value"
                                 }
@@ -117,12 +113,11 @@ class AndroidP2MPlugin implements Plugin<Settings> {
         }
     }
 
-    private def configRemoteModuleProject(Project rootProject) {
-        remoteModuleProjectTable.values().forEach { RemoteModuleProject moduleProject ->
-        }
+    private def configRemoteModuleProject() {
+        remoteModuleProjectTable.values().forEach { RemoteModuleProject moduleProject -> }
     }
 
-    private def configLocalModuleProject(Project rootProject) {
+    private def configLocalModuleProject() {
         localModuleProjectTable.values().forEach { LocalModuleProject moduleProject ->
             moduleProject.project.ext.runApp = moduleProject.runApp
             moduleProject.project.ext.p2mProject = moduleProject
@@ -176,7 +171,7 @@ class AndroidP2MPlugin implements Plugin<Settings> {
         }
     }
 
-    private def dependencyConfigCommon(Project rootProject) {
+    private static def dependencyP2MProjectForAllApplyAndroidLibraryPluginProject(Project rootProject) {
         rootProject.allprojects.each { project ->
             project.beforeEvaluate {
                 if (project.name != Constant.P2M_NAME_API && project.plugins.hasPlugin(Constant.PLUGIN_ID_ANDROID_LIBRARY)) {
@@ -186,10 +181,10 @@ class AndroidP2MPlugin implements Plugin<Settings> {
         }
     }
 
-    private def genP2MDependencyConfig(Project rootProject) {
+    private def genP2MProjectDependencyConfig(Project rootProject) {
         rootProject.allprojects {
             repositories {
-                if (p2mConfig._isRepoLocal) {
+                if (p2mConfig._useLocalRepoForP2MProject) {
                     mavenLocal()
                 }
                 maven { url Constant.REPO_P2M_REMOTE }
@@ -259,7 +254,6 @@ class AndroidP2MPlugin implements Plugin<Settings> {
     }
 
     private def createMainAppProject(Project rootProject, appProjectConfig, Map<ModuleNamed, ModuleProject> moduleProjectTable) {
-
         def iterator = rootProject.subprojects.iterator()
         while (iterator.hasNext()) {
             def project = iterator.next()
@@ -299,18 +293,17 @@ class AndroidP2MPlugin implements Plugin<Settings> {
     }
 
 
-    private def startInclude(Settings settings) {
-
+    private def startIncludeModulesByConfig(Settings settings) {
         if (!existRunAppModule) {
+            // include app壳
             p2mConfig.appProjectConfigs.forEach { appProjectConfig ->
                 println("include App[${appProjectConfig._projectPath}]")
                 includeProject(settings, appProjectConfig)
             }
-
         }
 
+        // include Modules
         p2mConfig.modulesConfig.forEach { key, moduleConfig ->
-
             if (moduleConfig.useRepo) {
                 println("include Module ${moduleConfig._moduleNamed.get()}[remote aar(group=${moduleConfig.groupId} version=${moduleConfig.versionName})]")
             } else {
@@ -320,7 +313,7 @@ class AndroidP2MPlugin implements Plugin<Settings> {
         }
     }
 
-    private def moduleConfigEvaluate(Settings settings, BaseProjectConfig moduleConfig) {
+    private static def moduleConfigEvaluate(Settings settings, BaseProjectConfig moduleConfig) {
         def projectDescriptor = moduleConfig._projectPath
         if (projectDescriptor == null) {
             throw new P2MSettingsException(StatementClosureUtils.getStatementMissingClosureTip(moduleConfig, "include", "your project name", "projectDir = new File(\"your project path\")"))
@@ -334,9 +327,9 @@ class AndroidP2MPlugin implements Plugin<Settings> {
         }
     }
 
-    private def checkAndLoadDevEnv(Settings settings) {
+    private def loadDevEnvForDeveloper(Settings settings) {
         def isDevEnv = false
-        def isRepoLocal = false
+        def useLocalRepoForP2MProject = false
         def localProperties = new Properties()
         def localPropertiesFile = new File(settings.rootDir, "local.properties")
 
@@ -349,36 +342,45 @@ class AndroidP2MPlugin implements Plugin<Settings> {
                 isDevEnv = localProperties.getProperty(Constant.LOCAL_PROPERTY_DEV_ENV).toBoolean()
             }
 
-            if (localProperties.getProperty(Constant.LOCAL_PROPERTY_REPO_LOCAL) != null) {
-                isRepoLocal = localProperties.getProperty(Constant.LOCAL_PROPERTY_REPO_LOCAL).toBoolean()
+            if (localProperties.getProperty(Constant.LOCAL_PROPERTY_USE_LOCAL_REPO_FOR_P2M_PROJECT) != null) {
+                useLocalRepoForP2MProject = localProperties.getProperty(Constant.LOCAL_PROPERTY_USE_LOCAL_REPO_FOR_P2M_PROJECT).toBoolean()
             }
         }
 
         if (isDevEnv) {
-            settings.include(":${Constant.PROJECT_NAME_P2M_CORE}")
-            settings.project(":${Constant.PROJECT_NAME_P2M_CORE}").projectDir = new File("../${Constant.PROJECT_NAME_P2M_CORE}")
-            settings.include(":${Constant.PROJECT_NAME_P2M_COMPILER}")
-            settings.project(":${Constant.PROJECT_NAME_P2M_COMPILER}").projectDir = new File("../${Constant.PROJECT_NAME_P2M_COMPILER}")
-            settings.include(":${Constant.PROJECT_NAME_P2M_ANNOTATION}")
-            settings.project(":${Constant.PROJECT_NAME_P2M_ANNOTATION}").projectDir = new File("../${Constant.PROJECT_NAME_P2M_ANNOTATION}")
+            settings.include(":${Constant.P2M_PROJECT_NAME_P2M_CORE}")
+            settings.project(":${Constant.P2M_PROJECT_NAME_P2M_CORE}").projectDir = new File("../${Constant.P2M_PROJECT_NAME_P2M_CORE}")
+            settings.include(":${Constant.P2M_PROJECT_NAME_P2M_COMPILER}")
+            settings.project(":${Constant.P2M_PROJECT_NAME_P2M_COMPILER}").projectDir = new File("../${Constant.P2M_PROJECT_NAME_P2M_COMPILER}")
+            settings.include(":${Constant.P2M_PROJECT_NAME_P2M_ANNOTATION}")
+            settings.project(":${Constant.P2M_PROJECT_NAME_P2M_ANNOTATION}").projectDir = new File("../${Constant.P2M_PROJECT_NAME_P2M_ANNOTATION}")
         }
         p2mConfig._devEnv = isDevEnv
-        p2mConfig._isRepoLocal = isRepoLocal
+        p2mConfig._useLocalRepoForP2MProject = useLocalRepoForP2MProject
     }
 
-    private def evaluateConfig(Settings settings) {
-
+    private def evaluateModulesFromConfigExtensions(Settings settings) {
         def appProjectConfigs = p2mConfig.appProjectConfigs
         if (appProjectConfigs == null || appProjectConfigs.empty) {
-            throw new P2MSettingsException("\nPlease config content in settings.gradle\n" +
+            throw new P2MSettingsException("Please add p2m config content in settings.gradle, ex:\n" +
                     "p2m {\n" +
                     "   app {\n" +
                     "       include(\":{your app project name}\") {\n" +
                     "           projectDir = new File(\"{project path}\")\n" +
                     "       }\n" +
                     "       dependencies {\n" +
-                    "           ${NamedUtils.getStatement(new ModuleNamed("{your module 1}"))}\n" +
-                    "           ${NamedUtils.getStatement(new ModuleNamed("{your module 2}"))}\n" +
+                    "           ${NamedUtils.getStatement(new ModuleNamed("{your module name 1}"))}\n" +
+                    "           ${NamedUtils.getStatement(new ModuleNamed("{your module name 2}"))}\n" +
+                    "           ... \n" +
+                    "       }\n" +
+                    "   }\n" +
+                    "   module(\"{your module name}\") {\n" +
+                    "       include(\":{your module project name}\") {\n" +
+                    "           projectDir = new File(\"{project path}\")\n" +
+                    "       }\n" +
+                    "       dependencies {\n" +
+                    "           ${NamedUtils.getStatement(new ModuleNamed("{your module name 1}"))}\n" +
+                    "           ${NamedUtils.getStatement(new ModuleNamed("{your module name 2}"))}\n" +
                     "           ... \n" +
                     "       }\n" +
                     "   }\n" +
@@ -390,7 +392,6 @@ class AndroidP2MPlugin implements Plugin<Settings> {
             appProjectConfig.runAppConfig.enabled = false
             moduleConfigEvaluate(settings, appProjectConfig)
         }
-
 
         p2mConfig.modulesConfig.forEach { Named named, ModuleProjectConfig moduleConfig ->
             moduleConfigEvaluate(settings, moduleConfig)

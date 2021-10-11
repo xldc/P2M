@@ -76,7 +76,7 @@ class PublishUtils {
                         artifact project.tasks.named("compileApi${variantTaskMiddleName}").get()
                         artifact project.tasks.named("compileApiSource${variantTaskMiddleName}").get()
 
-                        if (!project.p2mDevEnv) {
+                        if (!project._p2mDevEnv) {
                             pom.withXml {
                                 def dependenciesNode = asNode().appendNode('dependencies')
                                 def dependencyNode = dependenciesNode.appendNode('dependency')

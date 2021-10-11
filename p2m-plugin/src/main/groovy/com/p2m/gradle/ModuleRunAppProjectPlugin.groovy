@@ -4,7 +4,6 @@ import com.p2m.gradle.bean.LocalModuleProject
 import com.p2m.gradle.bytecode.P2MTransform
 import com.p2m.gradle.utils.ModuleProjectUtils
 import com.p2m.gradle.utils.RunAppConfigUtils
-import com.p2m.gradle.BaseSupportDependencyModulePlugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.dsl.DependencyHandler
 

@@ -106,6 +106,7 @@ Source code区是指编写和存放代码的区域，每个模块的Source code�
 │   └── build.gradle
 ├── module-account                          // 模块Account
 │   ├── src
+│   │   ├── app/kotlin/package              // 模块作为app独立运行时的包
 │   │   └── main/kotlin/package
 │   │       ├── AccountModuleInit.kt        // 模块Account初始化类
 │   │       ├── AccountEvent.kt             // 模块Account定义事件类
@@ -116,10 +117,15 @@ Source code区是指编写和存放代码的区域，每个模块的Source code�
 │   └── build.gradle
 ├── module-main                             // 模块Main
 │   ├── src
+│   │   ├── app/kotlin/package              // 模块作为app独立运行时的包
 │   │   └── main/kotlin/package
 │   │       ├── MainModuleInit.kt           // 模块Main初始化类
 │   │       └── MainActivity.kt             // 主界面
 │   └── build.gradle
+├── lib-http                                // http库
+│   └── src
+│       └── main/kotlin/package
+│           └── Http.kt                     // Http请求类
 ├── build.gradle
 └── settings.gradle                         // P2M项目配置
 ```

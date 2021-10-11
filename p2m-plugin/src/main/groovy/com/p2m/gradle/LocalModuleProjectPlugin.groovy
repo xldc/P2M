@@ -1,7 +1,6 @@
 package com.p2m.gradle
 
 import com.p2m.gradle.bean.LocalModuleProject
-import com.p2m.gradle.BaseSupportDependencyModulePlugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.dsl.DependencyHandler
 

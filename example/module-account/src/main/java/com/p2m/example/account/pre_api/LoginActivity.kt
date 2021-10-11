@@ -12,6 +12,7 @@ import com.p2m.core.P2M
 import com.p2m.annotation.module.api.Launcher
 import com.p2m.example.account.UserDiskCache
 import com.p2m.example.account.R
+import com.p2m.example.http.Http
 import com.p2m.module.api.Account
 
 import java.util.*
@@ -39,9 +40,11 @@ class LoginActivity : AppCompatActivity() {
     private fun login(userName: String, pwd: String) {
         loading?.visibility = View.VISIBLE
         // 模拟登录成功
-        loading?.postDelayed({
-            onLoginSuccess(userName, UUID.randomUUID().toString())
-        }, 2000)
+        Http.request {
+            runOnUiThread {
+                onLoginSuccess(userName, UUID.randomUUID().toString())
+            }
+        }
     }
 
     private fun onLoginSuccess(userName:String, id:String) {

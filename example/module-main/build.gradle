@@ -48,6 +48,6 @@ p2mRunAppBuildGradle {
     }
 
     dependencies {
-        // ...
+        implementation project(":lib-http")
     }
 }

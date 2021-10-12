@@ -43,6 +43,8 @@ class AndroidP2MPlugin implements Plugin<Settings> {
 
             @Override
             void settingsEvaluated(Settings settings1) {
+                println("======P2M version:${Constant.P2M_VERSION}======")
+
                 loadDevEnvForDeveloper(settings)
 
                 evaluateModulesFromConfigExtensions(settings)
@@ -275,7 +277,7 @@ class AndroidP2MPlugin implements Plugin<Settings> {
             if (moduleTable[dependencyModuleNamed] == null) {
                 ownerProject.error("Dependency ${NamedUtils.getStatement(dependencyModuleNamed)} not exist, Please check in settings.gradle.")
             }
-            println("${ownerProject} depends on ${moduleTable[dependencyModuleNamed]}")
+            println("p2m: ${ownerProject} depends on ${moduleTable[dependencyModuleNamed]}")
             if (ownerProject.moduleNamed == dependencyModuleNamed) {
                 ownerProject.error("Unsupport depends on self! Please check ${NamedUtils.getStatement(ownerProject.moduleNamed)} in settings.gradle.")
             }
@@ -297,7 +299,7 @@ class AndroidP2MPlugin implements Plugin<Settings> {
         if (!existRunAppModule) {
             // include app壳
             p2mConfig.appProjectConfigs.forEach { appProjectConfig ->
-                println("include App[${appProjectConfig._projectPath}]")
+                println("p2m: include App[${appProjectConfig._projectPath}]")
                 includeProject(settings, appProjectConfig)
             }
         }
@@ -305,9 +307,9 @@ class AndroidP2MPlugin implements Plugin<Settings> {
         // include Modules
         p2mConfig.modulesConfig.forEach { key, moduleConfig ->
             if (moduleConfig.useRepo) {
-                println("include Module ${moduleConfig._moduleNamed.get()}[remote aar(group=${moduleConfig.groupId} version=${moduleConfig.versionName})]")
+                println("p2m: include Module ${moduleConfig._moduleNamed.get()}[remote aar(group=${moduleConfig.groupId} version=${moduleConfig.versionName})]")
             } else {
-                println("include Module ${moduleConfig._moduleNamed.get()}[${moduleConfig._projectPath}]")
+                println("p2m: include Module ${moduleConfig._moduleNamed.get()}[${moduleConfig._projectPath}]")
                 includeProject(settings, moduleConfig)
             }
         }

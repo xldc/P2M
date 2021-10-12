@@ -261,7 +261,7 @@ class P2MProcessor : BaseProcessor() {
     private fun writeModuleApiClassesProperties(writer: Writer) {
         genModuleApiProperties().forEach { (attr, value) ->
             writer.write("${attr}=${value}\n")
-            mLogger.info("$optionModuleName -> $FILE_NAME_PROPERTIES ${attr}=${value}\n")
+            // mLogger.info("$optionModuleName -> $FILE_NAME_PROPERTIES ${attr}=${value}\n")
         }
     }
 

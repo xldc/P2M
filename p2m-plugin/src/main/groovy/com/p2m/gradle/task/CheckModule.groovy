@@ -1,13 +1,13 @@
 package com.p2m.gradle.task
 
 import org.gradle.api.file.RegularFileProperty
-import org.gradle.api.internal.AbstractTask
+import org.gradle.api.DefaultTask
 import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.TaskAction
 
 import java.nio.charset.StandardCharsets
 
-class CheckModule extends AbstractTask {
+class CheckModule extends DefaultTask {
 
 
     private RegularFileProperty propertiesFile = project.objects.fileProperty()

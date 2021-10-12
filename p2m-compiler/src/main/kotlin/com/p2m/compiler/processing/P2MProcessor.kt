@@ -38,7 +38,8 @@ import javax.tools.StandardLocation
     "com.p2m.annotation.module.ModuleInitializer"
 )
 @SupportedOptions(
-    OPTION_MODULE_NAME
+    OPTION_MODULE_NAME,
+    "org.gradle.annotation.processing.aggregating"
 )
 class P2MProcessor : BaseProcessor() {
 

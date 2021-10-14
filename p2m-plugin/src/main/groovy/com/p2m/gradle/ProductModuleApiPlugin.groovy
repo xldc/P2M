@@ -86,8 +86,8 @@ class ProductModuleApiPlugin implements Plugin<Project> {
                 dependsOn(kaptKotlin)
                 dependsOn(checkModuleProvider)
                 dependsOn(compileKotlin)
-                archiveName = apiJarName
-                destinationDir = p2mApiJarDir
+                archiveFileName.set(apiJarName)
+                destinationDirectory.set(p2mApiJarDir)
                 inputKaptDirCollection = kaptKotlin.get().destinationDir // for UP-TO-DATE
                 inputKotlinCompilerOutput = compileKotlin.get().source // for UP-TO-DATE
                 // value like java/lang/String
@@ -121,13 +121,13 @@ class ProductModuleApiPlugin implements Plugin<Project> {
                 description = "compile ${moduleProject.getModuleName()} module api source for ${variantName}"
                 dependsOn(kaptKotlin)
                 dependsOn(checkModuleProvider)
-                archiveName = apiSourceJarName
+                archiveFileName.set(apiSourceJarName)
+                destinationDirectory.set(p2mApiJarDir)
+                archiveClassifier.set('sources')
                 // java/lang/String
                 List<String> exportApiSourcePathList = new ArrayList<>()
-                classifier 'sources'
                 inputKaptDirCollection = kaptKotlin.get().destinationDir // for UP-TO-DATE
                 inputKotlinCompilerOutput = compileKotlin.get().source // for UP-TO-DATE
-                destinationDir = p2mApiJarDir
                 doFirst {
                     p2mApiPropertiesConfigurableFileCollection.getSingleFile().newReader(StandardCharsets.UTF_8.name()).eachLine { line ->
                         def split = line.split("=")

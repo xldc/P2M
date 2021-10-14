@@ -53,8 +53,8 @@ class PublishUtils {
             def sourcesJar = project.tasks.register("sourcesJarForPublishModule", Jar.class) {
                 dependsOn(kaptKotlin)
                 group = Constant.P2M_PUBLISH_TASK_GROUP
+                archiveFileName.set("${moduleProject.moduleName}-module-sources.jar")
                 archiveClassifier.set(project.provider { 'sources' })
-                archiveName = "${moduleProject.moduleName}-module-sources.jar"
                 from project.android.sourceSets.main.java.srcDirs
                 from kaptKotlin.get().destinationDir
             }

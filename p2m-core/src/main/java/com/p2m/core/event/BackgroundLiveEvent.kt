@@ -25,6 +25,21 @@ interface BackgroundLiveEvent<T> {
         operator fun setValue(thisRef: Any?, property: KProperty<*>, value: BackgroundLiveEvent<T>) = Unit
     }
 
+    class MutableDelegate<T> {
+        private val real by lazy { InternalBackgroundLiveEvent<T>() }
+
+        operator fun getValue(thisRef: Any?, property: KProperty<*>): MutableBackgroundLiveEvent<T> = real
+
+        operator fun setValue(thisRef: Any?, property: KProperty<*>, value: MutableBackgroundLiveEvent<T>) = Unit
+    }
+
+    class InternalMutableDelegate<T>(private val real: BackgroundLiveEvent<T>) {
+
+        operator fun getValue(thisRef: Any?, property: KProperty<*>): MutableBackgroundLiveEvent<T> = real as MutableBackgroundLiveEvent
+
+        operator fun setValue(thisRef: Any?, property: KProperty<*>, value: MutableBackgroundLiveEvent<T>) = Unit
+    }
+
     fun observe(owner: LifecycleOwner, observer: Observer<in T>)
 
     fun observeForever(observer: Observer<in T>)
@@ -49,11 +64,14 @@ interface BackgroundLiveEvent<T> {
 
     fun hasObservers(): Boolean
 
+    fun getValue(): T?
+}
+
+interface MutableBackgroundLiveEvent<T> : BackgroundLiveEvent<T> {
+
     fun postValue(value: T)
 
     fun setValue(value: T)
-
-    fun getValue(): T?
 }
 
 enum class ObserveOn {

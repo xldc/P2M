@@ -14,6 +14,7 @@ import com.p2m.example.account.UserDiskCache
 import com.p2m.example.account.R
 import com.p2m.example.http.Http
 import com.p2m.module.api.Account
+import com.p2m.module.impl.mutable
 
 import java.util.*
 
@@ -60,7 +61,7 @@ class LoginActivity : AppCompatActivity() {
         userDiskCache.saveLoginState(true)
         userDiskCache.saveLoginUserInfo(loginUserInfo)
         
-        P2M.moduleApiOf(Account::class.java).event.run {
+        P2M.moduleApiOf(Account::class.java).event.mutable().apply {
             loginState.setValue(true)        // 发送登录状态事件
             loginInfo.setValue(loginUserInfo)      // 发送用户信息事件
             loginSuccess.setValue(Unit)            // 发送主动登录成功事件

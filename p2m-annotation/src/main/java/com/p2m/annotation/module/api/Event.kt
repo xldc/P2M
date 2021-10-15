@@ -2,8 +2,8 @@ package com.p2m.annotation.module.api
 
 /**
  * Class annotated by [Event], it will generate a event interface for the module and
- * provide to dependant module, member property of the class can use [EventField]
- * annotation, will set default [EventField] if no annotated.
+ * provide to dependant module, member property of the class is effective that use
+ * [EventField] annotation.
  *
  * A module has only one.
  */

@@ -5,6 +5,7 @@ import com.p2m.core.P2M
 import com.p2m.annotation.module.api.*
 import com.p2m.example.account.UserDiskCache
 import com.p2m.module.api.Account
+import com.p2m.module.impl.mutable
 
 @Service
 class AccountService{
@@ -17,10 +18,11 @@ class AccountService{
         // 清除用户缓存
         P2M.moduleApiOf(Account::class.java)
             .event
+            .mutable()
             .apply {
                 val userDiskCache = UserDiskCache(context)
                 userDiskCache.clear()
-                
+
                 loginState.setValue(false)
                 loginInfo.setValue(null)
             }

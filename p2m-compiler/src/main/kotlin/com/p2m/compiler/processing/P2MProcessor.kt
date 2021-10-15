@@ -464,19 +464,19 @@ class P2MProcessor : BaseProcessor() {
             launcherVarName,
             genModuleLauncherResult.launcherInterfaceClassName,
             KModifier.OVERRIDE
-        ).mutable(false).delegate("lazy(kotlin.LazyThreadSafetyMode.SYNCHRONIZED) { ${genModuleLauncherResult.getImplInstanceStatement()} }").build()
+        ).mutable(false).delegate("lazy() { ${genModuleLauncherResult.getImplInstanceStatement()} }").build()
 
         val serviceProperty = PropertySpec.builder(
             serviceVarName,
             genModuleServiceResult.serviceInterfaceClassName,
             KModifier.OVERRIDE
-        ).mutable(false).delegate("lazy(kotlin.LazyThreadSafetyMode.SYNCHRONIZED) { ${genModuleServiceResult.getImplInstanceStatement()} }").build()
+        ).mutable(false).delegate("lazy() { ${genModuleServiceResult.getImplInstanceStatement()} }").build()
 
         val eventProperty = PropertySpec.builder(
             eventVarName,
             genModuleEventResult.eventInterfaceClassName,
             KModifier.OVERRIDE
-        ).mutable(false).delegate("lazy(kotlin.LazyThreadSafetyMode.SYNCHRONIZED) { ${genModuleEventResult.getImplInstanceStatement()} }").build()
+        ).mutable(false).delegate("lazy() { ${genModuleEventResult.getImplInstanceStatement()} }").build()
 
         // 模块实现类
         val apiImplTypeSpecBuilder = TypeSpec
@@ -583,7 +583,7 @@ class P2MProcessor : BaseProcessor() {
             launcherRealRefName,
             launcherClassName,
             KModifier.PRIVATE
-        ).mutable(false).delegate("lazy(kotlin.LazyThreadSafetyMode.SYNCHRONIZED) { %T() }", launcherClassName).build()
+        ).mutable(false).delegate("lazy() { %T() }", launcherClassName).build()
 
         val launcherImplTypeSpecBuilder = launcherInterfaceTypeSpec.toBuilder(
             TypeSpec.Kind.CLASS,
@@ -751,7 +751,7 @@ class P2MProcessor : BaseProcessor() {
             serviceRealRefName,
             serviceClassNameOrigin,
             KModifier.PRIVATE
-        ).mutable(false).delegate("lazy(kotlin.LazyThreadSafetyMode.SYNCHRONIZED) { %T() }", serviceClassNameOrigin).build()
+        ).mutable(false).delegate("lazy() { %T() }", serviceClassNameOrigin).build()
 
         val serviceImplTypeSpecBuilder = serviceInterfaceTypeSpec.toBuilder(
             TypeSpec.Kind.CLASS,
@@ -879,9 +879,11 @@ class P2MProcessor : BaseProcessor() {
             .addKdoc("\n")
 
         val eventOriginPropertySpecs = eventTypeSpecOrigin.propertySpecs
+            .filter { eventFieldMap.containsKey(it.name) }
 
         val eventClassNames = mutableMapOf<String, ClassName>()
-        val eventInterfacePropertySpecs = eventOriginPropertySpecs.map {
+        val eventInterfacePropertySpecs = eventOriginPropertySpecs
+            .filter { eventFieldMap.containsKey(it.name) }.map {
             val eventField = eventFieldMap[it.name]?.first
             val eventDoc = eventFieldMap[it.name]?.second
             val eventOn = eventField?.eventOn ?: EventOn.MAIN
@@ -907,6 +909,7 @@ class P2MProcessor : BaseProcessor() {
 
         // Event代理类，代理被注解的类
         val eventImplClassName = ClassName(implPackageName, "_${eventInterfaceSimpleName}")
+        val internalMutableEventImplClassName = ClassName(implPackageName, "_${eventInterfaceSimpleName}_Mutable")
 
         // real属性
         val eventRealRefName = "eventReal"
@@ -922,9 +925,57 @@ class P2MProcessor : BaseProcessor() {
             TypeSpec.Kind.CLASS,
             name = eventImplClassName.simpleName
         )
+
+        val internalMutableEventImplType = TypeSpec.classBuilder(
+            name = internalMutableEventImplClassName.simpleName
+        ).run {
+            val srcPropertyRefName = "real"
+            addModifiers(KModifier.INTERNAL)
+            primaryConstructor(FunSpec.constructorBuilder().run {
+                addParameter(srcPropertyRefName, eventImplClassName)
+                build()
+            })
+            addProperty(
+                PropertySpec.builder(srcPropertyRefName, eventImplClassName)
+                    .initializer(srcPropertyRefName)
+                    .addModifiers(KModifier.PRIVATE)
+                    .build()
+            )
+            addProperty(PropertySpec.builder(srcPropertyRefName, eventImplClassName).run {
+                addModifiers(KModifier.PRIVATE)
+                mutable(false)
+                build()
+            })
+            addProperties(eventOriginPropertySpecs.map {
+                val eventField = eventFieldMap[it.name]?.first
+                val eventDoc = eventFieldMap[it.name]?.second
+                val eventOn = eventField?.eventOn ?: EventOn.MAIN
+                val eventClassName = when (eventOn) {
+                    EventOn.MAIN -> ClassName(PACKAGE_NAME_EVENT, CLASS_MUTABLE_LIVE_EVENT)
+                    EventOn.BACKGROUND -> ClassName(
+                        PACKAGE_NAME_EVENT,
+                        CLASS_MUTABLE_BACKGROUND_EVENT
+                    )
+                }
+                PropertySpec.builder(it.name, eventClassName.parameterizedBy(it.type)).run {
+                    mutable(false)
+                    delegate(
+                        "%T.$CLASS_EVENT_INTERNAL_MUTABLE_DELEGATE(%L.%L)",
+                        eventClassNames[it.name],
+                        srcPropertyRefName,
+                        it.name
+                    )
+                    eventDoc?.let(::addKdoc)
+                    build()
+                }
+
+            })
+            build()
+        }
+
         eventImplTypeSpecBuilder.addSuperinterface(eventInterfaceClassName)
         eventImplTypeSpecBuilder.addProperty(eventRealProperty)
-        val eventImplFunSpecs = eventOriginPropertySpecs.map {
+        val eventImplPropertySpecs = eventOriginPropertySpecs.map {
             val eventDoc = eventFieldMap[it.name]?.second
             val propertySpecBuilder = PropertySpec.builder(it.name, eventClassNames[it.name]!!.parameterizedBy(
                 it.type
@@ -936,19 +987,37 @@ class P2MProcessor : BaseProcessor() {
             propertySpecBuilder.delegate(
                 CodeBlock
                     .builder()
-                    .add("%T.Delegate()", eventClassNames[it.name])
+                    .add("%T.$CLASS_EVENT_DELEGATE()", eventClassNames[it.name])
                     .build()
             )
             propertySpecBuilder.apply { eventDoc?.let(::addKdoc) }
             propertySpecBuilder.build()
         }
 
+        val eventImplInternalMutableEventPropertyName = "_mutable"
+        val eventImplInternalMutableEventProperty : PropertySpec = PropertySpec.builder(eventImplInternalMutableEventPropertyName, internalMutableEventImplClassName).run {
+            addModifiers(KModifier.INTERNAL)
+            mutable(false)
+            delegate("lazy() { %T(this) }", internalMutableEventImplClassName)
+            build()
+        }
+
         eventImplTypeSpecBuilder.propertySpecs.clear()
-        eventImplTypeSpecBuilder.addProperties(eventImplFunSpecs)
+        eventImplTypeSpecBuilder.addProperty(eventImplInternalMutableEventProperty)
+        eventImplTypeSpecBuilder.addProperties(eventImplPropertySpecs)
         val eventImplTypeSpec = eventImplTypeSpecBuilder.build()
+
+        val eventImplInternalMutableExtFun = FunSpec.builder("mutable")
+            .addModifiers(KModifier.INTERNAL)
+            .receiver(eventInterfaceClassName)
+            .returns(internalMutableEventImplClassName)
+            .addStatement("return (this as %T).%L", eventImplClassName, eventImplInternalMutableEventPropertyName)
+            .build()
 
         apiFileSpecBuilder.addType(eventInterfaceTypeSpec)
         apiImplFileSpecBuilder.addType(eventImplTypeSpec)
+        apiImplFileSpecBuilder.addFunction(eventImplInternalMutableExtFun)
+        apiImplFileSpecBuilder.addType(internalMutableEventImplType)
         return GenModuleEventResult(
             eventInterfaceClassName,
             eventImplClassName

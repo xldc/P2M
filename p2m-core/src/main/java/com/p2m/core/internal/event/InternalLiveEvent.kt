@@ -1,6 +1,5 @@
 package com.p2m.core.internal.event
 
-import com.p2m.core.event.LiveEvent
 import wang.lifecycle.MutableLiveEvent
 
 /**
@@ -8,7 +7,7 @@ import wang.lifecycle.MutableLiveEvent
  *
  * @param T The type of data hold by this instance
  */
-internal class InternalLiveEvent<T> : MutableLiveEvent<T>, LiveEvent<T> {
+internal class InternalLiveEvent<T> : MutableLiveEvent<T>, com.p2m.core.event.MutableLiveEvent<T> {
 
     /**
      * Creates a InternalMixedLiveEvent initialized with the given value.

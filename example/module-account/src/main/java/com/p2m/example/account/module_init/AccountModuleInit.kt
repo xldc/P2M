@@ -5,6 +5,7 @@ import com.p2m.core.module.*
 import com.p2m.module.api.Account
 import com.p2m.core.module.task.TaskOutputProvider
 import com.p2m.core.module.task.TaskRegister
+import com.p2m.module.impl.mutable
 
 @ModuleInitializer
 class AccountModuleInit : ModuleInit {
@@ -26,8 +27,8 @@ class AccountModuleInit : ModuleInit {
         val loginInfo = taskOutputProvider.getOutputOf(LoadLastUserTask::class.java)    // 获取用户信息
 
         val account = moduleProvider.moduleApiOf(Account::class.java)  // 找到自身的Api区，在Module init区不能调用P2M.moduleApiOf()
-        account.event.loginState.setValue(loginState ?: false)      // 保存到事件持有者，提供给被依赖的模块使用
-        account.event.loginInfo.setValue(loginInfo)                 // 保存到事件持有者，提供给被依赖的模块使用
+        account.event.mutable().loginState.setValue(loginState ?: false)      // 保存到事件持有者，提供给被依赖的模块使用
+        account.event.mutable().loginInfo.setValue(loginInfo)                 // 保存到事件持有者，提供给被依赖的模块使用
     }
 
 }

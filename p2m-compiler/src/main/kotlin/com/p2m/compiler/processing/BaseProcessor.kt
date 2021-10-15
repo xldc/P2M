@@ -29,6 +29,11 @@ abstract class BaseProcessor : AbstractProcessor() {
         const val PACKAGE_NAME_EVENT = "com.p2m.core.event"
         const val CLASS_LIVE_EVENT = "LiveEvent"
         const val CLASS_BACKGROUND_EVENT = "BackgroundLiveEvent"
+        const val CLASS_MUTABLE_LIVE_EVENT = "MutableLiveEvent"
+        const val CLASS_MUTABLE_BACKGROUND_EVENT = "MutableBackgroundLiveEvent"
+        const val CLASS_EVENT_DELEGATE = "Delegate"
+        const val CLASS_EVENT_MUTABLE_DELEGATE = "MutableDelegate"
+        const val CLASS_EVENT_INTERNAL_MUTABLE_DELEGATE = "InternalMutableDelegate"
     }
 
     lateinit var options: Map<String, String>

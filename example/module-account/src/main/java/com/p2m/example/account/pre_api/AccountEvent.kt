@@ -12,15 +12,22 @@ interface AccountEvent{
      *
      * 信息发生变化时发送事件
      */
-    // @EventField 默认
+    @EventField(EventOn.MAIN)
     val loginInfo: LoginUserInfo?
+
+    /**
+     * 登录用户信息
+     *
+     * 信息发生变化时发送事件
+     */
+    val loginInfo1: LoginUserInfo?
 
     /**
      * 登录状态
      *
      * 状态发生变化时发送事件
      */
-    @EventField
+    @EventField // 等效于 @EventField(EventOn.MAIN)
     val loginState: Boolean
 
     /**

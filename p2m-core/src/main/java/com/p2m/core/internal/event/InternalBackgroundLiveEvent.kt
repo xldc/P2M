@@ -2,7 +2,6 @@ package com.p2m.core.internal.event
 
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.Observer
-import com.p2m.core.event.BackgroundLiveEvent
 import com.p2m.core.event.BackgroundObserver
 import com.p2m.core.event.ObserveOn
 import wang.lifecycle.EventDispatcher
@@ -14,7 +13,7 @@ import wang.lifecycle.MutableBackgroundLiveEvent
  *
  * @param T The type of data hold by this instance
  */
-internal class InternalBackgroundLiveEvent<T> : MutableBackgroundLiveEvent<T>, BackgroundLiveEvent<T> {
+internal class InternalBackgroundLiveEvent<T> : MutableBackgroundLiveEvent<T>, com.p2m.core.event.MutableBackgroundLiveEvent<T> {
 
     /**
      * Creates a InternalMixedBackgroundLiveEvent initialized with the given value.

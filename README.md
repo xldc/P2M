@@ -242,10 +242,10 @@ p2m {
         ```kotlin
         @Event
         interface AccountEvent{
-                                                        // 发送、订阅接收事件在主线程
+            @EventField(eventOn = EventOn.MAIN)         // 发送、订阅接收事件在主线程
             val loginInfo: LoginUserInfo?               // 登录用户信息
 
-            @EventField                                 // 发送、订阅接收事件在主线程
+            @EventField                                 // 发送、订阅接收事件在主线程（等效于@EventField(eventOn = EventOn.MAIN)）
             val loginState: Boolean                     // 登录状态
 
             @EventField(eventOn = EventOn.BACKGROUND)   // 发送、订阅接收事件不占用主线程资源
@@ -289,8 +289,8 @@ p2m {
             val loginInfo = taskOutputProvider.getOutputOf(LoadLastUserTask::class.java)    // 获取用户信息
 
             val account = moduleProvider.moduleApiOf(Account::class.java)  // 找到自身的Api区，在Module init区不能调用P2M.moduleApiOf()
-            account.event.loginState.setValue(loginState ?: false)      // 保存到事件持有者，提供给被依赖的模块使用
-            account.event.loginInfo.setValue(loginInfo)                 // 保存到事件持有者，提供给被依赖的模块使用
+            account.event.mutable().loginState.setValue(loginState ?: false)      // 保存到事件持有者，提供给被依赖的模块使用
+            account.event.mutable().loginInfo.setValue(loginInfo)                 // 保存到事件持有者，提供给被依赖的模块使用
         }
     }
 

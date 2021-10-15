@@ -42,6 +42,11 @@ class MainActivity : AppCompatActivity() {
             finish()
         }
 
+        // 测试事件的外部可变性
+        P2M.moduleApiOf(Account::class.java)
+            .event
+            .testMutableEventFromExternal
+            .setValue(1)
     }
 
 }

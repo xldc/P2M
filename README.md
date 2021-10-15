@@ -242,14 +242,19 @@ p2m {
         ```kotlin
         @Event
         interface AccountEvent{
-            @EventField(eventOn = EventOn.MAIN)         // 发送、订阅接收事件在主线程
-            val loginInfo: LoginUserInfo?               // 登录用户信息
+            @EventField(eventOn = EventOn.MAIN, mutableFromExternal = false)        // 发送、订阅接收事件在主线程
+            val loginInfo: LoginUserInfo?                                           // 登录用户信息
 
-            @EventField                                 // 发送、订阅接收事件在主线程（等效于@EventField(eventOn = EventOn.MAIN)）
-            val loginState: Boolean                     // 登录状态
+            @EventField                                                             // 发送、订阅接收事件在主线程（等效于@EventField(eventOn = EventOn.MAIN, mutableFromExternal = false)）
+            val loginState: Boolean                                                 // 登录状态
 
-            @EventField(eventOn = EventOn.BACKGROUND)   // 发送、订阅接收事件不占用主线程资源
-            val loginSuccess: Boolean                   // 登录成功
+            @EventField(eventOn = EventOn.BACKGROUND, mutableFromExternal = false)  // 发送、订阅接收事件不占用主线程资源
+            val loginSuccess: Boolean                                               // 登录成功
+            
+            @EventField(eventOn = EventOn.MAIN, mutableFromExternal = true)         // mutableFromExternal = true，表示外部模块可以setValue和postValue，为了保证事件的安全性不推荐设置
+            val testMutableEventFromExternal: Int                                   // 用于测试外部可变性
+            
+            val testAPT:Int     // 这个字段没有被注解，因此它将被过滤
         }
         ```
         编译后将在Api区生成以下代码：
@@ -264,6 +269,7 @@ p2m {
           public val loginInfo: LiveEvent<LoginUserInfo?>
           public val loginState: LiveEvent<Boolean>
           public val loginSuccess: BackgroundLiveEvent<Unit>
+          public val testMutableEventFromExternal: MutableLiveEvent<Int>
         }
         ```
 

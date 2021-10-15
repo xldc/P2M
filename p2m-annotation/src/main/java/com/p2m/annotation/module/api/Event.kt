@@ -13,17 +13,19 @@ annotation class Event
 
 /**
  * Field annotated by [EventField], it will generate different event holder property
- * according to different [eventOn].
+ * according to [eventOn] and [mutableFromExternal].
  *
- * Default is [EventOn.MAIN].
+ * Default is [EventOn.MAIN] + immutable from external.
  *
  * Use only in class annotated by [Event].
  *
  * @property eventOn specified thread to receive event.
+ * @property mutableFromExternal mutable from external, if true that dependant module
+ * support call setValue and postValue.
  */
 @Target(AnnotationTarget.PROPERTY)
 @Retention(AnnotationRetention.BINARY)
-annotation class EventField(val eventOn: EventOn = EventOn.MAIN)
+annotation class EventField(val eventOn: EventOn = EventOn.MAIN, val mutableFromExternal: Boolean = false)
 
 /**
  * Which thread to manage and dispatch event do you want.

@@ -820,8 +820,9 @@ class P2MProcessor : BaseProcessor() {
                 check(eventFieldElement.enclosingElement?.enclosingElement?.hasAnnotation(Event::class.java) == true) {
                     "${eventFieldElement.simpleName} not use ${EventField::class.java.canonicalName} annotated, because owner $interfaceName interface no use ${Event::class.java.canonicalName} annotated."
                 }
-                eventFieldName to (eventFieldElement.getAnnotation(EventField::class.java) to elementUtils.getDocComment(eventFieldElement)?.let { CodeBlock.of(it) }
-                )
+                val eventField = eventFieldElement.getAnnotation(EventField::class.java)
+                val kdoc = elementUtils.getDocComment(eventFieldElement)?.let { CodeBlock.of(it) }
+                eventFieldName to (eventField to kdoc)
             }.toTypedArray())
         )
 
@@ -850,6 +851,7 @@ class P2MProcessor : BaseProcessor() {
         }
     }
 
+    @Suppress("LocalVariableName")
     private fun genEventClassForKotlin(
         ModuleEventClassName: ClassName,
         eventInterfaceSimpleName: String,
@@ -863,105 +865,131 @@ class P2MProcessor : BaseProcessor() {
         // event类型源
         val eventTypeSpecOrigin = eventElement.toTypeSpec().also {
             check(it.kind === TypeSpec.Kind.INTERFACE) {
-                "${eventElement.qualifiedName} must is a class."
+                "${eventElement.qualifiedName} must is a interface class."
             }
         }
+
+        val LiveEvent = ClassName(PACKAGE_NAME_EVENT, CLASS_LIVE_EVENT)
+        val MutableLiveEvent = ClassName(PACKAGE_NAME_EVENT, CLASS_MUTABLE_LIVE_EVENT)
+        val BackgroundLiveEvent = ClassName(PACKAGE_NAME_EVENT, CLASS_BACKGROUND_EVENT)
+        val MutableBackgroundLiveEvent = ClassName(PACKAGE_NAME_EVENT, CLASS_MUTABLE_BACKGROUND_EVENT)
+        val getEventClassName = { eventOn: EventOn, mutableFromExternal: Boolean ->
+            when (eventOn) {
+                EventOn.MAIN -> if (!mutableFromExternal) LiveEvent else MutableLiveEvent
+                EventOn.BACKGROUND -> if (!mutableFromExternal) BackgroundLiveEvent else MutableBackgroundLiveEvent
+            }
+        }
+        val getDelegateOuterClassName = { eventOn: EventOn ->
+            when (eventOn) {
+                EventOn.MAIN -> LiveEvent
+                EventOn.BACKGROUND -> BackgroundLiveEvent
+            }
+        }
+
         val eventClassNameOrigin = eventElement.className()
-
-        // Event接口
         val eventInterfaceClassName = ClassName(apiPackageName, eventInterfaceSimpleName)
-        val eventInterfaceTypeSpecBuilder = TypeSpec.interfaceBuilder(eventInterfaceClassName)
-            .addSuperinterface(ModuleEventClassName)
-            .addKdoc("A event class of $optionModuleName module.\n")
-            .addKdoc("Use `P2M.moduleApiOf<${optionModuleName}>().event` to get the instance.\n")
-            .addKdoc("\n")
-            .addKdoc("@see %T - origin.", eventClassNameOrigin)
-            .addKdoc("\n")
-
-        val eventOriginPropertySpecs = eventTypeSpecOrigin.propertySpecs
-            .filter { eventFieldMap.containsKey(it.name) }
-
-        val eventClassNames = mutableMapOf<String, ClassName>()
-        val eventInterfacePropertySpecs = eventOriginPropertySpecs
-            .filter { eventFieldMap.containsKey(it.name) }.map {
-            val eventField = eventFieldMap[it.name]?.first
-            val eventDoc = eventFieldMap[it.name]?.second
-            val eventOn = eventField?.eventOn ?: EventOn.MAIN
-            val eventClassName = when(eventOn) {
-                EventOn.MAIN-> ClassName(PACKAGE_NAME_EVENT, CLASS_LIVE_EVENT)
-                EventOn.BACKGROUND-> ClassName(PACKAGE_NAME_EVENT, CLASS_BACKGROUND_EVENT)
-            }
-            eventClassNames[it.name] = eventClassName
-            val propertySpecBuilder = PropertySpec.builder(
-                it.name, eventClassName.parameterizedBy(it.type)
-            )
-
-            propertySpecBuilder.mutable(false)
-            propertySpecBuilder.annotations.clear()
-            propertySpecBuilder.apply { eventDoc?.let(::addKdoc) }
-            propertySpecBuilder.build()
-        }
-
-        eventInterfaceTypeSpecBuilder.propertySpecs.clear()
-        eventInterfaceTypeSpecBuilder.addProperties(eventInterfacePropertySpecs)
-        val eventInterfaceTypeSpec = eventInterfaceTypeSpecBuilder.build()
-
-
-        // Event代理类，代理被注解的类
         val eventImplClassName = ClassName(implPackageName, "_${eventInterfaceSimpleName}")
         val internalMutableEventImplClassName = ClassName(implPackageName, "_${eventInterfaceSimpleName}_Mutable")
 
-        // real属性
-        val eventRealRefName = "eventReal"
-        // private val eventReal : XXEvent = XXEvent()
+        val eventPropertySpecs = eventTypeSpecOrigin.propertySpecs // 被注解EventField的所有字段
+            .filter { eventFieldMap.containsKey(it.name) }
+        val eventInterfacePropertySpecsBuilders = eventPropertySpecs.map { // 所有的属性builder
+            val (eventField, eventDoc) = eventFieldMap[it.name]!!
+            val eventClassName = getEventClassName(eventField.eventOn, eventField.mutableFromExternal)
+            PropertySpec.builder(it.name, eventClassName.parameterizedBy(it.type)).apply {
+                mutable(false)
+                annotations.clear()
+                eventDoc?.let(::addKdoc)
+            }
+        }
 
-        val eventRealProperty = PropertySpec.builder(
-            eventRealRefName,
-            eventClassNameOrigin,
-            KModifier.PRIVATE
-        ).mutable(false).initializer("%T()", eventClassNameOrigin).build()
+        // Event接口
+        val eventInterfacePropertySpecs = eventInterfacePropertySpecsBuilders.map { it.build() }
+        val eventInterfaceTypeSpec = TypeSpec.interfaceBuilder(eventInterfaceClassName).run {
+            addSuperinterface(ModuleEventClassName)
+            addKdoc("A event class of $optionModuleName module.\n")
+            addKdoc("Use `P2M.moduleApiOf<${optionModuleName}>().event` to get the instance.\n")
+            addKdoc("\n")
+            addKdoc("@see %T - origin.", eventClassNameOrigin)
+            addKdoc("\n")
+            addProperties(eventInterfacePropertySpecs)
+            build()
+        }
 
-        val eventImplTypeSpecBuilder = eventInterfaceTypeSpec.toBuilder(
-            TypeSpec.Kind.CLASS,
-            name = eventImplClassName.simpleName
-        )
+        // Event实现类
+        val eventImplInternalMutableEventPropertyName = "_mutable"
+        val eventImplInternalMutableEventProperty : PropertySpec = PropertySpec.builder(eventImplInternalMutableEventPropertyName, internalMutableEventImplClassName).run {
+            addModifiers(KModifier.INTERNAL)
+            mutable(false)
+            delegate("lazy() { %T(this) }", internalMutableEventImplClassName)
+            build()
+        }
 
+        val eventImplPropertySpecs = eventPropertySpecs.map {
+            val (eventField, eventDoc) = eventFieldMap[it.name]!!
+            val mutableFromExternal = eventField.mutableFromExternal
+            val eventClassName = getEventClassName(eventField.eventOn, eventField.mutableFromExternal)
+            val delegateOuterClassName = getDelegateOuterClassName(eventField.eventOn)
+            val delegateName = if(mutableFromExternal) CLASS_EVENT_MUTABLE_DELEGATE else CLASS_EVENT_DELEGATE
+            PropertySpec.builder(it.name, eventClassName.parameterizedBy(it.type)).run {
+                mutable(false)
+                addModifiers(KModifier.OVERRIDE)
+                delegate(
+                    CodeBlock
+                        .builder()
+                        .add("%T.%L()", delegateOuterClassName, delegateName)
+                        .build()
+                )
+                eventDoc?.let(::addKdoc)
+                build()
+            }
+
+        }
+
+        val eventImplTypeSpec = eventInterfaceTypeSpec.toBuilder(TypeSpec.Kind.CLASS, eventImplClassName.simpleName).run {
+            addSuperinterface(eventInterfaceClassName)
+            propertySpecs.clear()
+            addProperty(eventImplInternalMutableEventProperty)
+            addProperties(eventImplPropertySpecs)
+            build()
+        }
+
+        // 模块内部可变的Event实现类
         val internalMutableEventImplType = TypeSpec.classBuilder(
             name = internalMutableEventImplClassName.simpleName
         ).run {
-            val srcPropertyRefName = "real"
             addModifiers(KModifier.INTERNAL)
+
+            // 构造
+            val srcPropertyRefName = "real"
             primaryConstructor(FunSpec.constructorBuilder().run {
                 addParameter(srcPropertyRefName, eventImplClassName)
                 build()
             })
             addProperty(
-                PropertySpec.builder(srcPropertyRefName, eventImplClassName)
-                    .initializer(srcPropertyRefName)
-                    .addModifiers(KModifier.PRIVATE)
-                    .build()
+                PropertySpec.builder(srcPropertyRefName, eventImplClassName).run {
+                    initializer(srcPropertyRefName)
+                    addModifiers(KModifier.PRIVATE)
+                    build()
+                }
             )
             addProperty(PropertySpec.builder(srcPropertyRefName, eventImplClassName).run {
                 addModifiers(KModifier.PRIVATE)
                 mutable(false)
                 build()
             })
-            addProperties(eventOriginPropertySpecs.map {
-                val eventField = eventFieldMap[it.name]?.first
-                val eventDoc = eventFieldMap[it.name]?.second
-                val eventOn = eventField?.eventOn ?: EventOn.MAIN
-                val eventClassName = when (eventOn) {
-                    EventOn.MAIN -> ClassName(PACKAGE_NAME_EVENT, CLASS_MUTABLE_LIVE_EVENT)
-                    EventOn.BACKGROUND -> ClassName(
-                        PACKAGE_NAME_EVENT,
-                        CLASS_MUTABLE_BACKGROUND_EVENT
-                    )
-                }
+
+
+            // 属性
+            addProperties(eventPropertySpecs.map {
+                val (eventField, eventDoc) = eventFieldMap[it.name]!!
+                val eventClassName = getEventClassName(eventField.eventOn, true)
+                val delegateOuterClassName = getDelegateOuterClassName(eventField.eventOn)
                 PropertySpec.builder(it.name, eventClassName.parameterizedBy(it.type)).run {
                     mutable(false)
                     delegate(
                         "%T.$CLASS_EVENT_INTERNAL_MUTABLE_DELEGATE(%L.%L)",
-                        eventClassNames[it.name],
+                        delegateOuterClassName,
                         srcPropertyRefName,
                         it.name
                     )
@@ -973,40 +1001,7 @@ class P2MProcessor : BaseProcessor() {
             build()
         }
 
-        eventImplTypeSpecBuilder.addSuperinterface(eventInterfaceClassName)
-        eventImplTypeSpecBuilder.addProperty(eventRealProperty)
-        val eventImplPropertySpecs = eventOriginPropertySpecs.map {
-            val eventDoc = eventFieldMap[it.name]?.second
-            val propertySpecBuilder = PropertySpec.builder(it.name, eventClassNames[it.name]!!.parameterizedBy(
-                it.type
-            ))
-            propertySpecBuilder.modifiers.remove(KModifier.ABSTRACT)
-            propertySpecBuilder.addModifiers(KModifier.OVERRIDE)
-            propertySpecBuilder.mutable(false)
-
-            propertySpecBuilder.delegate(
-                CodeBlock
-                    .builder()
-                    .add("%T.$CLASS_EVENT_DELEGATE()", eventClassNames[it.name])
-                    .build()
-            )
-            propertySpecBuilder.apply { eventDoc?.let(::addKdoc) }
-            propertySpecBuilder.build()
-        }
-
-        val eventImplInternalMutableEventPropertyName = "_mutable"
-        val eventImplInternalMutableEventProperty : PropertySpec = PropertySpec.builder(eventImplInternalMutableEventPropertyName, internalMutableEventImplClassName).run {
-            addModifiers(KModifier.INTERNAL)
-            mutable(false)
-            delegate("lazy() { %T(this) }", internalMutableEventImplClassName)
-            build()
-        }
-
-        eventImplTypeSpecBuilder.propertySpecs.clear()
-        eventImplTypeSpecBuilder.addProperty(eventImplInternalMutableEventProperty)
-        eventImplTypeSpecBuilder.addProperties(eventImplPropertySpecs)
-        val eventImplTypeSpec = eventImplTypeSpecBuilder.build()
-
+        // 内部拓展函数
         val eventImplInternalMutableExtFun = FunSpec.builder("mutable")
             .addModifiers(KModifier.INTERNAL)
             .receiver(eventInterfaceClassName)

@@ -34,7 +34,7 @@ class ProductModuleApiPlugin implements Plugin<Project> {
             def p2mApiSrcDir = new File(moduleProject.project.buildDir, "generated/p2m/src/${variantName}")
 
             arg("moduleName", moduleProject.getModuleName())
-            arg("apiSrcDir", p2mApiSrcDir.absolutePath)
+            // arg("apiSrcDir", p2mApiSrcDir.absolutePath)
         }
 
         project.afterEvaluate {

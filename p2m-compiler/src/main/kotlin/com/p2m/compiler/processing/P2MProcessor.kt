@@ -265,16 +265,15 @@ class P2MProcessor : BaseProcessor() {
         }
     }
 
-    private fun genLauncherManagerClassForKotlin(
+    private fun genRealLauncherClassForKotlin(
         roundEnv: RoundEnvironment,
         ModuleLauncherClassName: ClassName,
         launcherPackageName: String,
-        launcherClassSimpleName: String
-    ): Pair<TypeSpec?, MutableList<CodeBlock>> {
+        realLauncherClassSimpleName: String
+    ): Pair<TypeSpec?, MutableMap<String, Element>> {
 
-        val kdocsOfLauncherInterface = mutableListOf<CodeBlock>()
         val elements = roundEnv.getElementsAnnotatedWith(Launcher::class.java)
-        if (elements.isEmpty()) return null to kdocsOfLauncherInterface
+        if (elements.isEmpty()) return null to mutableMapOf()
 
         val activityTm = elementUtils.getTypeElement(CLASS_ACTIVITY).asType()
         val serviceTm = elementUtils.getTypeElement(CLASS_SERVICE).asType()
@@ -287,17 +286,16 @@ class P2MProcessor : BaseProcessor() {
         val contextParameter = ParameterSpec.builder("context", contextClassName).build()
 
         val launcherFileSpecBuilder = FileSpec
-            .builder(launcherPackageName, launcherClassSimpleName)
+            .builder(launcherPackageName, realLauncherClassSimpleName)
             .addFileComment()
 
         val launcherTypeBuilder = TypeSpec
-            .classBuilder(launcherClassSimpleName)
+            .classBuilder(realLauncherClassSimpleName)
             .addSuperinterface(ModuleLauncherClassName)
-
+        val elementMap = mutableMapOf<String, Element>()
         for (element in elements) {
             val className = element.className()
             val classSimpleName = element.simpleName
-            val kDoc = elementUtils.getDocComment(element)?.let { CodeBlock.of(it) }
             val funSpec = when {
 
                 typeUtils.isSubtype(element.asType(), activityTm) -> { // Activity
@@ -307,18 +305,17 @@ class P2MProcessor : BaseProcessor() {
                      *     return intent
                      * }
                      */
-                    FunSpec
-                        .builder("newActivityIntentOf${classSimpleName}")
-                        .addParameter(contextParameter)
-                        .returns(intentClassName)
-                        .addCode(
+                    FunSpec.builder("newActivityIntentOf${classSimpleName}").run {
+                        addParameter(contextParameter)
+                        returns(intentClassName)
+                        addCode(
                             """
                                 val intent = %T(context, ${className}::class.java)
                                 return intent
-                            """.trimIndent()
-                        , intentClassName)
-                        .apply { kDoc?.let(::addKdoc) }
-                        .build()
+                            """.trimIndent(), intentClassName
+                        )
+                        build()
+                    }
                 }
                 typeUtils.isSubtype(element.asType(), fragmentTm)
                         || typeUtils.isSubtype(element.asType(), fragmentTmV4)
@@ -337,18 +334,16 @@ class P2MProcessor : BaseProcessor() {
                      *     return intent
                      * }
                      */
-                    FunSpec
-                        .builder("newFragmentOf${classSimpleName}")
-                        .returns(fragmentClassName)
-                        .addCode(
+                    FunSpec.builder("newFragmentOf${classSimpleName}").run {
+                        returns(fragmentClassName)
+                        addCode(
                             """
                                 val fragment = %T()
                                 return fragment
-                            """.trimIndent()
-                        , className)
-                        .apply { kDoc?.let(::addKdoc) }
-                        .build()
-
+                            """.trimIndent(), className
+                        )
+                        build()
+                    }
                 }
                 typeUtils.isSubtype(element.asType(), serviceTm) -> { // Service
                     /*
@@ -357,23 +352,23 @@ class P2MProcessor : BaseProcessor() {
                      *     return intent
                      * }
                      */
-                    FunSpec
-                        .builder("newServiceIntentOf${classSimpleName}")
-                        .addParameter(contextParameter)
-                        .returns(intentClassName)
-                        .addCode(
+                    FunSpec.builder("newServiceIntentOf${classSimpleName}").run {
+                        addParameter(contextParameter)
+                        returns(intentClassName)
+                        addCode(
                             """
                                 val intent = %T(context, ${className}::class.java)
                                 return intent
-                            """.trimIndent()
-                        , intentClassName)
-                        .apply { kDoc?.let(::addKdoc) }
-                        .build()
+                            """.trimIndent(), intentClassName
+                        )
+                        build()
+                    }
+
                 }
                 else -> throw IllegalArgumentException("@Launcher not support in ${className.canonicalName}.")
             }
             launcherTypeBuilder.addFunction(funSpec)
-            kdocsOfLauncherInterface.add(CodeBlock.of("Use [${funSpec.name}] to launch [%T].\n", className))
+            elementMap[funSpec.name] = element
         }
 
         val launcherType = launcherTypeBuilder.build()
@@ -381,7 +376,7 @@ class P2MProcessor : BaseProcessor() {
             .addType(launcherType)
             .build()
             .writeTo(mFiler)
-        return launcherType to kdocsOfLauncherInterface
+        return launcherType to elementMap
     }
 
     private fun genModuleInitClassForKotlin(
@@ -511,13 +506,11 @@ class P2MProcessor : BaseProcessor() {
     ): GenModuleLauncherResult {
         val launcherPackageName = PACKAGE_NAME_IMPL_LAUNCHER
         val launcherInterfaceSimpleName = "${optionModuleName}ModuleLauncher"
-        val launcherClassSimpleName = "Real$launcherInterfaceSimpleName"
+        val realLauncherClassSimpleName = "Real$launcherInterfaceSimpleName"
 
-        val result = genLauncherManagerClassForKotlin(roundEnv, ModuleLauncherClassName, launcherPackageName, launcherClassSimpleName)
-        val launcherType = result.first
-        val kdocsOfLauncherInterface = result.second
+        val result = genRealLauncherClassForKotlin(roundEnv, ModuleLauncherClassName, launcherPackageName, realLauncherClassSimpleName)
+        val (launcherType, elementMap) = result
         return if (launcherType == null) {
-
             GenModuleLauncherResult(
                 EmptyLauncherClassName,
                 EmptyLauncherClassName,
@@ -528,12 +521,12 @@ class P2MProcessor : BaseProcessor() {
                 ModuleLauncherClassName,
                 launcherType,
                 launcherInterfaceSimpleName,
-                ClassName(launcherPackageName, launcherClassSimpleName),
+                ClassName(launcherPackageName, realLauncherClassSimpleName),
                 apiPackageName,
                 implPackageName,
                 apiFileSpecBuilder,
                 apiImplFileSpecBuilder,
-                kdocsOfLauncherInterface
+                elementMap
             ).also {
                 exportApiClassPath.add(it.launcherInterfaceClassName)
             }
@@ -550,34 +543,34 @@ class P2MProcessor : BaseProcessor() {
         implPackageName: String,
         apiFileSpecBuilder: FileSpec.Builder,
         apiImplFileSpecBuilder: FileSpec.Builder,
-        kdocsOfLauncherInterface: MutableList<CodeBlock>
+        elementMap: MutableMap<String, Element>
     ): GenModuleLauncherResult {
+        val launcherInterfaceFunSpecs = launcherType
+            .funSpecs.map {
+                it.toBuilder().run {
+                    annotations.clear()
+                    addModifiers(KModifier.ABSTRACT)
+                    clearBody()
+                    elementMap[it.name]?.run {
+                        elementUtils.getDocComment(this)?.apply { addKdoc(CodeBlock.of(this)) }
+                        addKdoc("\n")
+                        addKdoc("@see %T - origin.", this.className())
+                    }
+                    build()
+                }
+            }
 
         // 接口
         val launcherInterfaceClassName = ClassName(apiPackageName, launcherInterfaceSimpleName)
-        val launcherInterfaceTypeSpecBuilder = TypeSpec.interfaceBuilder(launcherInterfaceClassName)
-            .addSuperinterface(ModuleLauncherClassName)
-            .addKdoc("A launcher class of $optionModuleName module.\n")
-            .addKdoc("Use `P2M.moduleApiOf<${optionModuleName}>().launcher` to get the instance.\n")
-            .addKdoc("\n")
-        kdocsOfLauncherInterface.forEach { launcherInterfaceTypeSpecBuilder.addKdoc(it) }
-
-        val launcherInterfaceFunSpecs = launcherType
-            .funSpecs.map {
-                val funSpecBuilder = it.toBuilder()
-                funSpecBuilder.annotations.clear()
-                funSpecBuilder.clearBody().addModifiers(KModifier.ABSTRACT)
-                funSpecBuilder.build()
-            }
-
-        launcherInterfaceTypeSpecBuilder.funSpecs.clear()
-        launcherInterfaceTypeSpecBuilder.addFunctions(launcherInterfaceFunSpecs)
-        val launcherInterfaceTypeSpec = launcherInterfaceTypeSpecBuilder.build()
+        val launcherInterfaceTypeSpec = TypeSpec.interfaceBuilder(launcherInterfaceClassName).run {
+            addSuperinterface(ModuleLauncherClassName)
+            funSpecs.clear()
+            addFunctions(launcherInterfaceFunSpecs)
+            build()
+        }
 
         // 服务代理类，代理被注解的类
         val launcherImplClassName = ClassName(implPackageName, "_${launcherInterfaceSimpleName}")
-
-        // real属性
         val launcherRealRefName = "launcherReal"
         val launcherRealProperty = PropertySpec.builder(
             launcherRealRefName,
@@ -585,31 +578,33 @@ class P2MProcessor : BaseProcessor() {
             KModifier.PRIVATE
         ).mutable(false).delegate("lazy() { %T() }", launcherClassName).build()
 
-        val launcherImplTypeSpecBuilder = launcherInterfaceTypeSpec.toBuilder(
-            TypeSpec.Kind.CLASS,
-            name = launcherImplClassName.simpleName
-        )
-        launcherImplTypeSpecBuilder.addSuperinterface(launcherInterfaceClassName)
-        launcherImplTypeSpecBuilder.addProperty(launcherRealProperty)
         val launcherImplFunSpecs = launcherType.funSpecs.map {
-            val funSpecBuilder = it.toBuilder()
-            funSpecBuilder.modifiers.remove(KModifier.ABSTRACT)
-            funSpecBuilder.addModifiers(KModifier.OVERRIDE)
-            funSpecBuilder.clearBody()
-            funSpecBuilder.addStatement(
-                "return %L.%L(%L)",
-                launcherRealRefName,
-                it.name,
-                it.parameters.convertRealParamsForKotlin()
-            )
-            funSpecBuilder.build()
+            it.toBuilder().run {
+                modifiers.remove(KModifier.ABSTRACT)
+                addModifiers(KModifier.OVERRIDE)
+                clearBody()
+                addStatement(
+                    "return %L.%L(%L)",
+                    launcherRealRefName,
+                    it.name,
+                    it.parameters.convertRealParamsForKotlin()
+                )
+                build()
+            }
+        }
+        val launcherImplTypeSpec = launcherInterfaceTypeSpec.toBuilder(TypeSpec.Kind.CLASS, name = launcherImplClassName.simpleName).run {
+            addSuperinterface(launcherInterfaceClassName)
+            addProperty(launcherRealProperty)
+            funSpecs.clear()
+            addFunctions(launcherImplFunSpecs)
+            build()
         }
 
-        launcherImplTypeSpecBuilder.funSpecs.clear()
-        launcherImplTypeSpecBuilder.addFunctions(launcherImplFunSpecs)
-        val launcherImplTypeSpec = launcherImplTypeSpecBuilder.build()
-
-        apiFileSpecBuilder.addType(launcherInterfaceTypeSpec)
+        apiFileSpecBuilder.addType(launcherInterfaceTypeSpec.toBuilder().run {
+            addKdoc("A launcher class of $optionModuleName module.\n")
+            addKdoc("Use `P2M.moduleApiOf<${optionModuleName}>().launcher` to get the instance.\n")
+            build()
+        })
         apiImplFileSpecBuilder.addType(launcherImplTypeSpec)
         return GenModuleLauncherResult(
             launcherInterfaceClassName,
@@ -677,15 +672,6 @@ class P2MProcessor : BaseProcessor() {
         val serviceClassNameOrigin = serviceElement.className()
 
         // 服务接口
-        val serviceInterfaceClassName = ClassName(apiPackageName, serviceInterfaceSimpleName)
-        val serviceInterfaceTypeSpecBuilder = TypeSpec.interfaceBuilder(serviceInterfaceClassName)
-            .addSuperinterface(ModuleServiceClassName)
-            .addKdoc("A service class of $optionModuleName module.\n")
-            .addKdoc("Use `P2M.moduleApiOf<${optionModuleName}>().service` to get the instance.\n")
-            .addKdoc("\n")
-            .addKdoc("@see %T - origin.", serviceClassNameOrigin)
-            .addKdoc("\n")
-
         val notSupportedModifier = mutableSetOf(
             Modifier.PRIVATE,
             Modifier.DEFAULT,
@@ -728,59 +714,67 @@ class P2MProcessor : BaseProcessor() {
             }
 
         val serviceInterfaceFunSpecs = validFunSpecs.map { funSpec ->
-                funSpec.toBuilder().apply {
-                    annotations.clear()
-                    clearBody().addModifiers(KModifier.ABSTRACT)
-                    val sign = funSpec.name + funSpec.parameters.map { it.name }.toString()
-                   val kDoc =  methodDocMap[sign]
-                    kDoc?.let(::addKdoc)
-                }.build()
+            funSpec.toBuilder().run {
+                annotations.clear()
+                clearBody().addModifiers(KModifier.ABSTRACT)
+                val sign = funSpec.name + funSpec.parameters.map { it.name }.toString()
+                val kDoc =  methodDocMap[sign]
+                kDoc?.let(::addKdoc)
+                addKdoc("\n")
+                addKdoc("@see %T.%L - origin.", serviceClassNameOrigin, funSpec.name)
+                build()
             }
+        }
 
-        serviceInterfaceTypeSpecBuilder.funSpecs.clear()
-        serviceInterfaceTypeSpecBuilder.addFunctions(serviceInterfaceFunSpecs)
-        val serviceInterfaceTypeSpec = serviceInterfaceTypeSpecBuilder.build()
+        val serviceInterfaceClassName = ClassName(apiPackageName, serviceInterfaceSimpleName)
+        val serviceInterfaceTypeSpec = TypeSpec.interfaceBuilder(serviceInterfaceClassName).run {
+            addSuperinterface(ModuleServiceClassName)
+            funSpecs.clear()
+            addFunctions(serviceInterfaceFunSpecs)
+            build()
+        }
 
         // 服务代理类，代理被注解的类
         val serviceImplClassName = ClassName(implPackageName, "_${serviceInterfaceSimpleName}")
-
-        // real属性
         val serviceRealRefName = "serviceReal"
-        // private val serviceReal : XXService = XXService()
         val serviceRealProperty = PropertySpec.builder(
             serviceRealRefName,
             serviceClassNameOrigin,
             KModifier.PRIVATE
         ).mutable(false).delegate("lazy() { %T() }", serviceClassNameOrigin).build()
 
-        val serviceImplTypeSpecBuilder = serviceInterfaceTypeSpec.toBuilder(
-            TypeSpec.Kind.CLASS,
-            name = serviceImplClassName.simpleName
-        )
-        serviceImplTypeSpecBuilder.addSuperinterface(serviceInterfaceClassName)
-        serviceImplTypeSpecBuilder.addProperty(serviceRealProperty)
         val serviceImplFunSpecs = validFunSpecs.map { funSpec ->
-            val funSpecBuilder = funSpec.toBuilder()
-            funSpecBuilder.modifiers.remove(KModifier.ABSTRACT)
-            funSpecBuilder.addModifiers(KModifier.OVERRIDE)
-            funSpecBuilder.clearBody()
-            funSpecBuilder.addStatement(
-                "return %L.%L(%L)",
-                serviceRealRefName,
-                funSpec.name,
-                funSpec.parameters.convertRealParamsForKotlin()
-            )
-            val sign = funSpec.name + funSpec.parameters.map { it.name }.toString()
-            val kDoc =  methodDocMap[sign]
-            kDoc?.let(funSpecBuilder::addKdoc)
-            funSpecBuilder.build()
+            funSpec.toBuilder().run {
+                modifiers.remove(KModifier.ABSTRACT)
+                addModifiers(KModifier.OVERRIDE)
+                clearBody()
+                addStatement(
+                    "return %L.%L(%L)",
+                    serviceRealRefName,
+                    funSpec.name,
+                    funSpec.parameters.convertRealParamsForKotlin()
+                )
+                build()
+            }
         }
 
-        serviceImplTypeSpecBuilder.funSpecs.clear()
-        serviceImplTypeSpecBuilder.addFunctions(serviceImplFunSpecs)
-        val serviceImplTypeSpec = serviceImplTypeSpecBuilder.build()
+        val serviceImplTypeSpec = serviceInterfaceTypeSpec.toBuilder(TypeSpec.Kind.CLASS, name = serviceImplClassName.simpleName).run {
+            addSuperinterface(serviceInterfaceClassName)
+            addProperty(serviceRealProperty)
+            funSpecs.clear()
+            addFunctions(serviceImplFunSpecs)
+            build()
+        }
 
-        apiFileSpecBuilder.addType(serviceInterfaceTypeSpec)
+        apiFileSpecBuilder.addType(serviceInterfaceTypeSpec.toBuilder().run {
+            addKdoc("A service class of $optionModuleName module.\n")
+            addKdoc("Use `P2M.moduleApiOf<${optionModuleName}>().service` to get the instance.\n")
+            addKdoc("\n")
+            addKdoc("@see %T - origin.", serviceClassNameOrigin)
+            addKdoc("\n")
+            build()
+        })
+
         apiImplFileSpecBuilder.addType(serviceImplTypeSpec)
         return GenModuleServiceResult(
             serviceInterfaceClassName,
@@ -900,6 +894,9 @@ class P2MProcessor : BaseProcessor() {
                 mutable(false)
                 annotations.clear()
                 eventDoc?.let(::addKdoc)
+                addKdoc("\n")
+                addKdoc("@see %T.%L - origin.", eventClassNameOrigin, it.name)
+                addKdoc("\n")
             }
         }
 
@@ -907,11 +904,6 @@ class P2MProcessor : BaseProcessor() {
         val eventInterfacePropertySpecs = eventInterfacePropertySpecsBuilders.map { it.build() }
         val eventInterfaceTypeSpec = TypeSpec.interfaceBuilder(eventInterfaceClassName).run {
             addSuperinterface(ModuleEventClassName)
-            addKdoc("A event class of $optionModuleName module.\n")
-            addKdoc("Use `P2M.moduleApiOf<${optionModuleName}>().event` to get the instance.\n")
-            addKdoc("\n")
-            addKdoc("@see %T - origin.", eventClassNameOrigin)
-            addKdoc("\n")
             addProperties(eventInterfacePropertySpecs)
             build()
         }
@@ -926,7 +918,7 @@ class P2MProcessor : BaseProcessor() {
         }
 
         val eventImplPropertySpecs = eventPropertySpecs.map {
-            val (eventField, eventDoc) = eventFieldMap[it.name]!!
+            val (eventField, _) = eventFieldMap[it.name]!!
             val mutableFromExternal = eventField.mutableFromExternal
             val eventClassName = getEventClassName(eventField.eventOn, eventField.mutableFromExternal)
             val delegateOuterClassName = getDelegateOuterClassName(eventField.eventOn)
@@ -940,7 +932,6 @@ class P2MProcessor : BaseProcessor() {
                         .add("%T.%L()", delegateOuterClassName, delegateName)
                         .build()
                 )
-                eventDoc?.let(::addKdoc)
                 build()
             }
 
@@ -982,7 +973,7 @@ class P2MProcessor : BaseProcessor() {
 
             // 属性
             addProperties(eventPropertySpecs.map {
-                val (eventField, eventDoc) = eventFieldMap[it.name]!!
+                val (eventField, _) = eventFieldMap[it.name]!!
                 val eventClassName = getEventClassName(eventField.eventOn, true)
                 val delegateOuterClassName = getDelegateOuterClassName(eventField.eventOn)
                 PropertySpec.builder(it.name, eventClassName.parameterizedBy(it.type)).run {
@@ -993,7 +984,6 @@ class P2MProcessor : BaseProcessor() {
                         srcPropertyRefName,
                         it.name
                     )
-                    eventDoc?.let(::addKdoc)
                     build()
                 }
 
@@ -1009,7 +999,14 @@ class P2MProcessor : BaseProcessor() {
             .addStatement("return (this as %T).%L", eventImplClassName, eventImplInternalMutableEventPropertyName)
             .build()
 
-        apiFileSpecBuilder.addType(eventInterfaceTypeSpec)
+        apiFileSpecBuilder.addType(eventInterfaceTypeSpec.toBuilder().run {
+            addKdoc("A event class of $optionModuleName module.\n")
+            addKdoc("Use `P2M.moduleApiOf<${optionModuleName}>().event` to get the instance.\n")
+            addKdoc("Use `P2M.moduleApiOf<${optionModuleName}>().event.mutable()` to get holder instance of mutable event in internal module.\n")
+            addKdoc("\n")
+            addKdoc("@see %T - origin.", eventClassNameOrigin)
+            build()
+        })
         apiImplFileSpecBuilder.addType(eventImplTypeSpec)
         apiImplFileSpecBuilder.addFunction(eventImplInternalMutableExtFun)
         apiImplFileSpecBuilder.addType(internalMutableEventImplType)

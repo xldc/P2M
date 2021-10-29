@@ -24,7 +24,6 @@ import org.gradle.api.invocation.Gradle
 import org.gradle.util.ConfigureUtil
 
 class AndroidP2MPlugin implements Plugin<Settings> {
-    // private def moduleGraph = new ModuleGraph()
     private P2MConfig p2mConfig
     private boolean existRunAppModule = false
     private ModuleProjectConfig supportRunAppModuleProjectConfig
@@ -215,7 +214,7 @@ class AndroidP2MPlugin implements Plugin<Settings> {
         def moduleConfigs = p2mConfig.modulesConfig.values()
         def iterator = moduleConfigs.iterator()
 
-        // for remote aar
+        // for remote module aar
         while (iterator.hasNext()) {
             def moduleConfig = iterator.next()
             if (moduleConfig.useRepo) { // 创建远端的module
@@ -228,7 +227,7 @@ class AndroidP2MPlugin implements Plugin<Settings> {
             }
         }
 
-        // for local source
+        // for local module
         projects.forEach { Project project ->
             iterator = moduleConfigs.iterator()
             while (iterator.hasNext()) {

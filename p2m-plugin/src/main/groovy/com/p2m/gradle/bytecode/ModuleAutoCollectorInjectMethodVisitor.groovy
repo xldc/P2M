@@ -5,10 +5,11 @@ import com.p2m.gradle.bean.ModuleProject
 import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.commons.AdviceAdapter
 
-class GenModuleInitsMethodVisitor extends AdviceAdapter {
+@Deprecated
+class ModuleAutoCollectorInjectMethodVisitor extends AdviceAdapter {
     HashMap<String, BaseProject> p2mProject
 
-    protected GenModuleInitsMethodVisitor(int api, MethodVisitor methodVisitor, int access, String name, String descriptor, HashMap<String, BaseProject> p2mProject) {
+    protected ModuleAutoCollectorInjectMethodVisitor(int api, MethodVisitor methodVisitor, int access, String name, String descriptor, HashMap<String, BaseProject> p2mProject) {
         super(api, methodVisitor, access, name, descriptor)
         this.p2mProject = p2mProject
     }
@@ -20,11 +21,11 @@ class GenModuleInitsMethodVisitor extends AdviceAdapter {
             // 仅限模块
             if (!(moduleProject instanceof ModuleProject)) return
 
-            def existModuleInitProxyImplClass = ((ModuleProject) moduleProject).existModuleInitProxyImplClass
+            def existModuleClass = ((ModuleProject) moduleProject).existModuleClass
 
-            // println("onMethodEnter -> " + moduleProject.getModuleName() + ": " + name + "  existModuleInitProxyImplClass：" + existModuleInitProxyImplClass)
+            // println("onMethodEnter -> " + moduleProject.getModuleName() + ": " + name + "  existModuleClass：" + existModuleClass)
             def moduleInitTypeName =
-                    existModuleInitProxyImplClass ?
+                    existModuleClass ?
                             "com/p2m/module/impl/_${moduleProject.getModuleName()}ModuleInit"
                             : "com/p2m/core/module/EmptyModuleInit"
             mv.visitVarInsn(ALOAD, 0)

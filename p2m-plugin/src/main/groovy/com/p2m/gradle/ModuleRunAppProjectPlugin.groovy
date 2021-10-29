@@ -2,6 +2,7 @@ package com.p2m.gradle
 
 import com.p2m.gradle.bean.LocalModuleProject
 import com.p2m.gradle.bytecode.P2MTransform
+import com.p2m.gradle.utils.GenerateModuleAutoCollectorJavaTaskRegister
 import com.p2m.gradle.utils.ModuleProjectUtils
 import com.p2m.gradle.utils.RunAppConfigUtils
 import org.gradle.api.Project
@@ -27,14 +28,13 @@ class ModuleRunAppProjectPlugin extends BaseSupportDependencyModulePlugin {
             }
             RunAppConfigUtils.modifyMergedManifestXmlForRunApp(moduleProject, runAppConfig)
         }
-        project.android {
-            registerTransform(new P2MTransform(ModuleProjectUtils.collectAvailableModulesFromTop(moduleProject), true))
-        }
 
         project.dependencies { DependencyHandler handler ->
             handler.add("implementation", project._p2mApi())
             handler.add("implementation", project._p2mAnnotation())
             handler.add("kapt", project._p2mCompiler())
         }
+
+        GenerateModuleAutoCollectorJavaTaskRegister.register(moduleProject, true)
     }
 }

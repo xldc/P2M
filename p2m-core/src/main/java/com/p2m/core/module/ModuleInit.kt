@@ -1,8 +1,10 @@
 package com.p2m.core.module
 
+import android.content.Context
 import com.p2m.core.module.task.TaskOutputProvider
 import com.p2m.core.module.task.TaskRegister
 import com.p2m.core.module.task.Task
+import com.p2m.core.module.task.TaskUnit
 
 
 /**
@@ -34,7 +36,7 @@ import com.p2m.core.module.task.Task
  *      // All dependant task complete executed already, can get they output here.
  *      // All dependant module has been initialized, can get they module api here.
  *      // running in work thread.
- *      override fun onExecute(taskOutputProvider: TaskOutputProvider, moduleProvider: SafeModuleProvider) {
+ *      override fun onExecute(context: Context, taskOutputProvider: TaskOutputProvider, moduleApiProvider: SafeModuleApiProvider) {
  *          val userCache = input
  *          val loginSuccess = userCache.readLoginSuccess()
  *          output = loginSuccess
@@ -45,7 +47,7 @@ import com.p2m.core.module.task.Task
  * class AccountModuleInit : ModuleInit {
  *      // Register some task to complete necessary initialization.
  *      // running in work thread.
- *      override fun onEvaluate(taskRegister: TaskRegister) {
+ *      override fun onEvaluate(context: Context, taskRegister: TaskRegister<out TaskUnit>) {
  *          // register a task of LoadLoginStateTask for read login state from disk cache.
  *          taskRegister.register(LoadLoginStateTask::class.java, instance of UserDiskCache)
  *      }
@@ -53,12 +55,12 @@ import com.p2m.core.module.task.Task
  *      // All task of Account module complete executed already, can get they output here.
  *      // All dependant module has been initialized, can get they module api here.
  *      // running in main thread.
- *      override fun onExecuted(taskOutputProvider: TaskOutputProvider, moduleProvider: SafeModuleProvider) {
+ *      override fun onExecuted(context: Context, taskOutputProvider: TaskOutputProvider, moduleApiProvider: SafeModuleApiProvider) {
  *          // get login state.
  *          val loginSuccess = taskOutputProvider.getOutputOf(LoadLoginStateTask::class.java)
  *
  *          // save login state to event holder.
- *          moduleProvider
+ *          moduleApiProvider
  *              .moduleApiOf(Account::class.java)
  *              .event
  *              .loginState // you can set value, get value and observe by it.
@@ -70,16 +72,16 @@ import com.p2m.core.module.task.Task
  * class MainModuleInit : ModuleInit {
  *      // Register some task to complete necessary initialization.
  *      // running in work thread.
- *      override fun onEvaluate(taskRegister: TaskRegister) {
+ *      override fun onEvaluate(context: Context, taskRegister: TaskRegister<out TaskUnit>) {
  *          // register some task...
  *      }
  *
  *      // All task of Main module complete executed already, can get they output here.
  *      // All dependant module has been initialized, can get they module api here.
  *      // running in main thread.
- *      override fun onExecuted(taskOutputProvider: TaskOutputProvider, moduleProvider: SafeModuleProvider) {
+ *      override fun onExecuted(context: Context, taskOutputProvider: TaskOutputProvider, moduleApiProvider: SafeModuleApiProvider) {
  *          // Account module has been initialized, get the module api.
- *          val account = moduleProvider.moduleApiOf(Account::class.java)
+ *          val account = moduleApiProvider.moduleApiOf(Account::class.java)
  *
  *          // observe loginState of Account.
  *          account.event.loginState.observeForeverNoLoss { loginState ->
@@ -99,7 +101,7 @@ import com.p2m.core.module.task.Task
  * @see TaskRegister TaskRegister - register some task.
  * @see Task Task - is the smallest unit in a module to perform initialization.
  * @see TaskOutputProvider TaskOutputProvider - get some task output.
- * @see SafeModuleProvider SafeModuleProvider - get some module api.
+ * @see SafeModuleApiProvider SafeModuleApiProvider - get some module api.
  *
  */
 interface ModuleInit : OnEvaluateListener, OnExecutedListener
@@ -118,7 +120,7 @@ interface OnEvaluateListener{
      * @see TaskRegister TaskRegister - register some task.
      * @see Task Task - is the smallest unit in a module to perform initialization.
      */
-    fun onEvaluate(taskRegister: TaskRegister)
+    fun onEvaluate(context: Context, taskRegister: TaskRegister<out TaskUnit>)
 }
 
 interface OnExecutedListener{
@@ -128,22 +130,22 @@ interface OnExecutedListener{
      * Called when its all tasks be completed and all dependencies completed initialized.
      *
      * Here, you can use [TaskOutputProvider] to get some output of itself tasks,
-     * also use [SafeModuleProvider] to get some dependency module api.
+     * also use [SafeModuleApiProvider] to get some dependency module api.
      *
      * Note, it running in main thread.
      *
      * @param taskOutputProvider task output provider.
-     * @param moduleProvider module provider.
+     * @param moduleApiProvider module provider.
      *
      * @see TaskOutputProvider TaskOutputProvider - get some task output.
-     * @see SafeModuleProvider SafeModuleProvider - get some module.
+     * @see SafeModuleApiProvider SafeModuleApiProvider - get some module.
      */
-    fun onExecuted(taskOutputProvider: TaskOutputProvider, moduleProvider: SafeModuleProvider)
+    fun onExecuted(context: Context, taskOutputProvider: TaskOutputProvider, moduleApiProvider: SafeModuleApiProvider)
 }
 
 class EmptyModuleInit : ModuleInit {
 
-    override fun onEvaluate(taskRegister: TaskRegister) { }
+    override fun onEvaluate(context: Context, taskRegister: TaskRegister<out TaskUnit>) { }
 
-    override fun onExecuted(taskOutputProvider: TaskOutputProvider, moduleProvider: SafeModuleProvider) { }
+    override fun onExecuted(context: Context, taskOutputProvider: TaskOutputProvider, moduleApiProvider: SafeModuleApiProvider) { }
 }

@@ -3,7 +3,6 @@ package com.p2m.core.internal.module.task
 import com.p2m.core.module.task.Task
 import com.p2m.core.module.task.TaskUnit
 
-
 internal class TaskUnitImpl constructor(private val owner: Class<out Task<*, *>>, val input: Any?, val ownerInstance: Task<*, *>) : TaskUnit {
     private val dependencies = hashSetOf<Class<out Task<*, *>>>()
 

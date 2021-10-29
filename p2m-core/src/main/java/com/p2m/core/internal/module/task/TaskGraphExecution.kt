@@ -7,9 +7,10 @@ import com.p2m.core.module.task.Task
 import java.util.concurrent.*
 import java.util.concurrent.atomic.AtomicInteger
 
-internal class TaskGraphExecution(override val graph: TaskGraph): AbsGraphExecution<TaskNode, Class<out Task<*, *>>, TaskGraph>() {
-    companion object{
+internal class TaskGraphExecution(override val graph: TaskGraph) :
+    AbsGraphExecution<TaskNode, Class<out Task<*, *>>, TaskGraph>() {
 
+    companion object{
         private val EXECUTOR: ExecutorService =  ThreadPoolExecutor(
             0,
                 Int.MAX_VALUE,
@@ -83,7 +84,7 @@ internal class TaskGraphExecution(override val graph: TaskGraph): AbsGraphExecut
     private fun TaskNode.executing() {
         logI("${graph.moduleName}-Task-Graph-Node-${taskName} onExecute()")
         task.inputObj = input
-        task.onExecute(safeTaskProvider, graph.safeModuleProvider)
+        task.onExecute(context, safeTaskProvider, graph.SafeModuleApiProvider)
     }
 
     override fun asyncTask(runnable: Runnable) {

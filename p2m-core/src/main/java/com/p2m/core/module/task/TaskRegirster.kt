@@ -3,7 +3,7 @@ package com.p2m.core.module.task
 /**
  * Task register.
  */
-interface TaskRegister {
+interface TaskRegister<UNIT: TaskUnit> {
 
     /**
      * Register a task.
@@ -11,7 +11,7 @@ interface TaskRegister {
      * @param clazz the task class.
      * @param input [Task.input] of [clazz] instance set to the value.
      */
-    fun<INPUT> register(clazz: Class<out Task<INPUT, *>>, input: INPUT? = null): TaskUnit
+    fun<INPUT> register(clazz: Class<out Task<INPUT, *>>, input: INPUT? = null): UNIT
 
     /**
      *
@@ -24,6 +24,6 @@ interface TaskRegister {
     /**
      * Found a task that has been registered.
      */
-    fun find(clazz: Class<out Task<*, *>>): TaskUnit?
+    fun find(clazz: Class<out Task<*, *>>): UNIT?
     
 }

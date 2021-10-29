@@ -23,9 +23,10 @@ import java.util.jar.JarEntry
 import java.util.jar.JarFile
 import java.util.jar.JarOutputStream
 
+@Deprecated
 public class P2MTransform extends Transform {
 
-    private final static String CLASS_FILE_PATH_MODULE_GRAPH = "com/p2m/core/internal/module/ModuleGraph.class"
+    private final static String CLASS_FILE_PATH_MODULE_AUTO_REGISTER = "com/p2m/core/internal/module/ModuleAutoRegister.class"
     HashMap<String, BaseProject> p2mProject
     boolean transformClassesDir
 
@@ -64,8 +65,8 @@ public class P2MTransform extends Transform {
         TransformOutputProvider outputProvider = transformInvocation.getOutputProvider()
         outputProvider.deleteAll()
 
-        File moduleGraphJarOrigin = null
-        File moduleGraphJarDest = null
+        File injectJarOrigin = null
+        File injectJarDest = null
         for (TransformInput input : inputs) {
             Collection<BaseProject> moduleProjects = includeModuleProjects()
             for (JarInput jarInput : input.getJarInputs()) {
@@ -91,14 +92,13 @@ public class P2MTransform extends Transform {
                 while (enumeration.hasMoreElements()) {
                     JarEntry originJarEntry = enumeration.nextElement()
                     String classFilePath = originJarEntry.getName()
-                    // step 2.1 找到需要注入依赖关系的class
-                    if (classFilePath.equals(CLASS_FILE_PATH_MODULE_GRAPH)) {
-                        moduleGraphJarOrigin = jarInput.getFile()
-                        moduleGraphJarDest = destFile
-                        // step 2.2 找到需要被注入的class
-                    } else if (classFilePath.startsWith("com/p2m/module/")) {
-                        updateModuleStatusIfFindGenClass(classFilePath, moduleProjects)
-                        // println(this, classFilePath + " > " + destFile.getAbsolutePath())
+                    // step 2.1 找到被注入的class
+                    if (classFilePath.equals(CLASS_FILE_PATH_MODULE_AUTO_REGISTER)) {
+                        injectJarOrigin = jarInput.getFile()
+                        injectJarDest = destFile
+                        // step 2.2 找到需要注入的module class
+                    } else if (classFilePath.startsWith("com/p2m/module/api/")) {
+                        markIfFindModuleClass(classFilePath, moduleProjects)
                     }
                 }
             }
@@ -119,16 +119,14 @@ public class P2MTransform extends Transform {
                     if (findModuleProject != null) {
                         findModuleProject.getProject().fileTree(classesDir, { files ->
                             // println(this, "transform classes dir of " + findModuleProject.getModuleNamed().get() + " as App")
-                            files.include("com/p2m/module/**/*.class")
+                            files.include("com/p2m/module/api/*.class")
                             for (File file : files.getFiles()) {
                                 String classAbsolutePath = file.getAbsolutePath()
-                                // println(this, "file:" + classAbsolutePath)
-                                int i = classAbsolutePath.indexOf("com/p2m/module/")
+                                int i = classAbsolutePath.indexOf("com/p2m/module/api/")
                                 if (i != -1) {
                                     String classFilePath = classAbsolutePath.substring(i)
-                                    // println(this, "transform classes dir, processed classFilePath: " + classFilePath)
                                     // step 2 标记生成的class
-                                    updateModuleStatusIfFindGenClass(classFilePath, moduleProjects)
+                                    markIfFindModuleClass(classFilePath, moduleProjects)
                                 }
                             }
                         })
@@ -136,38 +134,23 @@ public class P2MTransform extends Transform {
                 }
             }
         }
-        // step 3 根据模块的依赖关系和标记生成的class来操作字节码
-        // println(this,  "transform transformModuleGraphJar")
-        if (moduleGraphJarDest != null) {
-            transformModuleGraphJar(moduleGraphJarOrigin, moduleGraphJarDest, transformInvocation.getContext().getTemporaryDir())
+        // step 3 根据模块的标记将模块注入到class
+        if (injectJarDest != null) {
+            transformInjectJar(injectJarOrigin, injectJarDest, transformInvocation.getContext().getTemporaryDir())
         }
     }
 
-    private void updateModuleStatusIfFindGenClass(String classFilePath, Collection<BaseProject> moduleProjects) {
-        String implModuleName = classFilePath.replace("com/p2m/module/impl/_", "").replace("ModuleInit.class", "")
-        String moduleApiName = classFilePath.replace("com/p2m/module/api/", "").replace(".class", "")
+    private void markIfFindModuleClass(String classFilePath, Collection<BaseProject> moduleProjects) {
+        String moduleName = classFilePath.replace("com/p2m/module/api/", "").replace(".class", "")
         for (BaseProject moduleProject : moduleProjects) {
             ModuleProject baseProject = (ModuleProject) moduleProject
-            if (
-            !implModuleName.startsWith("com/")
-                    && !implModuleName.endsWith("class")
-                    && baseProject.getModuleName().equals(implModuleName)
-            ) {
+            boolean existModuleClass = !moduleName.startsWith("com/") &&
+                    !moduleName.endsWith("class") &&
+                    baseProject.getModuleName() == moduleName
+            if (existModuleClass) {
                 // println(this,  "classFilePath：" + classFilePath)
-                // println(this,  "implModuleName：" + implModuleName)
-                baseProject.existModuleInitProxyImplClass = true
-                return
-            }
-
-
-            if (
-            !moduleApiName.startsWith("com/")
-                    && !moduleApiName.endsWith("class")
-                    && baseProject.getModuleName().equals(moduleApiName)
-            ) {
-                // println(this,  "classFilePath：" + classFilePath)
-                // println(this,  "moduleApiName：" + moduleApiName)
-                baseProject.existApiClass = true
+                // println(this,  "moduleName：" + moduleName)
+                baseProject.existModuleClass = true
                 return
             }
         }
@@ -196,7 +179,7 @@ public class P2MTransform extends Transform {
         return null
     }
 
-    private void transformModuleGraphJar(File origin, File dest, File tempDir) throws IOException {
+    private void transformInjectJar(File origin, File dest, File tempDir) throws IOException {
         if (dest.exists()) dest.delete()
 
         JarFile originJar = new JarFile(origin)
@@ -209,7 +192,7 @@ public class P2MTransform extends Transform {
             InputStream originEntryInputStream = originJar.getInputStream(originJarEntry)
             byte[] originEntryBytes = IOUtils.toByteArray(originEntryInputStream)
             String originEntryName = originJarEntry.getName()
-            if (originEntryName.equals(CLASS_FILE_PATH_MODULE_GRAPH)) {
+            if (originEntryName == CLASS_FILE_PATH_MODULE_AUTO_REGISTER) {
                 // println(this, "transformModuleGraphJar " + originEntryName)
                 // println(this, "transformModuleGraphJar dest:" + dest.getAbsolutePath())
                 JarEntry tempEntry = new JarEntry(originEntryName)

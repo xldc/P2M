@@ -1,56 +1,31 @@
 package com.p2m.core.internal.module
 
-import com.p2m.core.app.APP_MODULE_NAME
-import com.p2m.core.app.App
+import android.content.Context
 import com.p2m.core.internal.graph.Graph
 import com.p2m.core.internal.graph.Stage
-import com.p2m.core.module.ModuleApi
-import com.p2m.core.module.ModuleInit
-import java.lang.IllegalStateException
+import com.p2m.core.internal.log.logW
+import com.p2m.core.module.Module
 import java.util.concurrent.atomic.AtomicInteger
 
-@Suppress("SameParameterValue", "unused")
-internal class ModuleGraph private constructor(private val topModuleInit: AppModuleInit) : Graph<ModuleNode, String> {
-    private val moduleInits: HashMap<String, ModuleInit> = HashMap()
-    private val apiClasses: HashMap<String,Class<out ModuleApi<*, *, *>>> = HashMap()
-    private val apis: HashMap<String, ModuleApi<*, *, *>> = HashMap()
-    private val nodes: HashMap<String, ModuleNode> = HashMap()
+internal class ModuleGraph private constructor(
+    private val context:Context,
+    private val moduleContainer: ModuleContainerImpl
+) : Graph<ModuleNode, Class<out Module<*, *>>> {
+    private val nodes: HashMap<Class<out Module<*, *>>, ModuleNode> = HashMap()
     val moduleSize
-        get() = moduleInits.size
+        get() = moduleContainer.getAll().size
     override var stageSize = 0
     override var stageCompletedCount = AtomicInteger()
 
     companion object{
-        internal fun fromTopModuleInit(appModule: AppModuleInit): ModuleGraph {
-            return ModuleGraph(appModule)
+        internal fun create(context:Context, moduleContainer: ModuleContainerImpl): ModuleGraph {
+            return ModuleGraph(context, moduleContainer)
         }
     }
 
-    init {
-        collectView()
-    }
-
-    private fun genTopModule(appModule: AppModuleInit) {
-        genModuleInit(APP_MODULE_NAME, appModule)
-        genApi(APP_MODULE_NAME, App())
-        genApiClass(APP_MODULE_NAME, App::class.java)
-    }
-
-    private fun genModuleInit(moduleName: String, moduleInit: ModuleInit) {
-        moduleInits[moduleName] = moduleInit
-    }
-
-    private fun genApi(moduleName: String, api: ModuleApi<*, *, *>) {
-        apis[moduleName] = api
-    }
-
-    private fun genApiClass(moduleName: String, apiClass: Class<out ModuleApi<*, *, *>>) {
-        apiClasses[moduleName] = apiClass
-    }
-
-    private fun addDepend(owner: String, depend: String) {
-        val ownerNode = nodes[owner] ?: return
-        val node = nodes[depend] ?: return
+    private fun Class<out Module<*, *>>.addDepend(dependClazz: Class<out Module<*, *>>) {
+        val ownerNode = nodes[this] ?: return
+        val node = nodes[dependClazz] ?: return
 
         if (node.byDependNodes.add(ownerNode)) {
             node.byDependDegree++
@@ -75,16 +50,17 @@ internal class ModuleGraph private constructor(private val topModuleInit: AppMod
         return ringNodes
     }
 
-    override fun evaluate():HashMap<String, ModuleNode>{
+    override fun evaluate():HashMap<Class<out Module<*, *>>, ModuleNode>{
         reset()
         layout()
         return nodes
     }
-
+    
     private fun dependTop(){
-        nodes.filter { it.value.byDependDegree == 0 && it.key != APP_MODULE_NAME}
+        val topJavaClass = moduleContainer.topModuleImplClazz
+        nodes.filter { it.value.byDependDegree == 0 && it.key !== topJavaClass}
             .keys
-            .forEach { addDepend(APP_MODULE_NAME, it) }
+            .forEach { topJavaClass.addDepend(it) }
     }
 
     override fun getHeadStage(): Stage<ModuleNode> {
@@ -117,11 +93,10 @@ internal class ModuleGraph private constructor(private val topModuleInit: AppMod
     
     override fun eachStageBeginFromTail(block: (stage: Stage<ModuleNode>) -> Unit) {
         val nodes = evaluate().values
-        var count = 0
         while (!nodes.isEmpty()) {
-            count++
             val stage = Stage<ModuleNode>()
             val noDependDegreeNodes = ArrayList<ModuleNode>()
+
             nodes.forEach{ node ->
                 if (node.dependDegree == 0) {
                     noDependDegreeNodes.add(node)
@@ -189,38 +164,29 @@ internal class ModuleGraph private constructor(private val topModuleInit: AppMod
         stageSize = 0
         stageCompletedCount.set(0)
     }
-
-    private fun collectView(){
-        genTopModule(topModuleInit)
-        genModuleInits()
-        genApis()
-        genApiClasses()
-    }
-
+    
     private fun layout(){
         genNodes()
         addDepends()
         dependTop()
     }
-
-    private fun genModuleInits() { }
-
-    private fun genApis() { }
-
-    private fun genApiClasses() { }
-
+    
     private fun genNodes() {
-        moduleInits.iterator().forEach {
-            val moduleName = it.key
-            val module = it.value
-
-            val api = apis[moduleName]
-                ?: throw IllegalStateException("未知错误，每个模块包含一个模块和api模块")
-            val apiClass = apiClasses[moduleName]
-            val safeModuleProviderImpl = SafeModuleProviderImpl(topModuleInit.context, moduleName, api)
-            nodes[moduleName] = ModuleNode(moduleName, module, api, apiClass!!, safeModuleProviderImpl, module is AppModuleInit)
+        moduleContainer.getAll().forEach {
+            val safeModuleProviderImpl = SafeModuleApiProviderImpl(moduleContainer, it.module.apiClazzName, it.module)
+            nodes[it.moduleImplClazz] = ModuleNode(context, it.module, safeModuleProviderImpl,it.moduleImplClazz === moduleContainer.topModuleImplClazz)
         }
     }
+    
+    private fun addDepends() {
+        moduleContainer.getAll().map { it.moduleImplClazz to it.dependencies }
+            .forEach {
+                val owner = it.first
+                it.second.forEach { dependClazz ->
+                    if (!nodes.containsKey(dependClazz)) logW("${owner.canonicalName} depend on ${dependClazz.canonicalName}, but not registered of ${dependClazz.canonicalName}")
+                    owner.addDepend(dependClazz)
+                }
+            }
+    }
 
-    private fun addDepends() { }
 }

@@ -7,6 +7,6 @@ internal class TaskOutputProviderImplForModule(private val taskContainer: TaskCo
     
     @Suppress("UNCHECKED_CAST")
     override fun <OUTPUT> getOutputOf(clazz: Class<out Task<*, OUTPUT>>): OUTPUT? {
-        return ((taskContainer.find(clazz) as TaskUnitImpl).ownerInstance as Task<*, OUTPUT>).output
+        return (taskContainer.find(clazz)?.ownerInstance as? Task<*, OUTPUT>)?.output
     }
 }

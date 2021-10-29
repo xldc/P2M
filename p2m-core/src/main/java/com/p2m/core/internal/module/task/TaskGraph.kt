@@ -1,16 +1,18 @@
 package com.p2m.core.internal.module.task
 
+import android.content.Context
 import com.p2m.core.internal.graph.Graph
 import com.p2m.core.internal.graph.Stage
 import com.p2m.core.internal.log.logW
-import com.p2m.core.module.SafeModuleProvider
+import com.p2m.core.module.SafeModuleApiProvider
 import com.p2m.core.module.task.Task
 import java.util.concurrent.atomic.AtomicInteger
 
 internal class TaskGraph private constructor(
-        val moduleName: String,
-        private val taskContainer: TaskContainerImpl,
-        val safeModuleProvider: SafeModuleProvider
+    val context: Context,
+    val moduleName: String,
+    private val taskContainer: TaskContainerImpl,
+    val SafeModuleApiProvider: SafeModuleApiProvider
 ) : Graph<TaskNode, Class<out Task<*, *>>> {
     private val tasks: MutableList<Class<out Task<*, *>>> = mutableListOf()
     private val nodes: HashMap<Class<out Task<*, *>>, TaskNode> = HashMap()
@@ -20,8 +22,8 @@ internal class TaskGraph private constructor(
     override var stageCompletedCount = AtomicInteger()
 
     companion object{
-        internal fun create(moduleName: String, taskContainer: TaskContainerImpl, safeModuleProvider: SafeModuleProvider): TaskGraph {
-            return TaskGraph(moduleName, taskContainer, safeModuleProvider)
+        internal fun create(context: Context, moduleName: String, taskContainer: TaskContainerImpl, SafeModuleApiProvider: SafeModuleApiProvider): TaskGraph {
+            return TaskGraph(context, moduleName, taskContainer, SafeModuleApiProvider)
         }
     }
 
@@ -33,8 +35,8 @@ internal class TaskGraph private constructor(
         tasks.add(clazz)
     }
 
-    private fun addDepend(ownerClazz: Class<out Task<*, *>>, dependClazz: Class<out Task<*, *>>) {
-        val ownerNode = nodes[ownerClazz] ?: return
+    private fun Class<out Task<*, *>>.addDepend(dependClazz: Class<out Task<*, *>>) {
+        val ownerNode = nodes[this] ?: return
         val node = nodes[dependClazz] ?: return
 
         if (node.byDependNodes.add(ownerNode)) {
@@ -67,9 +69,10 @@ internal class TaskGraph private constructor(
     }
     
     private fun dependTop(){
-        nodes.filter { it.value.byDependDegree == 0 && it.key != TopTask.CLAZZ}
+        val topJavaClass = taskContainer.topTaskClazz
+        nodes.filter { it.value.byDependDegree == 0 && it.key !== topJavaClass}
             .keys
-            .forEach { addDepend(TopTask.CLAZZ, it) }
+            .forEach { topJavaClass.addDepend(it) }
     }
 
     override fun getHeadStage(): Stage<TaskNode> {
@@ -193,9 +196,10 @@ internal class TaskGraph private constructor(
     private fun genNodes() {
         tasks.iterator().forEach {
             val clazz = it
-            val taskUnitImpl = taskContainer.find(clazz) as TaskUnitImpl
-            val safeTaskProvider = TaskOutputProviderImplForTask(taskContainer, taskUnitImpl)
-            nodes[clazz] = TaskNode(clazz.simpleName, taskUnitImpl.ownerInstance, taskUnitImpl.input, safeTaskProvider, clazz == TopTask.CLAZZ)
+            taskContainer.find(clazz)?.apply {
+                val safeTaskProvider = TaskOutputProviderImplForTask(taskContainer, this)
+                nodes[clazz] = TaskNode(context, clazz.simpleName, this.ownerInstance, this.input, safeTaskProvider, clazz === taskContainer.topTaskClazz)
+            }
         }
     }
     
@@ -205,7 +209,7 @@ internal class TaskGraph private constructor(
                 val owner = it.first
                 it.second.forEach { dependClazz ->
                     if (!nodes.containsKey(dependClazz)) logW("${owner.canonicalName} depend on ${dependClazz.canonicalName}, but not registered of ${dependClazz.canonicalName}")
-                    addDepend(owner, dependClazz)
+                    owner.addDepend(dependClazz)
                 }
             }
     }

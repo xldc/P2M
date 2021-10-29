@@ -5,11 +5,8 @@ import com.p2m.annotation.module.ModuleInitializer
 import com.p2m.annotation.module.api.*
 import com.p2m.compiler.processing.BaseProcessor.Companion.OPTION_MODULE_NAME
 import com.p2m.compiler.*
-import com.p2m.compiler.bean.GenModuleApiResult
-import com.p2m.compiler.bean.GenModuleEventResult
-import com.p2m.compiler.bean.GenModuleLauncherResult
-import com.p2m.compiler.bean.GenModuleResult
-import com.p2m.compiler.bean.GenModuleServiceResult
+import com.p2m.compiler.bean.*
+import com.p2m.compiler.processing.BaseProcessor.Companion.OPTION_DEPENDENCIES
 import com.p2m.compiler.utils.*
 import com.squareup.kotlinpoet.*
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
@@ -38,6 +35,7 @@ import javax.tools.StandardLocation
     "com.p2m.annotation.module.ModuleInitializer"
 )
 @SupportedOptions(
+    OPTION_DEPENDENCIES,
     OPTION_MODULE_NAME,
     "org.gradle.annotation.processing.aggregating"
 )
@@ -47,7 +45,6 @@ class P2MProcessor : BaseProcessor() {
         private var TAG = "P2MProcessor"
     }
 
-    private var genApiSource = false
     private var genModuleInitSource = false
     private var exportApiClassPath = mutableListOf<ClassName>()
     private var exportApiSourcePath = mutableListOf<ClassName>()
@@ -64,11 +61,20 @@ class P2MProcessor : BaseProcessor() {
 
         kotlin.runCatching {
 
-            // gen and provide module api classes for dependant module
-            genApiAndImpl(roundEnv)
+            // gen module api
+            val moduleApiResult = genModuleApi(roundEnv).also {
+                exportApiClassPath.add(it.apiClassName)
+            }
 
-            // gen module initialization env
-            genInitializationEnvForModule(roundEnv)
+            // gen module init
+            val moduleInitResult = genModuleInit(roundEnv).also {
+                exportApiClassPath.add(it.apiClassName)
+            }
+
+            // gen module
+            genModule(moduleApiResult, moduleInitResult).also {
+                exportApiClassPath.add(it.apiClassName)
+            }
 
             // collect and provide annotated ApiUse classes for dependant module
             collectClassesForAnnotatedApiUse(roundEnv)
@@ -96,7 +102,6 @@ class P2MProcessor : BaseProcessor() {
     }
 
     private fun genModuleApiProperties() = mutableMapOf<String, String>().apply {
-        this["genApiSource"] = "$genApiSource"
         this["genModuleInitSource"] = "$genModuleInitSource"
         this["exportApiClassPath"] = exportApiClassPath.joinToString(",") { className ->
             // com.android.os.Test.InnerClass -> com/android/os/Test
@@ -112,11 +117,105 @@ class P2MProcessor : BaseProcessor() {
             prefix + File.separator + suffix
         }
     }
-    
-    private fun genInitializationEnvForModule(roundEnv: RoundEnvironment) {
-        val ImplPackageName = PACKAGE_NAME_IMPL
-        val ModuleInitClassName = ClassName.bestGuess("$PACKAGE_NAME_CORE.module.$CLASS_MODULE_INIT")
-        val moduleImplFileName = "_${optionModuleName}ModuleInit"
+
+    private fun genModule(
+        moduleApiResult: GenResult,
+        moduleInitResult: GenResult
+    ): GenResult {
+        val ModuleClassName = ClassName.bestGuess("$PACKAGE_NAME_CORE_MODULE.$CLASS_MODULE")
+        val apiPackageName = packageNameApi
+        val apiFileName = optionModuleName
+        val implPackageName = packageNameImpl
+        val implFileName = "_${apiFileName}"
+
+        val apiFileSpecBuilder = FileSpec
+            .builder(apiPackageName, apiFileName)
+            .addFileComment()
+        exportApiSourcePath.add(ClassName(apiPackageName, apiFileName))
+
+        val implFileSpecBuilder = FileSpec
+            .builder(implPackageName, implFileName)
+            .addFileComment()
+
+        return genModuleClassForKotlin(
+            moduleApiResult,
+            moduleInitResult,
+            ModuleClassName,
+            apiPackageName,
+            apiFileName,
+            implPackageName,
+            implFileName,
+            apiFileSpecBuilder,
+            implFileSpecBuilder
+        ).apply {
+            apiFileSpecBuilder.build().writeTo(mFiler)
+            implFileSpecBuilder.build().writeTo(mFiler)
+        }
+    }
+
+    private fun genModuleClassForKotlin(
+        moduleApiResult: GenResult,
+        moduleInitResult: GenResult,
+        moduleClassName: ClassName,
+        apiPackageName: String,
+        apiName: String,
+        implPackageName: String,
+        implName: String,
+        apiFileSpecBuilder: FileSpec.Builder,
+        implFileSpecBuilder: FileSpec.Builder
+    ): GenResult {
+        val apiClassName = ClassName(apiPackageName, apiName)
+        TypeSpec.classBuilder(apiClassName)
+            .addModifiers(KModifier.ABSTRACT)
+            .superclass(
+                moduleClassName.parameterizedBy(
+                    moduleApiResult.apiClassName,
+                    moduleInitResult.apiClassName
+                )
+            )
+            .build()
+            .run(apiFileSpecBuilder::addType)
+
+
+        val implClassName = ClassName(implPackageName, implName)
+        TypeSpec.classBuilder(implClassName)
+            .superclass(apiClassName)
+            .addProperty(
+                PropertySpec.builder("api", moduleApiResult.apiClassName)
+                    .addModifiers(KModifier.OVERRIDE)
+                    .delegate("lazy { ${moduleApiResult.getImplInstanceStatement()} }")
+                    .build()
+            )
+            .addProperty(
+                PropertySpec.builder("init", moduleInitResult.apiClassName)
+                    .addModifiers(KModifier.OVERRIDE)
+                    .addModifiers(KModifier.PROTECTED)
+                    .delegate("lazy { ${moduleInitResult.getImplInstanceStatement()} }")
+                    .build()
+            )
+            .apply {
+                dependencies.forEach{
+                    addInitializerBlock(
+                        CodeBlock.of(
+                            "dependOn(%T::class.java, \"%L\")",
+                            ClassName.bestGuess(it.key),
+                            it.value
+                        )
+                    )
+                }
+            }
+            .build()
+            .run(implFileSpecBuilder::addType)
+
+        return GenResult(apiClassName, implClassName)
+    }
+
+    private fun genModuleInit(roundEnv: RoundEnvironment): GenResult {
+        val ModuleInitClassName = ClassName.bestGuess("$PACKAGE_NAME_CORE_MODULE.$CLASS_MODULE_INIT")
+        val apiPackageName = packageNameApi
+        val apiFileName = "${optionModuleName}ModuleInit"
+        val implPackageName = packageNameImpl
+        val implFileName = "_${apiFileName}"
 
         val moduleInitElement = roundEnv.getSingleTypeElementAnnotatedWith(
             mLogger,
@@ -131,17 +230,17 @@ class P2MProcessor : BaseProcessor() {
                 @ModuleInitializer
                 class ${optionModuleName}ModuleInit : ModuleInit{
 
-                    override fun onEvaluate(taskRegister: TaskRegister) {
+                    override fun onEvaluate(context: Context, taskRegister: TaskRegister<out TaskUnit>) {
                         // Evaluate stage of itself.
                         // Here, You can use [taskRegister] to register some task for help initialize module fast,
                         // and then these tasks will be executed order.
                     }
 
-                    override fun onExecuted(taskOutputProvider: TaskOutputProvider, moduleProvider: SafeModuleProvider) {
+                    override fun onExecuted(context: Context, taskOutputProvider: TaskOutputProvider, moduleApiProvider: SafeModuleApiProvider) {
                         // Executed stage of itself, indicates will completed initialized of the module.
                         // Called when its all tasks be completed and all dependencies completed initialized.
                         // Here, You can use [taskOutputProvider] to get some output of itself tasks,
-                        // also use [moduleProvider] to get some dependency module.
+                        // also use [moduleApiProvider] to get some dependency module.
                     }
                 }
                 
@@ -150,33 +249,44 @@ class P2MProcessor : BaseProcessor() {
         }
 
         moduleInitElement.checkKotlinClass()
+        val apiFileSpecBuilder = FileSpec
+            .builder(apiPackageName, apiFileName)
+            .addFileComment()
+        exportApiSourcePath.add(ClassName(apiPackageName, apiFileName))
+
         val implFileSpecBuilder = FileSpec
-            .builder(ImplPackageName, moduleImplFileName)
+            .builder(implPackageName, implFileName)
             .addFileComment()
 
-        this.genModuleInitClassForKotlin(
+        return genModuleInitClassForKotlin(
             moduleInitElement,
-            ImplPackageName,
+            apiPackageName,
+            apiFileName,
+            implPackageName,
+            implFileName,
             ModuleInitClassName,
+            apiFileSpecBuilder,
             implFileSpecBuilder
-        )
-        implFileSpecBuilder.build().writeTo(mFiler)
-        genModuleInitSource = true
+        ).apply {
+            apiFileSpecBuilder.build().writeTo(mFiler)
+            implFileSpecBuilder.build().writeTo(mFiler)
+            genModuleInitSource = true
+        }
     }
 
-    private fun genApiAndImpl(roundEnv: RoundEnvironment) {
+    private fun genModuleApi(roundEnv: RoundEnvironment): GenResult {
         // of p2m-core
-        val ModuleApiClassName = ClassName.bestGuess("$PACKAGE_NAME_CORE.module.$CLASS_MODULE_API")
-        val ModuleLauncherClassName = ClassName.bestGuess("$PACKAGE_NAME_CORE.module.$CLASS_API_LAUNCHER")
-        val ModuleServiceClassName = ClassName.bestGuess("$PACKAGE_NAME_CORE.module.$CLASS_API_SERVICE")
-        val ModuleEventClassName = ClassName.bestGuess("$PACKAGE_NAME_CORE.module.$CLASS_API_EVENT")
-        val EmptyLauncherClassName = ClassName.bestGuess("$PACKAGE_NAME_CORE.module.$CLASS_API_LAUNCHER_EMPTY")
-        val EmptyServiceClassName = ClassName.bestGuess("$PACKAGE_NAME_CORE.module.$CLASS_API_SERVICE_EMPTY")
-        val EmptyEventClassName = ClassName.bestGuess("$PACKAGE_NAME_CORE.module.$CLASS_API_EVENT_EMPTY")
+        val ModuleApiClassName = ClassName.bestGuess("$PACKAGE_NAME_CORE_MODULE.$CLASS_MODULE_API")
+        val ModuleLauncherClassName = ClassName.bestGuess("$PACKAGE_NAME_CORE_MODULE.$CLASS_API_LAUNCHER")
+        val ModuleServiceClassName = ClassName.bestGuess("$PACKAGE_NAME_CORE_MODULE.$CLASS_API_SERVICE")
+        val ModuleEventClassName = ClassName.bestGuess("$PACKAGE_NAME_CORE_MODULE.$CLASS_API_EVENT")
+        val EmptyLauncherClassName = ClassName.bestGuess("$PACKAGE_NAME_CORE_MODULE.$CLASS_API_LAUNCHER_EMPTY")
+        val EmptyServiceClassName = ClassName.bestGuess("$PACKAGE_NAME_CORE_MODULE.$CLASS_API_SERVICE_EMPTY")
+        val EmptyEventClassName = ClassName.bestGuess("$PACKAGE_NAME_CORE_MODULE.$CLASS_API_EVENT_EMPTY")
 
         // for generated
-        val apiPackageName = PACKAGE_NAME_API
-        val implPackageName = PACKAGE_NAME_IMPL
+        val apiPackageName = packageNameApi
+        val implPackageName = packageNameImpl
         val apiFileName = "${optionModuleName}ModuleApi"
         val implFileName = "_${optionModuleName}ModuleApi"
 
@@ -192,7 +302,7 @@ class P2MProcessor : BaseProcessor() {
             .addFileComment()
 
         // gen launcher
-        val genLauncherResult: GenModuleLauncherResult = genLauncherClassForKotlin(
+        val genLauncherResult: GenResult = genLauncherClassForKotlin(
             roundEnv,
             EmptyLauncherClassName,
             ModuleLauncherClassName,
@@ -224,27 +334,27 @@ class P2MProcessor : BaseProcessor() {
             implFileSpecBuilder
         )
 
-        // gen api
-        genApiClassForKotlin(
+        // gen module api
+        return genModuleApiClassForKotlin(
             ModuleApiClassName,
             apiPackageName,
             implPackageName,
-            optionModuleName,
+            apiFileName,
             genLauncherResult,
             genServiceResult,
             genEventResult,
             apiFileSpecBuilder,
             implFileSpecBuilder
-        )
+        ).apply {
+            // write for api
+            apiFileSpecBuilder.build().writeTo(mFiler)
+            implFileSpecBuilder.build().writeTo(mFiler)
 
-        // write for api
-        apiFileSpecBuilder.build().writeTo(mFiler)
-        implFileSpecBuilder.build().writeTo(mFiler)
-
-        // copy source to provide for dependant
-        // mLogger.info("apiSrcDir:$apiSrcDir")
-        // if (!apiSrcDir.exists()) apiSrcDir.mkdirs()
-        // apiFileSpecBuilder.build().writeTo(apiSrcDir)
+            // copy source to provide for dependant
+            // mLogger.info("apiSrcDir:$apiSrcDir")
+            // if (!apiSrcDir.exists()) apiSrcDir.mkdirs()
+            // apiFileSpecBuilder.build().writeTo(apiSrcDir)
+        }
     }
 
     private fun collectModuleApiClassesToPropertiesFile() {
@@ -381,10 +491,14 @@ class P2MProcessor : BaseProcessor() {
 
     private fun genModuleInitClassForKotlin(
         moduleInitElement: TypeElement,
+        apiPackageName: String,
+        apiName: String,
         implPackageName: String,
+        implName: String,
         ModuleInitClassName: ClassName,
+        apiFileSpecBuilder: FileSpec.Builder,
         implFileSpecBuilder: FileSpec.Builder
-    ): GenModuleResult {
+    ): GenResult {
 
         val moduleInitClassNameOrigin = ClassName(moduleInitElement.packageName(), moduleInitElement.simpleName.toString())
 
@@ -392,107 +506,103 @@ class P2MProcessor : BaseProcessor() {
         check(moduleInitElement.interfaces.size == 1) { "${moduleInitElement.qualifiedName} must extends ${ModuleInitClassName.canonicalName} only." }
         check(moduleInitElement.interfaces[0].toString() == ModuleInitClassName.canonicalName) { "${moduleInitElement.qualifiedName} must extends ${ModuleInitClassName.canonicalName}" }
 
+        //接口
+        val moduleInitApiClassName = ClassName(apiPackageName, apiName)
+        TypeSpec.interfaceBuilder(moduleInitApiClassName)
+            .addSuperinterface(ModuleInitClassName)
+            .build()
+            .run(apiFileSpecBuilder::addType)
+
         // 服务代理类，代理被注解的类
-        val moduleInitImplClassName = ClassName(implPackageName, "_${optionModuleName}ModuleInit")
+        val moduleInitImplClassName = ClassName(implPackageName, implName)
         val moduleInitRealRefName = "moduleInitReal"
-        val moduleInitImplTypeSpecBuilder = TypeSpec.classBuilder(moduleInitImplClassName)
-        moduleInitImplTypeSpecBuilder.addSuperinterface(ModuleInitClassName, delegate = CodeBlock.of(moduleInitRealRefName) )
-        moduleInitImplTypeSpecBuilder.primaryConstructor(
-            FunSpec
-                .constructorBuilder()
-                .addParameter(
-                    ParameterSpec.builder(moduleInitRealRefName, ModuleInitClassName)
-                        .defaultValue("%T()", moduleInitClassNameOrigin)
-                        .build()
-                )
-                .build()
-        )
+        TypeSpec.classBuilder(moduleInitImplClassName)
+            .addSuperinterface(moduleInitApiClassName)
+            .addSuperinterface(ModuleInitClassName, delegate = CodeBlock.of(moduleInitRealRefName))
+            .primaryConstructor(
+                FunSpec
+                    .constructorBuilder()
+                    .addParameter(
+                        ParameterSpec.builder(moduleInitRealRefName, ModuleInitClassName)
+                            .defaultValue("%T()", moduleInitClassNameOrigin)
+                            .build()
+                    )
+                    .build()
+            )
+            .build()
+            .run(implFileSpecBuilder::addType)
 
-        val moduleImplTypeSpec = moduleInitImplTypeSpecBuilder.build()
-
-        implFileSpecBuilder.addType(moduleImplTypeSpec)
-
-        return GenModuleResult(moduleInitImplClassName)
+        return GenResult(moduleInitApiClassName, moduleInitImplClassName)
     }
 
-    private fun genApiClassForKotlin(
+    private fun genModuleApiClassForKotlin(
         ModuleApiClassName: ClassName,
         apiPackageName: String,
         implPackageName: String,
-        moduleApiInterfaceName: String,
-        genModuleLauncherResult: GenModuleLauncherResult,
-        genModuleServiceResult: GenModuleServiceResult,
-        genModuleEventResult: GenModuleEventResult,
+        apiFileName: String,
+        genModuleLauncherResult: GenResult,
+        genModuleServiceResult: GenResult,
+        genModuleEventResult: GenResult,
         moduleInterfaceFileSpecBuilder: FileSpec.Builder,
         apiImplFileSpecBuilder: FileSpec.Builder
-    ): GenModuleApiResult {
+    ): GenResult {
+        val apiClassName = ClassName(apiPackageName, apiFileName)
+        val implClassName = ClassName(implPackageName, "_${apiFileName}")
 
-        // 模块类名
-        val moduleApiInterfaceClassName = ClassName(apiPackageName, moduleApiInterfaceName)
-        val moduleApiImplClassName = ClassName(implPackageName, "_${moduleApiInterfaceName}")
-
-        // 参数化后的模块接口类型
-        val superModuleParameterizedTypeName = ModuleApiClassName.parameterizedBy(
-            genModuleLauncherResult.launcherInterfaceClassName,
-            genModuleServiceResult.serviceInterfaceClassName,
-            genModuleEventResult.eventInterfaceClassName
+        val superModuleApiParameterizedTypeName = ModuleApiClassName.parameterizedBy(
+            genModuleLauncherResult.apiClassName,
+            genModuleServiceResult.apiClassName,
+            genModuleEventResult.apiClassName
         )
 
         val launcherVarName = "launcher"
         val serviceVarName = "service"
         val eventVarName = "event"
 
-        // 模块基类
-        val moduleAbsTypeSpecBuilder = TypeSpec
-            .interfaceBuilder(moduleApiInterfaceClassName)
-            .addSuperinterface(superModuleParameterizedTypeName)
+        val apiTypeSpecBuilder = TypeSpec
+            .interfaceBuilder(apiClassName)
+            .addSuperinterface(superModuleApiParameterizedTypeName)
             .addKdoc("A api class of $optionModuleName module.\n")
             .addKdoc("Use `P2M.moduleApiOf<${optionModuleName}>()` to get the instance.\n")
             .addKdoc("\n")
-            .addKdoc("@see %T - $launcherVarName, use `P2M.moduleApiOf<$optionModuleName>().$launcherVarName` to get the instance.\n", genModuleLauncherResult.launcherInterfaceClassName)
-            .addKdoc("@see %T - $serviceVarName, use `P2M.moduleApiOf<$optionModuleName>().$serviceVarName` to get the instance.\n", genModuleServiceResult.serviceInterfaceClassName)
-            .addKdoc("@see %T - $eventVarName, use `P2M.moduleApiOf<$optionModuleName>().$eventVarName` to get the instance.\n", genModuleEventResult.eventInterfaceClassName)
+            .addKdoc("@see %T - $launcherVarName, use `P2M.moduleApiOf<$optionModuleName>().$launcherVarName` to get the instance.\n", genModuleLauncherResult.apiClassName)
+            .addKdoc("@see %T - $serviceVarName, use `P2M.moduleApiOf<$optionModuleName>().$serviceVarName` to get the instance.\n", genModuleServiceResult.apiClassName)
+            .addKdoc("@see %T - $eventVarName, use `P2M.moduleApiOf<$optionModuleName>().$eventVarName` to get the instance.\n", genModuleEventResult.apiClassName)
 
-        val moduleAbsTypeSpec = moduleAbsTypeSpecBuilder.build()
+        val apiTypeSpec = apiTypeSpecBuilder.build()
 
         val launcherProperty = PropertySpec.builder(
             launcherVarName,
-            genModuleLauncherResult.launcherInterfaceClassName,
+            genModuleLauncherResult.apiClassName,
             KModifier.OVERRIDE
         ).mutable(false).delegate("lazy() { ${genModuleLauncherResult.getImplInstanceStatement()} }").build()
 
         val serviceProperty = PropertySpec.builder(
             serviceVarName,
-            genModuleServiceResult.serviceInterfaceClassName,
+            genModuleServiceResult.apiClassName,
             KModifier.OVERRIDE
         ).mutable(false).delegate("lazy() { ${genModuleServiceResult.getImplInstanceStatement()} }").build()
 
         val eventProperty = PropertySpec.builder(
             eventVarName,
-            genModuleEventResult.eventInterfaceClassName,
+            genModuleEventResult.apiClassName,
             KModifier.OVERRIDE
         ).mutable(false).delegate("lazy() { ${genModuleEventResult.getImplInstanceStatement()} }").build()
 
         // 模块实现类
-        val apiImplTypeSpecBuilder = TypeSpec
-            .classBuilder(moduleApiImplClassName)
-            .addSuperinterface(moduleApiInterfaceClassName)
+        val implTypeSpecBuilder = TypeSpec
+            .classBuilder(implClassName)
+            .addSuperinterface(apiClassName)
             .addProperty(launcherProperty)
             .addProperty(serviceProperty)
             .addProperty(eventProperty)
 
-        val apiImplTypeSpec = apiImplTypeSpecBuilder.build()
+        val implTypeSpec = implTypeSpecBuilder.build()
 
-        moduleInterfaceFileSpecBuilder.addType(moduleAbsTypeSpec)
-        apiImplFileSpecBuilder.addType(apiImplTypeSpec)
+        moduleInterfaceFileSpecBuilder.addType(apiTypeSpec)
+        apiImplFileSpecBuilder.addType(implTypeSpec)
 
-        genApiSource = true
-        return GenModuleApiResult(
-            moduleApiInterfaceClassName,
-            moduleApiImplClassName
-        ).also {
-            exportApiClassPath.add(it.moduleApiClassName)
-        }
+        return GenResult(apiClassName, implClassName)
     }
 
     private fun genLauncherClassForKotlin(
@@ -503,15 +613,16 @@ class P2MProcessor : BaseProcessor() {
         implPackageName: String,
         apiFileSpecBuilder: FileSpec.Builder,
         apiImplFileSpecBuilder: FileSpec.Builder
-    ): GenModuleLauncherResult {
-        val launcherPackageName = PACKAGE_NAME_IMPL_LAUNCHER
-        val launcherInterfaceSimpleName = "${optionModuleName}ModuleLauncher"
-        val realLauncherClassSimpleName = "Real$launcherInterfaceSimpleName"
+    ): GenResult {
+        val launcherPackageName = packageNameImplLauncher
+        val apiName = "${optionModuleName}ModuleLauncher"
+        val realName = "Real$apiName"
+        val realClassName = ClassName(launcherPackageName, realName)
 
-        val result = genRealLauncherClassForKotlin(roundEnv, ModuleLauncherClassName, launcherPackageName, realLauncherClassSimpleName)
+        val result = genRealLauncherClassForKotlin(roundEnv, ModuleLauncherClassName, launcherPackageName, realName)
         val (launcherType, elementMap) = result
         return if (launcherType == null) {
-            GenModuleLauncherResult(
+            GenResult(
                 EmptyLauncherClassName,
                 EmptyLauncherClassName,
                 true
@@ -520,15 +631,15 @@ class P2MProcessor : BaseProcessor() {
             genLauncherClassForKotlin(
                 ModuleLauncherClassName,
                 launcherType,
-                launcherInterfaceSimpleName,
-                ClassName(launcherPackageName, realLauncherClassSimpleName),
+                realClassName,
+                apiName,
                 apiPackageName,
                 implPackageName,
                 apiFileSpecBuilder,
                 apiImplFileSpecBuilder,
                 elementMap
             ).also {
-                exportApiClassPath.add(it.launcherInterfaceClassName)
+                exportApiClassPath.add(it.apiClassName)
             }
         }
 
@@ -537,15 +648,15 @@ class P2MProcessor : BaseProcessor() {
     private fun genLauncherClassForKotlin(
         ModuleLauncherClassName: ClassName,
         launcherType: TypeSpec,
-        launcherInterfaceSimpleName: String,
-        launcherClassName: ClassName,
+        realClassName: ClassName,
+        apiName: String,
         apiPackageName: String,
         implPackageName: String,
         apiFileSpecBuilder: FileSpec.Builder,
         apiImplFileSpecBuilder: FileSpec.Builder,
         elementMap: MutableMap<String, Element>
-    ): GenModuleLauncherResult {
-        val launcherInterfaceFunSpecs = launcherType
+    ): GenResult {
+        val apiFunSpecs = launcherType
             .funSpecs.map {
                 it.toBuilder().run {
                     annotations.clear()
@@ -561,24 +672,24 @@ class P2MProcessor : BaseProcessor() {
             }
 
         // 接口
-        val launcherInterfaceClassName = ClassName(apiPackageName, launcherInterfaceSimpleName)
-        val launcherInterfaceTypeSpec = TypeSpec.interfaceBuilder(launcherInterfaceClassName).run {
+        val apiClassName = ClassName(apiPackageName, apiName)
+        val apiTypeSpec = TypeSpec.interfaceBuilder(apiClassName).run {
             addSuperinterface(ModuleLauncherClassName)
             funSpecs.clear()
-            addFunctions(launcherInterfaceFunSpecs)
+            addFunctions(apiFunSpecs)
             build()
         }
 
         // 服务代理类，代理被注解的类
-        val launcherImplClassName = ClassName(implPackageName, "_${launcherInterfaceSimpleName}")
+        val implClassName = ClassName(implPackageName, "_${apiName}")
         val launcherRealRefName = "launcherReal"
         val launcherRealProperty = PropertySpec.builder(
             launcherRealRefName,
-            launcherClassName,
+            realClassName,
             KModifier.PRIVATE
-        ).mutable(false).delegate("lazy() { %T() }", launcherClassName).build()
+        ).mutable(false).delegate("lazy() { %T() }", realClassName).build()
 
-        val launcherImplFunSpecs = launcherType.funSpecs.map {
+        val implFunSpecs = launcherType.funSpecs.map {
             it.toBuilder().run {
                 modifiers.remove(KModifier.ABSTRACT)
                 addModifiers(KModifier.OVERRIDE)
@@ -592,24 +703,21 @@ class P2MProcessor : BaseProcessor() {
                 build()
             }
         }
-        val launcherImplTypeSpec = launcherInterfaceTypeSpec.toBuilder(TypeSpec.Kind.CLASS, name = launcherImplClassName.simpleName).run {
-            addSuperinterface(launcherInterfaceClassName)
+        val implTypeSpec = apiTypeSpec.toBuilder(TypeSpec.Kind.CLASS, name = implClassName.simpleName).run {
+            addSuperinterface(apiClassName)
             addProperty(launcherRealProperty)
             funSpecs.clear()
-            addFunctions(launcherImplFunSpecs)
+            addFunctions(implFunSpecs)
             build()
         }
 
-        apiFileSpecBuilder.addType(launcherInterfaceTypeSpec.toBuilder().run {
+        apiFileSpecBuilder.addType(apiTypeSpec.toBuilder().run {
             addKdoc("A launcher class of $optionModuleName module.\n")
             addKdoc("Use `P2M.moduleApiOf<${optionModuleName}>().launcher` to get the instance.\n")
             build()
         })
-        apiImplFileSpecBuilder.addType(launcherImplTypeSpec)
-        return GenModuleLauncherResult(
-            launcherInterfaceClassName,
-            launcherImplClassName
-        )
+        apiImplFileSpecBuilder.addType(implTypeSpec)
+        return GenResult(apiClassName, implClassName)
     }
 
     private fun genServiceClassForKotlin(
@@ -620,17 +728,14 @@ class P2MProcessor : BaseProcessor() {
         implPackageName: String,
         apiFileSpecBuilder: FileSpec.Builder,
         apiImplFileSpecBuilder: FileSpec.Builder
-    ): GenModuleServiceResult {
-
-        val serviceInterfaceSimpleName = "${optionModuleName}ModuleService"
-
+    ): GenResult {
         val serviceElement = roundEnv.getSingleTypeElementAnnotatedWith(
             mLogger,
             optionModuleName,
             Service::class.java
         ) as? TypeElement
         return if (serviceElement == null) {
-            GenModuleServiceResult(
+            GenResult(
                 EmptyServiceClassName,
                 EmptyServiceClassName,
                 true
@@ -640,27 +745,25 @@ class P2MProcessor : BaseProcessor() {
 
             genServiceClassForKotlin(
                 ModuleServiceClassName,
-                serviceInterfaceSimpleName,
                 serviceElement,
                 apiPackageName,
                 implPackageName,
                 apiFileSpecBuilder,
                 apiImplFileSpecBuilder
             ).also {
-                exportApiClassPath.add(it.serviceInterfaceClassName)
+                exportApiClassPath.add(it.apiClassName)
             }
         }
     }
 
     private fun genServiceClassForKotlin(
         ModuleServiceClassName: ClassName,
-        serviceInterfaceSimpleName: String,
         serviceElement: TypeElement,
         apiPackageName: String,
         implPackageName: String,
         apiFileSpecBuilder: FileSpec.Builder,
         apiImplFileSpecBuilder: FileSpec.Builder
-    ): GenModuleServiceResult {
+    ): GenResult {
 
         // service类型源
         val serviceTypeSpecOrigin = serviceElement.toTypeSpec().also {
@@ -672,6 +775,8 @@ class P2MProcessor : BaseProcessor() {
         val serviceClassNameOrigin = serviceElement.className()
 
         // 服务接口
+        val apiName = "${optionModuleName}ModuleService"
+
         val notSupportedModifier = mutableSetOf(
             Modifier.PRIVATE,
             Modifier.DEFAULT,
@@ -713,7 +818,7 @@ class P2MProcessor : BaseProcessor() {
                 methodDocMap.containsKey(sign)
             }
 
-        val serviceInterfaceFunSpecs = validFunSpecs.map { funSpec ->
+        val apiFunSpecs = validFunSpecs.map { funSpec ->
             funSpec.toBuilder().run {
                 annotations.clear()
                 clearBody().addModifiers(KModifier.ABSTRACT)
@@ -726,16 +831,16 @@ class P2MProcessor : BaseProcessor() {
             }
         }
 
-        val serviceInterfaceClassName = ClassName(apiPackageName, serviceInterfaceSimpleName)
-        val serviceInterfaceTypeSpec = TypeSpec.interfaceBuilder(serviceInterfaceClassName).run {
+        val apiClassName = ClassName(apiPackageName, apiName)
+        val apiTypeSpec = TypeSpec.interfaceBuilder(apiClassName).run {
             addSuperinterface(ModuleServiceClassName)
             funSpecs.clear()
-            addFunctions(serviceInterfaceFunSpecs)
+            addFunctions(apiFunSpecs)
             build()
         }
 
         // 服务代理类，代理被注解的类
-        val serviceImplClassName = ClassName(implPackageName, "_${serviceInterfaceSimpleName}")
+        val implClassName = ClassName(implPackageName, "_${apiName}")
         val serviceRealRefName = "serviceReal"
         val serviceRealProperty = PropertySpec.builder(
             serviceRealRefName,
@@ -743,7 +848,7 @@ class P2MProcessor : BaseProcessor() {
             KModifier.PRIVATE
         ).mutable(false).delegate("lazy() { %T() }", serviceClassNameOrigin).build()
 
-        val serviceImplFunSpecs = validFunSpecs.map { funSpec ->
+        val implFunSpecs = validFunSpecs.map { funSpec ->
             funSpec.toBuilder().run {
                 modifiers.remove(KModifier.ABSTRACT)
                 addModifiers(KModifier.OVERRIDE)
@@ -758,15 +863,15 @@ class P2MProcessor : BaseProcessor() {
             }
         }
 
-        val serviceImplTypeSpec = serviceInterfaceTypeSpec.toBuilder(TypeSpec.Kind.CLASS, name = serviceImplClassName.simpleName).run {
-            addSuperinterface(serviceInterfaceClassName)
+        val implTypeSpec = apiTypeSpec.toBuilder(TypeSpec.Kind.CLASS, name = implClassName.simpleName).run {
+            addSuperinterface(apiClassName)
             addProperty(serviceRealProperty)
             funSpecs.clear()
-            addFunctions(serviceImplFunSpecs)
+            addFunctions(implFunSpecs)
             build()
         }
 
-        apiFileSpecBuilder.addType(serviceInterfaceTypeSpec.toBuilder().run {
+        apiFileSpecBuilder.addType(apiTypeSpec.toBuilder().run {
             addKdoc("A service class of $optionModuleName module.\n")
             addKdoc("Use `P2M.moduleApiOf<${optionModuleName}>().service` to get the instance.\n")
             addKdoc("\n")
@@ -775,11 +880,8 @@ class P2MProcessor : BaseProcessor() {
             build()
         })
 
-        apiImplFileSpecBuilder.addType(serviceImplTypeSpec)
-        return GenModuleServiceResult(
-            serviceInterfaceClassName,
-            serviceImplClassName
-        )
+        apiImplFileSpecBuilder.addType(implTypeSpec)
+        return GenResult(apiClassName, implClassName)
     }
 
     private fun genEventClassForKotlin(
@@ -790,13 +892,12 @@ class P2MProcessor : BaseProcessor() {
         implPackageName: String,
         apiFileSpecBuilder: FileSpec.Builder,
         apiImplFileSpecBuilder: FileSpec.Builder
-    ): GenModuleEventResult {
+    ): GenResult {
         val eventElement = roundEnv.getSingleTypeElementAnnotatedWith(
             mLogger,
             optionModuleName,
             Event::class.java
         ) as? TypeElement
-        val eventInterfaceSimpleName = "${optionModuleName}ModuleEvent"
         val eventFieldElements = roundEnv.getElementsAnnotatedWith(EventField::class.java)
         val eventFieldMap = mutableMapOf(
             *(eventFieldElements.map { eventFieldElement ->
@@ -821,7 +922,7 @@ class P2MProcessor : BaseProcessor() {
         )
 
         return if (eventElement == null) {
-            GenModuleEventResult(
+            GenResult(
                 EmptyEventClassName,
                 EmptyEventClassName,
                 true
@@ -832,7 +933,6 @@ class P2MProcessor : BaseProcessor() {
 
             genEventClassForKotlin(
                 ModuleEventClassName,
-                eventInterfaceSimpleName,
                 eventElement,
                 apiPackageName,
                 implPackageName,
@@ -840,7 +940,7 @@ class P2MProcessor : BaseProcessor() {
                 apiImplFileSpecBuilder,
                 eventFieldMap
             ).also {
-                exportApiClassPath.add(it.eventInterfaceClassName)
+                exportApiClassPath.add(it.apiClassName)
             }
         }
     }
@@ -848,14 +948,13 @@ class P2MProcessor : BaseProcessor() {
     @Suppress("LocalVariableName")
     private fun genEventClassForKotlin(
         ModuleEventClassName: ClassName,
-        eventInterfaceSimpleName: String,
         eventElement: TypeElement,
         apiPackageName: String,
         implPackageName: String,
         apiFileSpecBuilder: FileSpec.Builder,
         apiImplFileSpecBuilder: FileSpec.Builder,
         eventFieldMap: MutableMap<String, Pair<EventField, CodeBlock?>>
-    ): GenModuleEventResult {
+    ): GenResult {
         // event类型源
         val eventTypeSpecOrigin = eventElement.toTypeSpec().also {
             check(it.kind === TypeSpec.Kind.INTERFACE) {
@@ -881,13 +980,14 @@ class P2MProcessor : BaseProcessor() {
         }
 
         val eventClassNameOrigin = eventElement.className()
-        val eventInterfaceClassName = ClassName(apiPackageName, eventInterfaceSimpleName)
-        val eventImplClassName = ClassName(implPackageName, "_${eventInterfaceSimpleName}")
-        val internalMutableEventImplClassName = ClassName(implPackageName, "_${eventInterfaceSimpleName}_Mutable")
+        val apiName = "${optionModuleName}ModuleEvent"
+        val apiClassName = ClassName(apiPackageName, apiName)
+        val implClassName = ClassName(implPackageName, "_${apiName}")
+        val internalMutableImplClassName = ClassName(implPackageName, "_${apiName}_Mutable")
 
-        val eventPropertySpecs = eventTypeSpecOrigin.propertySpecs // 被注解EventField的所有字段
+        val eventOriginPropertySpecs = eventTypeSpecOrigin.propertySpecs // 被注解EventField的所有字段
             .filter { eventFieldMap.containsKey(it.name) }
-        val eventInterfacePropertySpecsBuilders = eventPropertySpecs.map { // 所有的属性builder
+        val apiPropertySpecsBuilders = eventOriginPropertySpecs.map { // 所有的属性builder
             val (eventField, eventDoc) = eventFieldMap[it.name]!!
             val eventClassName = getEventClassName(eventField.eventOn, eventField.mutableFromExternal)
             PropertySpec.builder(it.name, eventClassName.parameterizedBy(it.type)).apply {
@@ -901,23 +1001,23 @@ class P2MProcessor : BaseProcessor() {
         }
 
         // Event接口
-        val eventInterfacePropertySpecs = eventInterfacePropertySpecsBuilders.map { it.build() }
-        val eventInterfaceTypeSpec = TypeSpec.interfaceBuilder(eventInterfaceClassName).run {
+        val apiPropertySpecs = apiPropertySpecsBuilders.map { it.build() }
+        val apiTypeSpec = TypeSpec.interfaceBuilder(apiClassName).run {
             addSuperinterface(ModuleEventClassName)
-            addProperties(eventInterfacePropertySpecs)
+            addProperties(apiPropertySpecs)
             build()
         }
 
         // Event实现类
-        val eventImplInternalMutableEventPropertyName = "_mutable"
-        val eventImplInternalMutableEventProperty : PropertySpec = PropertySpec.builder(eventImplInternalMutableEventPropertyName, internalMutableEventImplClassName).run {
+        val implInternalMutableEventPropertyName = "_mutable"
+        val implInternalMutableEventProperty : PropertySpec = PropertySpec.builder(implInternalMutableEventPropertyName, internalMutableImplClassName).run {
             addModifiers(KModifier.INTERNAL)
             mutable(false)
-            delegate("lazy() { %T(this) }", internalMutableEventImplClassName)
+            delegate("lazy() { %T(this) }", internalMutableImplClassName)
             build()
         }
 
-        val eventImplPropertySpecs = eventPropertySpecs.map {
+        val implPropertySpecs = eventOriginPropertySpecs.map {
             val (eventField, _) = eventFieldMap[it.name]!!
             val mutableFromExternal = eventField.mutableFromExternal
             val eventClassName = getEventClassName(eventField.eventOn, eventField.mutableFromExternal)
@@ -937,34 +1037,34 @@ class P2MProcessor : BaseProcessor() {
 
         }
 
-        val eventImplTypeSpec = eventInterfaceTypeSpec.toBuilder(TypeSpec.Kind.CLASS, eventImplClassName.simpleName).run {
-            addSuperinterface(eventInterfaceClassName)
+        val implTypeSpec = apiTypeSpec.toBuilder(TypeSpec.Kind.CLASS, implClassName.simpleName).run {
+            addSuperinterface(apiClassName)
             propertySpecs.clear()
-            addProperty(eventImplInternalMutableEventProperty)
-            addProperties(eventImplPropertySpecs)
+            addProperty(implInternalMutableEventProperty)
+            addProperties(implPropertySpecs)
             build()
         }
 
         // 模块内部可变的Event实现类
-        val internalMutableEventImplType = TypeSpec.classBuilder(
-            name = internalMutableEventImplClassName.simpleName
+        val implInternalMutableEventType = TypeSpec.classBuilder(
+            name = internalMutableImplClassName.simpleName
         ).run {
             addModifiers(KModifier.INTERNAL)
 
             // 构造
             val srcPropertyRefName = "real"
             primaryConstructor(FunSpec.constructorBuilder().run {
-                addParameter(srcPropertyRefName, eventImplClassName)
+                addParameter(srcPropertyRefName, implClassName)
                 build()
             })
             addProperty(
-                PropertySpec.builder(srcPropertyRefName, eventImplClassName).run {
+                PropertySpec.builder(srcPropertyRefName, implClassName).run {
                     initializer(srcPropertyRefName)
                     addModifiers(KModifier.PRIVATE)
                     build()
                 }
             )
-            addProperty(PropertySpec.builder(srcPropertyRefName, eventImplClassName).run {
+            addProperty(PropertySpec.builder(srcPropertyRefName, implClassName).run {
                 addModifiers(KModifier.PRIVATE)
                 mutable(false)
                 build()
@@ -972,7 +1072,7 @@ class P2MProcessor : BaseProcessor() {
 
 
             // 属性
-            addProperties(eventPropertySpecs.map {
+            addProperties(eventOriginPropertySpecs.map {
                 val (eventField, _) = eventFieldMap[it.name]!!
                 val eventClassName = getEventClassName(eventField.eventOn, true)
                 val delegateOuterClassName = getDelegateOuterClassName(eventField.eventOn)
@@ -992,14 +1092,14 @@ class P2MProcessor : BaseProcessor() {
         }
 
         // 内部拓展函数
-        val eventImplInternalMutableExtFun = FunSpec.builder("mutable")
+        val implInternalMutableExtFun = FunSpec.builder("mutable")
             .addModifiers(KModifier.INTERNAL)
-            .receiver(eventInterfaceClassName)
-            .returns(internalMutableEventImplClassName)
-            .addStatement("return (this as %T).%L", eventImplClassName, eventImplInternalMutableEventPropertyName)
+            .receiver(apiClassName)
+            .returns(internalMutableImplClassName)
+            .addStatement("return (this as %T).%L", implClassName, implInternalMutableEventPropertyName)
             .build()
 
-        apiFileSpecBuilder.addType(eventInterfaceTypeSpec.toBuilder().run {
+        apiFileSpecBuilder.addType(apiTypeSpec.toBuilder().run {
             addKdoc("A event class of $optionModuleName module.\n")
             addKdoc("Use `P2M.moduleApiOf<${optionModuleName}>().event` to get the instance.\n")
             addKdoc("Use `P2M.moduleApiOf<${optionModuleName}>().event.mutable()` to get holder instance of mutable event in internal module.\n")
@@ -1007,12 +1107,9 @@ class P2MProcessor : BaseProcessor() {
             addKdoc("@see %T - origin.", eventClassNameOrigin)
             build()
         })
-        apiImplFileSpecBuilder.addType(eventImplTypeSpec)
-        apiImplFileSpecBuilder.addFunction(eventImplInternalMutableExtFun)
-        apiImplFileSpecBuilder.addType(internalMutableEventImplType)
-        return GenModuleEventResult(
-            eventInterfaceClassName,
-            eventImplClassName
-        )
+        apiImplFileSpecBuilder.addType(implTypeSpec)
+        apiImplFileSpecBuilder.addFunction(implInternalMutableExtFun)
+        apiImplFileSpecBuilder.addType(implInternalMutableEventType)
+        return GenResult(apiClassName, implClassName)
     }
 }

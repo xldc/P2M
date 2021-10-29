@@ -1,17 +1,15 @@
 package com.p2m.core.app
 
-import com.p2m.core.internal.app.AppModuleServiceImpl
-import com.p2m.core.module.EmptyModuleEvent
-import com.p2m.core.module.EmptyModuleLauncher
-import com.p2m.core.module.ModuleApi
-import com.p2m.core.module.ModuleService
+import com.p2m.core.module.*
 
-internal const val APP_MODULE_NAME = "App"
+/**
+ * 需要transform时追加其他顶级模块
+ */
+class App : Module<AppModuleApi, EmptyModuleInit>() {
+    override val init: EmptyModuleInit = EmptyModuleInit()
+    override val api: AppModuleApi = AppModuleApi()
 
-interface AppModuleService : ModuleService
-
-class App(
-    override val launcher: EmptyModuleLauncher = EmptyModuleLauncher,
-    override val service: AppModuleService = AppModuleServiceImpl(),
-    override val event: EmptyModuleEvent = EmptyModuleEvent
-) : ModuleApi<EmptyModuleLauncher, AppModuleService, EmptyModuleEvent>
+    init {
+        _apiClazz = App::class.java
+    }
+}

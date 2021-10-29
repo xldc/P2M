@@ -1,8 +1,8 @@
 package com.p2m.core.driver
 
-interface P2MDriverState {
+class P2MDriverState {
 
-    var opened : Boolean
+    var opened : Boolean = false
 
-    var opening : Boolean
+    var opening : Boolean = false
 }

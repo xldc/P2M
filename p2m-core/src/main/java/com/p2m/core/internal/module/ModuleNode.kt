@@ -1,21 +1,21 @@
 package com.p2m.core.internal.module
 
+import android.content.Context
 import com.p2m.core.internal.graph.Node
+import com.p2m.core.internal.module.task.DefaultTaskFactory
 import com.p2m.core.internal.module.task.TaskContainerImpl
-import com.p2m.core.module.ModuleApi
-import com.p2m.core.module.ModuleInit
+import com.p2m.core.internal.module.task.TopTask
+import com.p2m.core.module.Module
 
 internal class ModuleNode constructor(
-    val moduleName: String,
-    val moduleInit: ModuleInit,
-    val api: ModuleApi<*, *, *>,
-    val apiClass: Class<out ModuleApi<*, *, *>>,
-    val provider: SafeModuleProviderImpl,
+    val context: Context,
+    val module: Module<*, *>,
+    val provider: SafeModuleApiProviderImpl,
     override val isTop: Boolean
 ) : Node {
 
     override val name: String
-        get() = moduleName
+        get() = module.apiClazzName
 
     // 被依赖
     var byDependDegree: Int = 0
@@ -27,7 +27,7 @@ internal class ModuleNode constructor(
 
     var stateLock = Any()
 
-    val taskContainer by lazy(LazyThreadSafetyMode.NONE) { TaskContainerImpl() }
+    val taskContainer by lazy(LazyThreadSafetyMode.NONE) { TaskContainerImpl(TopTask::class.java, DefaultTaskFactory()) }
     
     @Volatile
     var state: State = State.NONE

@@ -5,7 +5,7 @@ import org.objectweb.asm.ClassVisitor
 import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes
 
-
+@Deprecated
 class ModuleGraphClassAdapter extends ClassVisitor {
     HashMap<String, BaseProject> p2mProject
     ModuleGraphClassAdapter(ClassVisitor classVisitor, HashMap<String, BaseProject> p2mProject) {
@@ -15,22 +15,10 @@ class ModuleGraphClassAdapter extends ClassVisitor {
 
     @Override
     MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
-        if (name == "genModuleInits") {
-            // println("visitMethod -> genModuleInits")
+        if (name == "inject") {
+            // println("visitMethod -> inject")
             def methodVisitor = cv.visitMethod(access, name, descriptor, signature, exceptions)
-            return new GenModuleInitsMethodVisitor(api, methodVisitor, access, name, descriptor, p2mProject)
-        } else if (name == "genApis") {
-            // println("visitMethod -> genApis")
-            def methodVisitor = cv.visitMethod(access, name, descriptor, signature, exceptions)
-            return new GenApisMethodVisitor(api, methodVisitor, access, name, descriptor, p2mProject)
-        }  else if (name == "genApiClasses") {
-            // println("visitMethod -> genApiClasses")
-            def methodVisitor = cv.visitMethod(access, name, descriptor, signature, exceptions)
-            return new GenApiClassesMethodVisitor(api, methodVisitor, access, name, descriptor, p2mProject)
-        } else if (name == "addDepends") {
-            // println("visitMethod -> addDepends")
-            def methodVisitor = cv.visitMethod(access, name, descriptor, signature, exceptions)
-            return new AddDependsMethodVisitor(api, methodVisitor, access, name, descriptor, p2mProject)
+            return new ModuleAutoCollectorInjectMethodVisitor(api, methodVisitor, access, name, descriptor, p2mProject)
         }else {
             super.visitMethod(access,name,descriptor,signature,exceptions)
         }

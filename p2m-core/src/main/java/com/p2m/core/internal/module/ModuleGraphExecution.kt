@@ -7,11 +7,17 @@ import com.p2m.core.internal.log.logI
 import com.p2m.core.internal.module.task.TaskOutputProviderImplForModule
 import com.p2m.core.internal.module.task.TaskGraph
 import com.p2m.core.internal.module.task.TaskGraphExecution
-import com.p2m.core.module.EmptyModuleInit
+import com.p2m.core.module.Module
+import com.p2m.core.module.OnEvaluateListener
+import com.p2m.core.module.OnExecutedListener
 import java.util.concurrent.*
 import java.util.concurrent.atomic.AtomicInteger
 
-internal class ModuleGraphExecution(override val graph: ModuleGraph, private val moduleProvider: InnerModuleManager): AbsGraphExecution<ModuleNode, String, ModuleGraph>() {
+internal class ModuleGraphExecution(
+    override val graph: ModuleGraph,
+    private val evaluateListener: OnEvaluateListener?,
+    private val executeListener: OnExecutedListener?
+): AbsGraphExecution<ModuleNode, Class<out Module<*, *>>, ModuleGraph>() {
 
     private val executor: ExecutorService =  ThreadPoolExecutor(
             0,
@@ -30,7 +36,6 @@ internal class ModuleGraphExecution(override val graph: ModuleGraph, private val
                     t.name = String.format(THREAD_NAME, threadId.getAndIncrement())
                     return t
                 }
-
             }
     )
 
@@ -43,7 +48,6 @@ internal class ModuleGraphExecution(override val graph: ModuleGraph, private val
         node.state = ModuleNode.State.STARTED
 
         asyncTask(Runnable {
-
             val evaluatingWhenDependingIdle = {
                 // Evaluating
                 node.state = ModuleNode.State.EVALUATING
@@ -53,14 +57,6 @@ internal class ModuleGraphExecution(override val graph: ModuleGraph, private val
             // Depending
             node.state = ModuleNode.State.DEPENDING
             node.depending(evaluatingWhenDependingIdle)
-
-            if (node.moduleInit is EmptyModuleInit) { // empty
-                node.executed()
-                // Completed
-                node.state = ModuleNode.State.COMPLETED
-                onDependsNodeComplete()
-                return@Runnable
-            }
 
             // Executing
             node.state = ModuleNode.State.EXECUTING
@@ -76,15 +72,16 @@ internal class ModuleGraphExecution(override val graph: ModuleGraph, private val
 
     private fun ModuleNode.executing() {
         if (!taskContainer.onlyHasTop) {
-            val taskGraph = TaskGraph.create(moduleName, taskContainer, provider)
+            val taskGraph = TaskGraph.create(context, name, taskContainer, provider)
             val taskGraphExecution = TaskGraphExecution(taskGraph)
             taskGraphExecution.runningAndLoop(BeginDirection.TAIL)
         }
     }
 
     private fun ModuleNode.evaluating() {
-        logI("Module-Graph-Node-$moduleName onEvaluate()")
-        moduleInit.onEvaluate(taskContainer)
+        logI("Module-Graph-Node-$name onEvaluate()")
+        module.internalModuleInit.onEvaluate(context, taskContainer)
+        if (isTop) evaluateListener?.onEvaluate(context, taskContainer)
     }
 
     private fun ModuleNode.depending(evaluatingWhenDependingIdle: () -> Unit) {
@@ -110,9 +107,10 @@ internal class ModuleGraphExecution(override val graph: ModuleGraph, private val
     }
 
     private fun ModuleNode.executed() {
-        logI("Module-Graph-Node-$moduleName onExecuted()")
-        moduleInit.onExecuted(TaskOutputProviderImplForModule(taskContainer), provider)
-        moduleProvider.registerModule(apiClass, api)
+        logI("Module-Graph-Node-$name onExecuted()")
+        val taskOutputProviderImplForModule = TaskOutputProviderImplForModule(taskContainer)
+        module.internalModuleInit.onExecuted(context, taskOutputProviderImplForModule, provider)
+        if (isTop) executeListener?.onExecuted(context, taskOutputProviderImplForModule, provider)
     }
 
     override fun asyncTask(runnable: Runnable) {
@@ -128,7 +126,7 @@ internal class ModuleGraphExecution(override val graph: ModuleGraph, private val
     }
 
     override fun onCompletedForNode(node: ModuleNode) {
-        logI("Module-Graph-Node-${node.moduleName} Completed.")
+        logI("Module-Graph-Node-${node.name} Completed.")
     }
 
 }

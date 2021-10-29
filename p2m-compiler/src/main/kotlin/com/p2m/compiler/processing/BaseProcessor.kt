@@ -10,14 +10,15 @@ import javax.lang.model.util.Types
 abstract class BaseProcessor : AbstractProcessor() {
     companion object{
         const val OPTION_MODULE_NAME = "moduleName"
+        const val OPTION_APPLICATION_ID = "applicationId"
+        const val OPTION_DEPENDENCIES = "dependencies"
 
-        const val PACKAGE_NAME_CORE = "com.p2m.core"
-        const val PACKAGE_NAME_IMPL = "com.p2m.module.impl"
-        const val PACKAGE_NAME_API = "com.p2m.module.api"
-        const val PACKAGE_NAME_IMPL_LAUNCHER = "$PACKAGE_NAME_IMPL.launcher"
+        private const val PACKAGE_NAME_CORE = "com.p2m.core"
+        const val PACKAGE_NAME_CORE_MODULE = "${PACKAGE_NAME_CORE}.module"
 
+        const val CLASS_MODULE = "Module"
         const val CLASS_MODULE_INIT = "ModuleInit"
-        const val CLASS_MODULE_Init_EMPTY = "EmptyModule"
+        const val CLASS_MODULE_INIT_EMPTY = "EmptyModuleInit"
         const val CLASS_MODULE_API = "ModuleApi"
         const val CLASS_API_LAUNCHER = "ModuleLauncher"
         const val CLASS_API_SERVICE = "ModuleService"
@@ -42,6 +43,14 @@ abstract class BaseProcessor : AbstractProcessor() {
     lateinit var mFiler: Filer
     lateinit var mLogger: Logger
     lateinit var optionModuleName: String
+    var optionDependencies: String? = null
+//    lateinit var optionApplicationId: String
+    var optionApplicationId: String = "com.p2m.module"
+
+    lateinit var packageNameApi: String
+    lateinit var packageNameImpl: String
+    lateinit var packageNameImplLauncher: String
+    val dependencies = hashMapOf<String, String>()
 
     override fun init(processingEnv: ProcessingEnvironment) {
         super.init(processingEnv)
@@ -50,7 +59,22 @@ abstract class BaseProcessor : AbstractProcessor() {
         typeUtils = processingEnv.typeUtils
         mFiler = processingEnv.filer
         options = processingEnv.options
+
+        getOptionData(options)
+        packageNameImpl = "${optionApplicationId}.impl"
+        packageNameApi = "${optionApplicationId}.api"
+        packageNameImplLauncher = "${packageNameImpl}.launcher"
+        optionDependencies?.split(",")?.forEach {
+            // api-impl
+            val values = it.split("-")
+            dependencies[values[0]] = values[1]
+        }
+    }
+
+    private fun getOptionData(options: Map<String, String>) {
         val optionModuleName = options[OPTION_MODULE_NAME]
+        val optionApplicationId = options[OPTION_APPLICATION_ID]
+        this.optionDependencies = options[OPTION_DEPENDENCIES]
         if (optionModuleName.isNullOrEmpty()) {
             mLogger.error(
                 """
@@ -65,6 +89,19 @@ abstract class BaseProcessor : AbstractProcessor() {
         }else{
             this.optionModuleName = optionModuleName
         }
-
+//        if (optionApplicationId.isNullOrEmpty()) {
+//            mLogger.error(
+//                """
+//                    请在build.gradle添加以下内容：
+//                    kapt {
+//                            arguments {
+//                                arg("$OPTION_APPLICATION_ID", "你的applicationId")
+//                            }
+//                    }
+//                """.trimIndent()
+//            )
+//        }else{
+//            this.optionApplicationId = optionApplicationId
+//        }
     }
 }

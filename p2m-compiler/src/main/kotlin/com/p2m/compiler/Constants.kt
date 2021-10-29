@@ -1,6 +1,6 @@
 package com.p2m.compiler
 
-const val FILE_COMMENT = "DON'T EDIT! Auto gen by P2M."
+const val FILE_COMMENT = "Automatically generated file by P2M. DO NOT MODIFY"
 const val FILE_NAME_PROPERTIES = "p2m_module_api.properties"
 
 // android

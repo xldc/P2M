@@ -6,13 +6,13 @@ buildscript {
     repositories {
         google()
         mavenCentral()
-//        mavenLocal()
+        mavenLocal()
         maven { url 'https://jitpack.io' }
     }
 
     dependencies {
         classpath 'com.android.tools.build:gradle:4.0.2'        // 支持3.4.0以上
-        classpath 'com.github.wangdaqi77.P2M:p2m-plugin:0.0.7'  // P2M插件
+        classpath 'com.github.wangdaqi77.P2M:p2m-plugin:0.0.71'  // P2M插件
     }
 }
 
@@ -44,11 +44,15 @@ p2m {                                       // 声明组件化
         dependencies {                      // 依赖的模块
             module("Account")
         }
-        runApp = false                      // 运行app开关, applicationId等配置在module-main/build.gradle中的whenRunApp{}
+        runApp = true                      // 运行app开关, applicationId等配置在module-main/build.gradle中的whenRunApp{}
 
         groupId = "com.repo"                // 组，主要用于确定发布的组，默认值模块名
         versionName = "0.0.1"               // 版本，主要用于确定发布的版本，默认值unspecified
         useRepo = false                     // 使用远端aar，默认false使用源码。为true时，对外提供它的远端aar。
+    }
+
+    module("None") {                        // 声明None模块
+        include(":module-none")             // 声明project描述
     }
 
 //    p2mMavenRepository {                    // 声明maven仓库用于发布和获取远端aar, 默认为mavenLocal()

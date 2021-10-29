@@ -38,7 +38,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.main_btn_logout).setOnClickListener {
             P2M.moduleApiOf(Account::class.java)
                 .service
-                .logout()
+                .logout(this)
             finish()
         }
 

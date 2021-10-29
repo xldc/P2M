@@ -1,6 +1,7 @@
 package com.p2m.core.module.task
 
-import com.p2m.core.module.SafeModuleProvider
+import android.content.Context
+import com.p2m.core.module.SafeModuleApiProvider
 import com.p2m.core.module.ModuleInit
 
 /**
@@ -33,13 +34,13 @@ abstract class Task<INPUT, OUTPUT> {
      * NOTE: Running in work thread.
      *
      * You can use [taskOutputProvider] get some dependency task output, also can use
-     * [moduleProvider] get some dependency module.
+     * [moduleApiProvider] get some dependency module.
      *
      * @param taskOutputProvider task output provider
-     * @param moduleProvider module provider
+     * @param moduleApiProvider module provider
      *
      * @see TaskOutputProvider TaskOutputProvider - get some task output.
-     * @see SafeModuleProvider SafeModuleProvider - get some module api.
+     * @see SafeModuleApiProvider SafeModuleApiProvider - get some module api.
      */
-     abstract fun onExecute(taskOutputProvider: TaskOutputProvider, moduleProvider: SafeModuleProvider)
+     abstract fun onExecute(context: Context, taskOutputProvider: TaskOutputProvider, moduleApiProvider: SafeModuleApiProvider)
 }

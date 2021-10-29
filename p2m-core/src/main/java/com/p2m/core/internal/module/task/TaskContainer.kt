@@ -1,27 +1,31 @@
 package com.p2m.core.internal.module.task
 
 import com.p2m.core.module.task.Task
+import com.p2m.core.module.task.TaskFactory
 import com.p2m.core.module.task.TaskUnit
 import com.p2m.core.module.task.TaskRegister
 
-internal interface TaskContainer{
+internal interface TaskContainer<UNIT: TaskUnit>{
     /**
      * Found a task in the container.
      */
-    fun find(clazz: Class<out Task<*, *>>): TaskUnit?
+    fun find(clazz: Class<out Task<*, *>>): UNIT?
 
-    fun getAll(): Collection<TaskUnit>
+    fun getAll(): Collection<UNIT>
 }
 
 
-internal class TaskContainerImpl : TaskRegister, TaskContainer {
-    private val container = HashMap<Class<out Task<*, *>>, TaskUnit>()
+internal class TaskContainerImpl(
+    val topTaskClazz: Class<out Task<*, *>>,
+    private val taskFactory: TaskFactory
+) : TaskRegister<TaskUnitImpl>, TaskContainer<TaskUnitImpl> {
+    private val container = HashMap<Class<out Task<*, *>>, TaskUnitImpl>()
 
     val onlyHasTop: Boolean
         get() = container.size == 1
     
     init {
-        register(TopTask.CLAZZ)
+        registers(topTaskClazz)
     }
 
     override fun registers(vararg clazz: Class<out Task<*, *>>) {
@@ -29,22 +33,23 @@ internal class TaskContainerImpl : TaskRegister, TaskContainer {
             check(!container.containsKey(clazz1)) {
                 "${clazz1.canonicalName} registered already."
             }
-            val taskUnit = TaskUnitImpl(clazz1, null, clazz1.newInstance())
+            val task = taskFactory.newInstance(clazz1)
+            val taskUnit = TaskUnitImpl(clazz1, null, task)
             container[clazz1] = taskUnit
         }
     }
 
-    override fun <INPUT> register(clazz: Class<out Task<INPUT, *>>, input: INPUT?): TaskUnit {
+    override fun <INPUT> register(clazz: Class<out Task<INPUT, *>>, input: INPUT?): TaskUnitImpl {
         check(!container.containsKey(clazz)) {
             "${clazz.canonicalName} registered already."
         }
         @Suppress("UNCHECKED_CAST")
-        val taskUnit = TaskUnitImpl(clazz, input, if (clazz == TopTask.CLAZZ) TopTask as Task<INPUT, *> else clazz.newInstance())
+        val taskUnit = TaskUnitImpl(clazz, input, clazz.newInstance())
         container[clazz] = taskUnit
         return taskUnit
     }
 
-    override fun find(clazz: Class<out Task<*, *>>): TaskUnit? = container[clazz]
+    override fun find(clazz: Class<out Task<*, *>>): TaskUnitImpl? = container[clazz]
 
-    override fun getAll(): Collection<TaskUnit> = container.values
+    override fun getAll(): Collection<TaskUnitImpl> = container.values
 }

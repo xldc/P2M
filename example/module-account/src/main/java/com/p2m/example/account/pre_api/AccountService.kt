@@ -1,5 +1,6 @@
 package com.p2m.example.account.pre_api
 
+import android.content.Context
 import android.content.Intent
 import com.p2m.core.P2M
 import com.p2m.annotation.module.api.*
@@ -12,16 +13,13 @@ class AccountService{
     /**
      * 退出登录
      */
-    fun logout(){
-        val context = P2M.getContext()
-
+    fun logout(context: Context){
         // 清除用户缓存
         P2M.moduleApiOf(Account::class.java)
             .event
             .mutable()
             .apply {
-                val userDiskCache = UserDiskCache(context)
-                userDiskCache.clear()
+                UserDiskCache(context).clear()
 
                 loginState.setValue(false)
                 loginInfo.setValue(null)

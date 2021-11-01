@@ -10,9 +10,9 @@ P2M
 
 P2M是什么？
 ---------
-P2M是完整的组件化工具，支持单独编译、单独运行、打包到仓库等主要功能。
+P2M是完整的组件化工具，支持单独编译、单独运行、打包到仓库等主要功能，模块的服务、事件、启动器在模块内部无需做下沉处理，在运行时根据模块依赖关系进行安全的初始化模块。
 
-P2M在编译时主要将Project态升级为Module态以及组织依赖关系，它在运行时主要用于管理Module态。
+P2M在Gradle中编译时主要将Project态升级为Module态。
 
 Project态与Module态简易对比：
 <div class="table-wrap">
@@ -48,17 +48,17 @@ Module态
 <img src="https://github.com/wangdaqi77/P2M/blob/master/assets/p2m_module_detail.png" width="450"  alt="image"/><br/>
 
 ### Api区
-Api区根据Source code区源码由P2M注解处理器生成，包含以下内容：
- * launcher - 关联@Launcher注解，同一模块内可注解多个类，被注解类将生成相应的接口函数放入launcher中，可用于创建Activity的Intent（newActivityIntentOfXXActivity）、创建Fragment新实例（newFragmentOfXXFragment）、创建Service的Intent（newServiceIntentOfXXService）；
- * service  - 关联@Service注解，同一模块内只能注解一个类，提取被注解类的所有公开函数放入service中，可调用服务的实现；
- * event    - 关联@Event注解，同一模块内只能注解一个类，提取被注解类的所有公开成员变量并根据变量的类型生成对应类型的[可订阅的事件持有对象][live-event]（概况一下就是类似LiveData，但是比LiveData适合事件场景），用于发送事件和订阅接收事件，@EventField用于注解该类的成员变量，可以指定[可订阅的事件持有对象][live-event]发送事件和订阅接收事件是否占用主线程资源。
+Api区包含`launcher`、`service`、`event`，P2M注解处理器将参与编译。
+ * `launcher` - 启动器，关联注解`@Launcher`，同一模块内可注解多个类，P2M注解处理器会生成相应的接口函数放入`launcher`中，目前支持注解Activity将生成`fun newActivityIntentOfXXActivity(): Intent`、注解Fragment将生成`fun newFragmentOfXXFragment(): Fragment`、注解Service将生成`fun newServiceIntentOfXXService(): Intent`；
+ * `service`  - 服务，关联注解`@Service`，同一模块内只能注解一个类，P2M注解处理器会提取被注解类的所有公开成员函数放入`service`中，这样外部模块就可以间接调用到该模块的内部实现；
+ * `event`    - 事件，关联注解`@Event`，同一模块内只能注解一个类，P2M注解处理器会提取被注解类中所有被`@EventField`注解的成员变量放入`event`，并根据变量的类型生成[可订阅的事件持有对象][live-event]（概况一下就是类似LiveData，但是比LiveData适合事件场景），用于发送事件和订阅接收事件，`@EventField`可以指定[可订阅的事件持有对象][live-event]发送事件和订阅接收事件是否占用主线程资源。
 
-模块对外打开了一道门，这道门就是Api区，找到门就找到了对应模块的launcher、service、event。
+模块对外打开了一扇窗口，这扇窗就是Api区，找到窗口就找到了对应模块的launcher、service、event。
 
 <img src="https://github.com/wangdaqi77/P2M/blob/master/assets/p2m_module_depend_on_module.png" width="450"  alt="image"/><br/>
 
 #### Source code区如何访问Api区
-当Api区需要更新时，我们必须先[编译Api区](#如何编译Api区)，这是访问Api区的前提。能编写代码的区域都属于Source code区，我们在Source code区访问Api区：
+当Api区需要更新时，我们必须先[编译Api区](#如何编译Api区)，这是访问Api区的前提。在模块内部能编写代码的区域都属于Source code区，我们在Source code区访问Api区：
 ```kotlin
 val a = P2M.moduleApiOf<A>()          // 获取模块A的Api区
 
@@ -68,22 +68,22 @@ val eventOfA = a.event             // Api区中的event
 ```
 
 ### Source code区
-Source code区是指编写和存放代码的区域，每个模块的Source code区是对外隐藏的，包含以下内容：
- * Module init      - 模块初始化，关联@ModuleInitializer注解，同一模块内只能注解一个类且必须实现ModuleInit接口，每个模块必须声明此类，由开发者编码完成；
+Source code区是指模块内部可以编写和存放代码的区域，每个模块的Source code区是对外隐藏的，包含以下内容：
+ * Module init      - 模块初始化，关联`@ModuleInitializer`注解，同一模块内只能注解一个类且必须实现ModuleInit接口，由P2M注解处理器生成代理类，每个模块必须声明此类，由开发者编码完成；
  * Implementation   - Api区的具体实现区，由P2M注解处理器生成，该部分开发者无需感知；
  * Feature code     - 编写功能代码区，由开发者编码完成。
 
 模块需要开机后才可以提供给其他模块使用，开机就是在Module init区，它主要负责完成模块必要的初始化工作。
 
 模块初始化工作有三个阶段：
- * onEvaluate - 评估自身阶段，主要用于注册完成自身初始化的任务，运行在后台线程。
- * onExecute  - 执行阶段，这里是执行注册的任务，运行在后台线程。
- * onExecuted - 完成执行阶段，注册的任务已经执行完毕，这里意味着模块已经完成初始化，运行在主线程。
+ * `onEvaluate` - 评估自身阶段，主要用于注册完成自身初始化的任务，运行在后台线程。
+ * `onExecute`  - 执行阶段，这里是执行注册的任务，运行在后台线程。
+ * `onExecuted` - 完成执行阶段，注册的任务已经执行完毕，这里意味着模块已经完成初始化，运行在主线程。
 
 模块初始化工作有以下定式：
- * 一个模块内，执行顺序一定为onEvaluate > onExecute > onExecuted。
- * 如果模块A依赖模块B，执行顺序一定为模块B的onExecuted > 模块A的onExecute。
- * 如果模块A依赖模块B，模块B依赖模块C，执行顺序一定为模块C的onExecuted > 模块A的onExecute。
+ * 一个模块内，执行顺序一定为`onEvaluate` > `onExecute` > `onExecuted`。
+ * 如果模块A依赖模块B，执行顺序一定为模块B的`onExecuted` > 模块A的`onExecute`。
+ * 如果模块A依赖模块B，模块B依赖模块C，执行顺序一定为模块C的`onExecuted` > 模块A的`onExecute`。
 
 了解以上你肯定有一些疑问，如Api区如何设计和使用、初始化阶段应该做些什么的等等，接下来我们从一个示例开始一一解惑。
 
@@ -133,12 +133,12 @@ Source code区是指编写和存放代码的区域，每个模块的Source code�
 我们整个应用拆分为2个模块（存在2个Api区）+ 1个app壳：
  * 模块Account：
    * Api区主要负责对外提供登录状态（可订阅的事件持有对象）、登录信息（可订阅的事件持有对象）、登录成功（可订阅的事件持有对象）、登录界面Intent（启动器）、退登（服务）；
-   * Source code区中的Module Init区负责声明AccountInitializer（该模块的初始化），模块初始化时负责从本地缓存读取登录状态和登录用户信息，并分别将发送一个事件；
+   * Source code区中的Module Init区负责声明AccountModuleInit（该模块的初始化），模块初始化时负责从本地缓存读取登录状态和登录用户信息，并分别将发送一个事件；
    * Source code区中的Feature code区主要负责登录界面UI和逻辑、实现登录和退登、读写登录相关缓存。
 
  * 模块Main：
    * Api区主要负责对外提供主界面Intent（启动器）；
-   * Source code区中的Module Init区负责声明MainInitializer（该模块的初始化），无任何初始化逻辑；
+   * Source code区中的Module Init区负责声明MainModuleInit（该模块的初始化），无任何初始化逻辑；
    * Source code区中的Feature code区主要负责主界面UI和逻辑。
 
  * app壳：
@@ -199,7 +199,7 @@ p2m {
 -----------
  * Api区是对外打开的一道门，因此我们先考虑如何设计Api区：
 
-   * launcher - 对外提供登录界面的Intent，因此在Feature code区定义：
+   * launcher - 对外提供登录界面的Intent，因此在Source code区定义：
         ```kotlin
         @Launcher
         class LoginActivity : Activity() // 具体实现请查看示例源码
@@ -218,7 +218,7 @@ p2m {
         }
         ```
 
-   * service - 对外提供退出登录的服务方法，因此在Feature code区定义：
+   * service - 对外提供退出登录的服务方法，因此在Source code区定义：
         ```kotlin
         @Service
         class AccountService { // 具体实现请查看示例源码
@@ -238,7 +238,7 @@ p2m {
         }
         ```
 
-   * event - 对外提供登录状态，登录用户信息等，因此在Feature code区定义：
+   * event - 对外提供登录状态，登录用户信息等，因此在Source code区定义：
         ```kotlin
         @Event
         interface AccountEvent{
@@ -344,7 +344,7 @@ Q&A
 -------------
 如果Api区使用的相关注解（@Launcher、@Service、@Event、@EventField、@ApiUse）在代码中有增删改操作，需要点击Android Studio中的[Build][AS-Build] > Make Module或者[Build][AS-Build] > Make Project编译项目。
 
-如何单独运行？
+如何单独运行模块？
 ------------
 主要需要配置开启运行app和applicationId等：
  1. 在声明模块代码块中增加`runApp = true`和`useRepo = false`，位于项目根目录下的settings.gradle：
@@ -377,9 +377,9 @@ Q&A
     }
     ```
 
- 3. sync project一下
+ 3. sync project
 
-如何打包aar发布到仓库？
+如何发布模块的aar等组件到仓库？
 --------------------
 发布前需要配置仓库等信息：
  1. 在声明模块代码块中增加以下配置，位于根项目下的settings.gradle：
@@ -402,7 +402,7 @@ Q&A
     }
     ```
 
- 2. 执行发布命令
+ 2. 执行发布到仓库的命令
     * linux/mac下：
     ```shell
     ./gradlew publicYourModule                  // 用于发布单个模块
@@ -436,7 +436,7 @@ Q&A
         }
     }
     ```
- 2. sync一下
+ 2. sync project
 
 混淆
 ====

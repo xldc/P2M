@@ -19,3 +19,13 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# for P2M
+-keep class * extends com.p2m.core.module.ModuleCollector { <init>(); }
+-keep class * extends com.p2m.core.module.Module { <init>(); }
+
+# for live-event
+-dontwarn androidx.lifecycle.LiveData
+-keep class androidx.lifecycle.LiveData { *; }
+-dontwarn androidx.lifecycle.LifecycleRegistry
+-keep class androidx.lifecycle.LifecycleRegistry { *; }

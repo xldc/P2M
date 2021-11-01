@@ -6,95 +6,28 @@ import com.p2m.core.module.task.TaskRegister
 import com.p2m.core.module.task.Task
 import com.p2m.core.module.task.TaskUnit
 
-
 /**
- * A module has one [ModuleInit] only.
+ * A [Module] has one [ModuleInit] only.
  *
  * Module initialization has three stages, in the following order:
- *  * evaluate, corresponds to [ModuleInit.onEvaluate].
+ *  * evaluate, corresponds to [onEvaluate].
  *  * execute,  corresponds to [Task.onExecute].
- *  * executed, corresponds to [ModuleInit.onExecuted].
+ *  * executed, corresponds to [onExecuted].
  *
  * The module initialization has the following formula:
  *  * Within a module, the execution order must be
- *  [ModuleInit.onEvaluate] > [Task.onExecute] > [ModuleInit.onExecuted].
+ *  [onEvaluate] > [Task.onExecute] > [onExecuted].
+ *  * Within a module, If task A depends on task B, the execution order must be
+ *  `onExecute` of task B > `onExecute` of task A.
  *  * If module A depends on module B, the execution order must be
- *  [ModuleInit.onExecuted] of module B > [ModuleInit.onExecuted] of module A.
+ *  [onExecuted] of module B > [onExecuted] of module A.
  *  * If module A depends on module B and B depends on C, the execution order must be
- *  [ModuleInit.onExecuted] of module C > [ModuleInit.onExecuted] of module A.
+ *  [onExecuted] of module C > [onExecuted] of module A.
  *
- * Example, has a Main module and a Account module, Main use Login, so it depend on Account module:
- *
- * ```
- * @Event
- * interface AccountEvent : ModuleEvent {
- *      @EventField
- *      val loginState: Boolean
- * }
- *
- * class LoadLoginStateTask : Task<UserDiskCache, Boolean>() {
- *      // All dependant task complete executed already, can get they output here.
- *      // All dependant module has been initialized, can get they module api here.
- *      // running in work thread.
- *      override fun onExecute(context: Context, taskOutputProvider: TaskOutputProvider, moduleApiProvider: SafeModuleApiProvider) {
- *          val userCache = input
- *          val loginSuccess = userCache.readLoginSuccess()
- *          output = loginSuccess
- *      }
- * }
- *
- * @ModuleInitializer
- * class AccountModuleInit : ModuleInit {
- *      // Register some task to complete necessary initialization.
- *      // running in work thread.
- *      override fun onEvaluate(context: Context, taskRegister: TaskRegister<out TaskUnit>) {
- *          // register a task of LoadLoginStateTask for read login state from disk cache.
- *          taskRegister.register(LoadLoginStateTask::class.java, instance of UserDiskCache)
- *      }
- *
- *      // All task of Account module complete executed already, can get they output here.
- *      // All dependant module has been initialized, can get they module api here.
- *      // running in main thread.
- *      override fun onExecuted(context: Context, taskOutputProvider: TaskOutputProvider, moduleApiProvider: SafeModuleApiProvider) {
- *          // get login state.
- *          val loginSuccess = taskOutputProvider.getOutputOf(LoadLoginStateTask::class.java)
- *
- *          // save login state to event holder.
- *          moduleApiProvider
- *              .moduleApiOf(Account::class.java)
- *              .event
- *              .loginState // you can set value, get value and observe by it.
- *              .setValue(loginSuccess)
- *      }
- * }
- *
- * @ModuleInitializer
- * class MainModuleInit : ModuleInit {
- *      // Register some task to complete necessary initialization.
- *      // running in work thread.
- *      override fun onEvaluate(context: Context, taskRegister: TaskRegister<out TaskUnit>) {
- *          // register some task...
- *      }
- *
- *      // All task of Main module complete executed already, can get they output here.
- *      // All dependant module has been initialized, can get they module api here.
- *      // running in main thread.
- *      override fun onExecuted(context: Context, taskOutputProvider: TaskOutputProvider, moduleApiProvider: SafeModuleApiProvider) {
- *          // Account module has been initialized, get the module api.
- *          val account = moduleApiProvider.moduleApiOf(Account::class.java)
- *
- *          // observe loginState of Account.
- *          account.event.loginState.observeForeverNoLoss { loginState ->
- *              // doing
- *          }
- *      }
- * }
- * ```
- *
- * Module begin initialization by call `P2M.driverBuilder().build().open()`
+ * Begin initialization for all module by call `P2M.driverBuilder().build().open()`
  * in your custom application.
  *
- * see more: https://github.com/wangdaqi77/P2M
+ * see more at https://github.com/wangdaqi77/P2M
  *
  * @see onEvaluate onEvaluate - evaluate stage.
  * @see onExecuted onExecuted - executed stage.

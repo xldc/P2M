@@ -23,7 +23,7 @@ repositories {
 }
 
 group = "com.github.wangdaqi77.P2M"
-version = "0.0.71"
+version = "0.0.8"
 
 gradlePlugin {
     plugins {

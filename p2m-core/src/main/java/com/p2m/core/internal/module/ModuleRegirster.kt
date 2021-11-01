@@ -6,7 +6,7 @@ import com.p2m.core.module.ModuleUnit
 /**
  * Module register.
  */
-interface ModuleRegister<UNIT : ModuleUnit> {
+internal interface ModuleRegister<UNIT : ModuleUnit> {
 
     /**
      * Register a module.

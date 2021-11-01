@@ -10,9 +10,9 @@ P2M
 
 P2M是什么？
 ---------
-P2M是完整的组件化工具，支持单独编译、单独运行、打包到仓库等主要功能，模块的服务、事件、启动器在模块内部无需做下沉处理，在运行时根据模块依赖关系进行安全的初始化模块。
+P2M是完整的组件化工具，支持单独编译、单独运行、打包到仓库等主要功能。
 
-P2M在Gradle中编译时主要将Project态升级为Module态。
+P2M主要是将Project态升级为完全独立封闭的Module态，它能在Module态提取开发者指定的开放功能提供给其他Module态使用，它还能根据依赖关系进行安全的初始化。
 
 Project态与Module态简易对比：
 <div class="table-wrap">
@@ -49,54 +49,70 @@ Module态
 
 ### Api区
 Api区包含`launcher`、`service`、`event`，P2M注解处理器将参与编译。
- * `launcher` - 启动器，关联注解`@Launcher`，同一模块内可注解多个类，P2M注解处理器会生成相应的接口函数放入`launcher`中，目前支持注解Activity将生成`fun newActivityIntentOfXXActivity(): Intent`、注解Fragment将生成`fun newFragmentOfXXFragment(): Fragment`、注解Service将生成`fun newServiceIntentOfXXService(): Intent`；
+ * `launcher` - 启动器，关联注解`@Launcher`，同一模块内可注解多个类，P2M注解处理器会生成相应的接口函数放入`launcher`中，目前支持注解Activity将生成`fun newActivityIntentOf$className(): Intent`、注解Fragment将生成`fun newFragmentOf$className(): Fragment`、注解Service将生成`fun newServiceIntentOf$className(): Intent`；
  * `service`  - 服务，关联注解`@Service`，同一模块内只能注解一个类，P2M注解处理器会提取被注解类的所有公开成员函数放入`service`中，这样外部模块就可以间接调用到该模块的内部实现；
  * `event`    - 事件，关联注解`@Event`，同一模块内只能注解一个类，P2M注解处理器会提取被注解类中所有被`@EventField`注解的成员变量放入`event`，并根据变量的类型生成[可订阅的事件持有对象][live-event]（概况一下就是类似LiveData，但是比LiveData适合事件场景），用于发送事件和订阅接收事件，`@EventField`可以指定[可订阅的事件持有对象][live-event]发送事件和订阅接收事件是否占用主线程资源。
 
-模块对外打开了一扇窗口，这扇窗就是Api区，找到窗口就找到了对应模块的launcher、service、event。
+模块对外打开了一扇窗口，这扇窗口就是Api区，找到窗口也就找到了对应模块的`launcher`、`service`、`event`。
 
 <img src="https://github.com/wangdaqi77/P2M/blob/master/assets/p2m_module_depend_on_module.png" width="450"  alt="image"/><br/>
 
 #### Source code区如何访问Api区
-当Api区需要更新时，我们必须先[编译Api区](#如何编译Api区)，这是访问Api区的前提。在模块内部能编写代码的区域都属于Source code区，我们在Source code区访问Api区：
+当某个模块的Api区需要更新时，我们必须先[编译Api区](#如何编译Api区)，这是访问Api区的前提。在模块内部能存放源码的区域都属于Source code区，我们在Source code区访问Api区：
 ```kotlin
-val a = P2M.moduleApiOf<A>()          // 获取模块A的Api区
+val aApi = P2M.moduleApiOf<A>()     // 获取模块A的Api区
 
-val launcherOfA = a.launcher       // Api区中的launcher
-val serviceOfA = a.service         // Api区中的service
-val eventOfA = a.event             // Api区中的event
+val launcherOfA = aApi.launcher     // Api区中的launcher
+val serviceOfA = aApi.service       // Api区中的service
+val eventOfA = aApi.event           // Api区中的event
 ```
 
 ### Source code区
-Source code区是指模块内部可以编写和存放代码的区域，每个模块的Source code区是对外隐藏的，包含以下内容：
- * Module init      - 模块初始化，关联`@ModuleInitializer`注解，同一模块内只能注解一个类且必须实现ModuleInit接口，由P2M注解处理器生成代理类，每个模块必须声明此类，由开发者编码完成；
+Source code区是指模块内部存放源码的区域，每个模块的Source code区是对外隐藏的，包含以下内容：
+ * Module init      - 模块初始化，关联`@ModuleInitializer`注解，同一模块内只能注解一个类且必须实现`ModuleInit`接口，每个模块必须声明此类，由开发者编码完成；
  * Implementation   - Api区的具体实现区，由P2M注解处理器生成，该部分开发者无需感知；
- * Feature code     - 编写功能代码区，由开发者编码完成。
+ * Feature code     - 内部功能源码区，由开发者编码完成。
 
-模块需要开机后才可以提供给其他模块使用，开机就是在Module init区，它主要负责完成模块必要的初始化工作。
+模块需要开机后，其Api区才能被其他模块使用，开机是在Module init区，它主要负责完成模块必要的初始化工作。
 
 模块初始化工作有三个阶段：
- * `onEvaluate` - 评估自身阶段，主要用于注册完成自身初始化的任务，运行在后台线程。
- * `onExecute`  - 执行阶段，这里是执行注册的任务，运行在后台线程。
- * `onExecuted` - 完成执行阶段，注册的任务已经执行完毕，这里意味着模块已经完成初始化，运行在主线程。
+ * `onEvaluate` - 评估自身阶段，主要用于注册完成自身初始化的任务，它运行在后台线程。
+ * `onExecute`  - 执行阶段，其依赖的模块均已完成初始化，将执行本模块注册的任务，它运行在后台线程。
+ * `onExecuted` - 完成执行阶段，本模块注册的任务已经执行完毕，这里意味着模块已经完成初始化，它运行在主线程。
 
 模块初始化工作有以下定式：
- * 一个模块内，执行顺序一定为`onEvaluate` > `onExecute` > `onExecuted`。
+ * 在一个模块内部，执行顺序一定为`onEvaluate` > `onExecute` > `onExecuted`。
+ * 在一个模块内部，如果任务A依赖任务B，执行顺序一定为任务B的`onExecute`> 任务A的`onExecute`。
  * 如果模块A依赖模块B，执行顺序一定为模块B的`onExecuted` > 模块A的`onExecute`。
  * 如果模块A依赖模块B，模块B依赖模块C，执行顺序一定为模块C的`onExecuted` > 模块A的`onExecute`。
 
-了解以上你肯定有一些疑问，如Api区如何设计和使用、初始化阶段应该做些什么的等等，接下来我们从一个示例开始一一解惑。
+了解以上你肯定有一些疑问，如Api区如何设计和使用、初始化阶段应该做些什么的等等，接下来我们从一个示例开始。
 
 示例
 ====
 一个App，有三个界面分别为启动界面、登录界面和主界面:
  * 当启动应用时打开启动界面，在启动界面判断如果未登录过跳转到登录界面，否则跳转到主界面显示用户信息。
- * 当在登录界面登录成功后跳转到主界面显示用户信息。
+ * 当在登录成功后跳转到主界面并显示用户信息。
  * 当在主界面点击退出登录跳转到登录界面。
 
 需求分析
 -------
-经过分析需求，整个项目的文件树大致如下：
+经过分析需求，我们将整个应用拆分为2个模块+ 1个app壳：
+* 模块Account：
+    * Api区主要负责对外提供登录界面Intent（启动器）、退登（服务）、登录状态（可订阅的事件持有对象）、登录信息（可订阅的事件持有对象）、登录成功（可订阅的事件持有对象）；
+    * Source code区中的Module Init区负责声明该模块的初始化，模块初始化时负责从本地缓存读取登录状态和登录用户信息，并分别保存到本模块Api区中的事件持有类对象；
+    * Source code区中的Feature code区主要负责登录界面UI和登录逻辑、退登、读写登录相关缓存。
+
+* 模块Main：
+    * Api区主要负责对外提供主界面Intent（启动器）；
+    * Source code区中的Module Init区订阅模块Account的登录状态，每当登录成功时跳转主界面；
+    * Source code区中的Feature code区主要负责主界面UI和逻辑。
+
+* app壳：
+    * 负责打开P2M驱动（根据依赖关系安全的初始化所有模块）；
+    * Source code区中的Feature code区在启动界面订阅模块Account的登录状态，如果是登录成功则跳转模块Main的主界面，否则跳转模块Account的登录界面。
+
+整个项目的文件树大致如下：
 ```
 ├── app                                     // app壳
 │   ├── src
@@ -129,22 +145,6 @@ Source code区是指模块内部可以编写和存放代码的区域，每个模
 ├── build.gradle
 └── settings.gradle                         // P2M项目配置
 ```
-
-我们整个应用拆分为2个模块（存在2个Api区）+ 1个app壳：
- * 模块Account：
-   * Api区主要负责对外提供登录状态（可订阅的事件持有对象）、登录信息（可订阅的事件持有对象）、登录成功（可订阅的事件持有对象）、登录界面Intent（启动器）、退登（服务）；
-   * Source code区中的Module Init区负责声明AccountModuleInit（该模块的初始化），模块初始化时负责从本地缓存读取登录状态和登录用户信息，并分别将发送一个事件；
-   * Source code区中的Feature code区主要负责登录界面UI和逻辑、实现登录和退登、读写登录相关缓存。
-
- * 模块Main：
-   * Api区主要负责对外提供主界面Intent（启动器）；
-   * Source code区中的Module Init区负责声明MainModuleInit（该模块的初始化），无任何初始化逻辑；
-   * Source code区中的Feature code区主要负责主界面UI和逻辑。
-
- * app壳：
-   * 负责打开P2M驱动（开始初始化所有模块）；
-   * 订阅模块Account的登录状态，当登录成功则跳转模块Main的MainActivity（主界面），否则跳转模块Account的LoginActivity（登录界面）；
-   * 在SplashActivity（启动界面）订阅模块Account的登录状态，如果是登录成功则跳转模块Main的MainActivity（主界面），否则跳转模块Account的LoginActivity（登录界面）
 
 P2M项目配置
 ----------
@@ -180,11 +180,11 @@ p2m {
         include(":module-account")              // 声明project
     }
 
-    module("Main") {                            // 声明模块Account
+    module("Main") {                            // 声明模块Main
         include(":module-main")                 // 声明project
         dependencies {                          // 声明依赖的模块，这里表示模块Main依赖模块Account
-            module("Account")       
-        }  
+            module("Account")
+        }
     }
 }
 
@@ -197,9 +197,9 @@ p2m {
 
 模块Account
 -----------
- * Api区是对外打开的一道门，因此我们先考虑如何设计Api区：
+ * Api区是对外打开的一扇窗口，因此我们先考虑如何设计Api区：
 
-   * launcher - 对外提供登录界面的Intent，因此在Source code区定义：
+   * `launcher` - 对外提供登录界面的`Intent`，因此在Source code区定义：
         ```kotlin
         @Launcher
         class LoginActivity : Activity() // 具体实现请查看示例源码
@@ -218,7 +218,7 @@ p2m {
         }
         ```
 
-   * service - 对外提供退出登录的服务方法，因此在Source code区定义：
+   * `service` - 对外提供退出登录功能，因此在Source code区定义：
         ```kotlin
         @Service
         class AccountService { // 具体实现请查看示例源码
@@ -238,7 +238,7 @@ p2m {
         }
         ```
 
-   * event - 对外提供登录状态，登录用户信息等，因此在Source code区定义：
+   * `event` - 对外提供登录状态，登录用户信息等，因此在Source code区定义：
         ```kotlin
         @Event
         interface AccountEvent{
@@ -273,59 +273,55 @@ p2m {
         }
         ```
 
- * Module init区是模块开机的地方，根据需求和模块的职责来设计所必须初始化工作。
+ * Module init区是模块开机的地方，开发者根据模块的职责来设计所必要的初始化工作，一般所有的业务模块都会依赖Account模块，因此我们需要在Account模块初始化完成时对其Api区输入正确的数据，这样其他模块可以安全的进行访问了。
     ```kotlin
     @ModuleInitializer
     class AccountModuleInit : ModuleInit {
 
-        // 运行在子线程，用于注册模块内的任务，组织任务的依赖关系
+        // 运行在子线程，用于注册该模块内的任务、组织任务的依赖关系
         override fun onEvaluate(taskRegister: TaskRegister) {
+            val userDiskCache = UserDiskCache(context) // 用户本地缓存
+   
             // 注册读取登录状态的任务
-            taskRegister.register(LoadLoginStateTask::class.java, "input 1")
+            taskRegister.register(LoadLoginStateTask::class.java, userDiskCache)
 
             // 注册读取登录用户信息的任务
             taskRegister
-                .register(LoadLastUserTask::class.java, "input 2")
+                .register(LoadLastUserTask::class.java, userDiskCache)
                 .dependOn(LoadLoginStateTask::class.java) // 执行顺序一定为LoadLoginStateTask.onExecute() > LoadLastUserTask.onExecute()
         }
 
-        // 运行在主线程，当所有的依赖模块完成开机且自身模块的任务执行完毕时调用
-        override fun onExecuted(taskOutputProvider: TaskOutputProvider, moduleProvider: SafeModuleProvider) {
-            val loginState = taskOutputProvider.getOutputOf(LoadLoginStateTask::class.java) // 获取登录状态
-            val loginInfo = taskOutputProvider.getOutputOf(LoadLastUserTask::class.java)    // 获取用户信息
+        // 运行在主线程，当所有的依赖模块完成模块初始化且本模块的任务执行完毕时调用
+        override fun onExecuted(taskOutputProvider: TaskOutputProvider, moduleApiProvider: SafeModuleApiProvider) {
+            val loginState = taskOutputProvider.getOutputOf(LoadLoginStateTask::class.java) // 获取任务输出-登录状态
+            val loginInfo = taskOutputProvider.getOutputOf(LoadLastUserTask::class.java)    // 获取任务输出-用户信息
 
-            val account = moduleProvider.moduleApiOf(Account::class.java)  // 找到自身的Api区，在Module init区不能调用P2M.moduleApiOf()
-            account.event.mutable().loginState.setValue(loginState ?: false)      // 保存到事件持有者，提供给被依赖的模块使用
-            account.event.mutable().loginInfo.setValue(loginInfo)                 // 保存到事件持有者，提供给被依赖的模块使用
+            val accountApi = moduleApiProvider.moduleApiOf(Account::class.java)     // 找到自身的Api区，在Module init区不能调用P2M.moduleApiOf()
+            accountApi.event.mutable().loginState.setValue(loginState ?: false)     // 保存到事件持有者
+            accountApi.event.mutable().loginInfo.setValue(loginInfo)                // 保存到事件持有者
         }
     }
 
-    // 读取登录状态的任务，input:String output:Boolean
-    class LoadLoginStateTask: Task<String, Boolean>() {
+    // 读取登录状态的任务，input:UserDiskCache output:Boolean
+    class LoadLoginStateTask: Task<UserDiskCache, Boolean>() {
 
-        // 运行在子线程，当所有的依赖模块完成开机且自身依赖的任务执行完毕时调用
-        override fun onExecute(taskOutputProvider: TaskOutputProvider, moduleProvider: SafeModuleProvider) {
-            val input = input // input的值是1
-            Log.i("LoadLoginStateTask", "onExecute input: $input")
-
-            val userDiskCache = UserDiskCache(moduleProvider.context)
+        // 运行在子线程，当所有的依赖模块完成模块初始化且所有的依赖任务执行完毕时调用
+        override fun onExecute(taskOutputProvider: TaskOutputProvider, moduleApiProvider: SafeModuleApiProvider) {
+            val userDiskCache = input
             output = userDiskCache.readLoginState()
         }
     }
 
-    // 注册读取登录用户信息的任务，input:String output:LoginUserInfo
-    class LoadLastUserTask: Task<String, LoginUserInfo>() {
+    // 注册读取登录用户信息的任务，input:UserDiskCache output:LoginUserInfo
+    class LoadLastUserTask: Task<UserDiskCache, LoginUserInfo>() {
 
-        // 运行在子线程，当所有的依赖模块完成开机且自身依赖的任务执行完毕时调用
-        override fun onExecute(taskOutputProvider: TaskOutputProvider, moduleProvider: SafeModuleProvider) {
+        // 运行在子线程，当所有的依赖模块完成模块初始化且所有的依赖任务执行完毕时调用
+        override fun onExecute(taskOutputProvider: TaskOutputProvider, moduleApiProvider: SafeModuleApiProvider) {
             val loginState = taskOutputProvider.getOutputOf(LoadLoginStateTask::class.java)
 
             // 查询用户信息
             if (loginState == true) {
-                val input = input // input的值是2
-                Log.i("LoadLastUserTask", "onExecute input: $input")
-
-                val userDiskCache = UserDiskCache(moduleProvider.context)
+                val userDiskCache = input
                 output = userDiskCache.readLoginUserInfo()
             }
         }
@@ -353,7 +349,7 @@ Q&A
         module("YourModuleName") {
             // ...
             runApp = true               // true表示可以运行app
-            useRepo = false             // false表示使用源码，true表示依赖仓库aar
+            useRepo = false             // 使用已经发布到仓库中的模块，默认false。
         }
     }
     ```
@@ -379,7 +375,7 @@ Q&A
 
  3. sync project
 
-如何发布模块的aar等组件到仓库？
+如何发布模块到仓库？
 --------------------
 发布前需要配置仓库等信息：
  1. 在声明模块代码块中增加以下配置，位于根项目下的settings.gradle：
@@ -389,10 +385,10 @@ Q&A
             // ...
             groupId = "your.repo.groupId"       // 组，主要用于确定发布的组，默认值模块名
             versionName = "0.0.1"               // 版本，主要用于确定发布的版本，默认值unspecified
-            useRepo = false                     // false表示使用源码，true表示依赖仓库aar
+            useRepo = false                     // 使用已经发布到仓库中的模块，默认false。
         }
 
-        p2mMavenRepository {                    // 声明maven仓库用于发布和获取远端aar, 默认为mavenLocal()
+        p2mMavenRepository {                    // 声明maven仓库用于发布和获取模块, 默认为mavenLocal()
             url = "your maven repository url"   // 仓库地址
             credentials {                       // 登录仓库的用户
                 username = "your user name"
@@ -405,16 +401,16 @@ Q&A
  2. 执行发布到仓库的命令
     * linux/mac下：
     ```shell
-    ./gradlew publicYourModule                  // 用于发布单个模块
-    ./gradlew publicAllModule                   // 用于发布所有的模块
+    ./gradlew publish${YourModuleName}      // 用于发布单个模块
+    ./gradlew publishAllModule              // 用于发布所有的模块
     ```
     * windows下：
     ```shell
-    gradlew.bat publicYourModule                // 用于发布单个模块
-    gradlew.bat publicAllModule                 // 用于发布所有的模块
+    gradlew.bat publish${YourModuleName}    // 用于发布单个模块
+    gradlew.bat publishAllModule            // 用于发布所有的模块
     ```
 
-如何使用仓库aar？
+如何依赖已经发布到仓库中的模块？
 ---------------
 前提是已经将模块打包到了仓库中，然后：
  1. 在声明模块代码块中增加以下配置，位于根项目下的settings.gradle：
@@ -424,10 +420,10 @@ Q&A
             // ...
             groupId = "your.repo.groupId"       // 组，主要用于确定发布的组，默认值模块名
             versionName = "0.0.1"               // 版本，主要用于确定发布的版本，默认值unspecified
-            useRepo = true                      // false表示使用源码，true表示依赖仓库aar
+            useRepo = true                      // 使用已经发布到仓库中的模块，默认false。
         }
 
-        p2mMavenRepository {                    // 声明maven仓库用于发布和获取远端aar, 默认为mavenLocal()
+        p2mMavenRepository {                    // 声明maven仓库用于发布和获取模块, 默认为mavenLocal()
             url = "your maven repository url"   // 仓库地址
             credentials {                       // 登录仓库的用户
                 username = "your user name"
@@ -440,7 +436,11 @@ Q&A
 
 混淆
 ====
-因使用了[可订阅的事件持有对象][live-event]库，因此需要增加以下配置：
+```
+-keep class * extends com.p2m.core.module.ModuleCollector { <init>(); }
+-keep class * extends com.p2m.core.module.Module { <init>(); }
+```
+因本库内部使用了[可订阅的事件持有对象][live-event]库，因此需要还增加以下配置：
 ```
 -dontwarn androidx.lifecycle.LiveData
 -keep class androidx.lifecycle.LiveData { *; }

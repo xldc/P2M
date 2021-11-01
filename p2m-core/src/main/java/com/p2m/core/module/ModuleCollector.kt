@@ -12,8 +12,17 @@ abstract class ModuleCollector {
     internal fun inject(moduleRegister: ModuleRegister<*>) {
         for (implClazzStr in moduleImplClazz) {
             @Suppress("UNCHECKED_CAST")
-            val implClazz = Class.forName(implClazzStr) as Class<out Module<*, *>>
-            moduleRegister.register(implClazz)
+            try {
+                val implClazz = Class.forName(implClazzStr) as Class<out Module<*, *>>
+                moduleRegister.register(implClazz)
+            }catch (e: NoClassDefFoundError) {
+                val moduleName = implClazzStr.substringAfter("_", "")
+                if (moduleName.isNotEmpty()) {
+                    throw RuntimeException("$moduleName does not exist, please check your config in settings.gradle.", e)
+                }else {
+                    throw e
+                }
+            }
         }
     }
 }

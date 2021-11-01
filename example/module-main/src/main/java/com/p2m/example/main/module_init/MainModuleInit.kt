@@ -19,7 +19,7 @@ class MainModuleInit : ModuleInit {
 
     }
 
-    // 运行在主线程，当所有的依赖模块开机成功且自身模块的任务执行完毕时调用
+    // 运行在主线程，当所有的依赖模块完成模块初始化且本模块的任务执行完毕时调用
     override fun onExecuted(context: Context, taskOutputProvider: TaskOutputProvider, moduleApiProvider: SafeModuleApiProvider) {
         val account = moduleApiProvider.moduleApiOf(Account::class.java)
         

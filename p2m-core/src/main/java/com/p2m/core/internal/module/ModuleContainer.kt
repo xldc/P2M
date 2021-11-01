@@ -28,9 +28,6 @@ internal class ModuleContainerImpl(
         register(topModuleImplClazz)
     }
 
-    /**
-     * 根据依赖关系递归注册。
-     */
     override fun register(implClazz: Class<out Module<*, *>>): ModuleUnitImpl {
         if (container.containsKey(implClazz)) return container[implClazz]!!
         val module = moduleFactory.newInstance(implClazz)

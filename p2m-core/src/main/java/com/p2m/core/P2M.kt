@@ -10,7 +10,6 @@ import com.p2m.core.internal.config.InternalP2MConfigManager
 import com.p2m.core.internal.deriver.InternalP2MDriverBuilder
 import com.p2m.core.internal.module.DefaultModuleCollectorFactory
 import com.p2m.core.internal.module.DefaultModuleFactory
-import com.p2m.core.module.ModuleCollector
 import com.p2m.core.internal.module.ModuleContainerImpl
 import com.p2m.core.module.*
 

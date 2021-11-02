@@ -17,7 +17,7 @@ internal class ModuleGraphExecution(
     override val graph: ModuleGraph,
     private val evaluateListener: OnEvaluateListener?,
     private val executeListener: OnExecutedListener?
-): AbsGraphExecution<ModuleNode, Class<out Module<*, *>>, ModuleGraph>() {
+): AbsGraphExecution<ModuleNode, Class<out Module<*>>, ModuleGraph>() {
 
     private val executor: ExecutorService =  ThreadPoolExecutor(
             0,

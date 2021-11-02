@@ -10,25 +10,25 @@ internal interface ModuleContainer<UNIT : ModuleUnit>{
      *
      * @param clazz  apiClazz or implClazz.
      */
-    fun find(clazz: Class<out Module<*, *>>): UNIT?
+    fun find(clazz: Class<out Module<*>>): UNIT?
 
     fun getAll(): Collection<UNIT>
 }
 
 
 internal class ModuleContainerImpl(
-    val topModuleImplClazz: Class<out Module<*, *>>,
+    val topModuleImplClazz: Class<out Module<*>>,
     private val moduleFactory: ModuleFactory
 ) : ModuleRegister<ModuleUnitImpl>, ModuleContainer<ModuleUnitImpl> {
     // K:impl V:ModuleUnitImpl
-    private val container = HashMap<Class<out Module<*, *>>, ModuleUnitImpl>()
+    private val container = HashMap<Class<out Module<*>>, ModuleUnitImpl>()
     // K:api V:impl
-    private val apiImplMap = HashMap<Class<out Module<*, *>>, Class<out Module<*, *>>>()
+    private val apiImplMap = HashMap<Class<out Module<*>>, Class<out Module<*>>>()
     init {
         register(topModuleImplClazz)
     }
 
-    override fun register(implClazz: Class<out Module<*, *>>): ModuleUnitImpl {
+    override fun register(implClazz: Class<out Module<*>>): ModuleUnitImpl {
         if (container.containsKey(implClazz)) return container[implClazz]!!
         val module = moduleFactory.newInstance(implClazz)
         val moduleUnit = module.moduleUnit as ModuleUnitImpl
@@ -38,7 +38,7 @@ internal class ModuleContainerImpl(
         return moduleUnit
     }
 
-    override fun find(clazz: Class<out Module<*, *>>): ModuleUnitImpl? = container[apiImplMap[clazz]] ?: container[clazz]
+    override fun find(clazz: Class<out Module<*>>): ModuleUnitImpl? = container[apiImplMap[clazz]] ?: container[clazz]
 
     override fun getAll(): Collection<ModuleUnitImpl> = container.values
 }

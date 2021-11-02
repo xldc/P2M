@@ -164,13 +164,13 @@ class P2MProcessor : BaseProcessor() {
         apiFileSpecBuilder: FileSpec.Builder,
         implFileSpecBuilder: FileSpec.Builder
     ): GenResult {
+        val ModuleInitClassName = ClassName.bestGuess("$PACKAGE_NAME_CORE_MODULE.$CLASS_MODULE_INIT")
         val apiClassName = ClassName(apiPackageName, apiName)
         TypeSpec.classBuilder(apiClassName)
             .addModifiers(KModifier.ABSTRACT)
             .superclass(
                 moduleClassName.parameterizedBy(
-                    moduleApiResult.apiClassName,
-                    moduleInitResult.apiClassName
+                    moduleApiResult.apiClassName
                 )
             )
             .build()
@@ -187,7 +187,7 @@ class P2MProcessor : BaseProcessor() {
                     .build()
             )
             .addProperty(
-                PropertySpec.builder("init", moduleInitResult.apiClassName)
+                PropertySpec.builder("init", ModuleInitClassName)
                     .addModifiers(KModifier.OVERRIDE)
                     .addModifiers(KModifier.PROTECTED)
                     .delegate("lazy { ${moduleInitResult.getImplInstanceStatement()} }")

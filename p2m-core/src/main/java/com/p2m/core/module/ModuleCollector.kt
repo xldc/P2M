@@ -13,7 +13,7 @@ abstract class ModuleCollector {
         for (implClazzStr in moduleImplClazz) {
             @Suppress("UNCHECKED_CAST")
             try {
-                val implClazz = Class.forName(implClazzStr) as Class<out Module<*, *>>
+                val implClazz = Class.forName(implClazzStr) as Class<out Module<*>>
                 moduleRegister.register(implClazz)
             }catch (e: NoClassDefFoundError) {
                 val moduleName = implClazzStr.substringAfter("_", "")

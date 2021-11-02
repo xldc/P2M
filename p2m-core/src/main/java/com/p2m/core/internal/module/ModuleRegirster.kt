@@ -13,6 +13,6 @@ internal interface ModuleRegister<UNIT : ModuleUnit> {
      *
      * @param implClazz the module class.
      */
-    fun register(implClazz: Class<out Module<*, *>>): UNIT
+    fun register(implClazz: Class<out Module<*>>): UNIT
 
 }

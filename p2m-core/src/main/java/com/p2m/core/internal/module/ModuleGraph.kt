@@ -10,8 +10,8 @@ import java.util.concurrent.atomic.AtomicInteger
 internal class ModuleGraph private constructor(
     private val context:Context,
     private val moduleContainer: ModuleContainerImpl
-) : Graph<ModuleNode, Class<out Module<*, *>>> {
-    private val nodes: HashMap<Class<out Module<*, *>>, ModuleNode> = HashMap()
+) : Graph<ModuleNode, Class<out Module<*>>> {
+    private val nodes: HashMap<Class<out Module<*>>, ModuleNode> = HashMap()
     val moduleSize
         get() = moduleContainer.getAll().size
     override var stageSize = 0
@@ -23,7 +23,7 @@ internal class ModuleGraph private constructor(
         }
     }
 
-    private fun Class<out Module<*, *>>.addDepend(dependClazz: Class<out Module<*, *>>) {
+    private fun Class<out Module<*>>.addDepend(dependClazz: Class<out Module<*>>) {
         val ownerNode = nodes[this] ?: return
         val node = nodes[dependClazz] ?: return
 
@@ -50,7 +50,7 @@ internal class ModuleGraph private constructor(
         return ringNodes
     }
 
-    override fun evaluate():HashMap<Class<out Module<*, *>>, ModuleNode>{
+    override fun evaluate():HashMap<Class<out Module<*>>, ModuleNode>{
         reset()
         layout()
         return nodes

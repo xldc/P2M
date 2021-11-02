@@ -47,7 +47,7 @@ object P2M : ModuleApiProvider{
      *
      * @param clazz its class name is defined module name in settings.gradle.
      */
-    override fun <MODULE_API : ModuleApi<*, *, *>, MODULE : Module<MODULE_API, *>> moduleApiOf(
+    override fun <MODULE_API : ModuleApi<*, *, *>, MODULE : Module<MODULE_API>> moduleApiOf(
         clazz: Class<MODULE>
     ): MODULE_API {
         check(!driverState.opening) { "P2M driver is opening. At this time, you can get a module only by call SafeModuleApiProvider.moduleApiOf()." }
@@ -56,7 +56,7 @@ object P2M : ModuleApiProvider{
         return moduleContainer.find(clazz)?.module?.api as MODULE_API
     }
 
-    inline fun <reified MODULE_API : ModuleApi<*, *, *>, reified MODULE : Module<MODULE_API, *>> moduleApiOf(): MODULE_API {
+    inline fun <reified MODULE_API : ModuleApi<*, *, *>, reified MODULE : Module<MODULE_API>> moduleApiOf(): MODULE_API {
         return moduleApiOf(MODULE::class.java)
     }
 }

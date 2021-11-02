@@ -9,7 +9,7 @@ import com.p2m.core.module.Module
 
 internal class ModuleNode constructor(
     val context: Context,
-    val module: Module<*, *>,
+    val module: Module<*>,
     val provider: SafeModuleApiProviderImpl,
     override val isTop: Boolean
 ) : Node {

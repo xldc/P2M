@@ -42,8 +42,6 @@ abstract class BaseSupportDependencyModulePlugin extends BaseModulePlugin {
                         }
                     }
                 }
-
-
             }
 
         }

@@ -14,10 +14,9 @@ internal class TaskGraph private constructor(
     private val taskContainer: TaskContainerImpl,
     val SafeModuleApiProvider: SafeModuleApiProvider
 ) : Graph<TaskNode, Class<out Task<*, *>>> {
-    private val tasks: MutableList<Class<out Task<*, *>>> = mutableListOf()
     private val nodes: HashMap<Class<out Task<*, *>>, TaskNode> = HashMap()
     val taskSize
-        get() = tasks.size
+        get() = taskContainer.getAll().size
     override var stageSize = 0
     override var stageCompletedCount = AtomicInteger()
 
@@ -27,17 +26,9 @@ internal class TaskGraph private constructor(
         }
     }
 
-    init {
-        collectView()
-    }
-
-    private fun genTask(clazz: Class<out Task<*, *>>) {
-        tasks.add(clazz)
-    }
-
-    private fun Class<out Task<*, *>>.addDepend(dependClazz: Class<out Task<*, *>>) {
+    private fun Class<out Task<*, *>>.dependOn(dependClass: Class<out Task<*, *>>) {
         val ownerNode = nodes[this] ?: return
-        val node = nodes[dependClazz] ?: return
+        val node = nodes[dependClass] ?: return
 
         if (node.byDependNodes.add(ownerNode)) {
             node.byDependDegree++
@@ -64,15 +55,20 @@ internal class TaskGraph private constructor(
 
     override fun evaluate():HashMap<Class<out Task<*, *>>, TaskNode>{
         reset()
+        createNodes()
         layout()
         return nodes
     }
     
-    private fun dependTop(){
-        val topJavaClass = taskContainer.topTaskClazz
-        nodes.filter { it.value.byDependDegree == 0 && it.key !== topJavaClass}
-            .keys
-            .forEach { topJavaClass.addDepend(it) }
+    private fun dependsForTop(){
+        val topClass = taskContainer.topTaskClass
+        nodes
+            .filter {
+                it.value.byDependDegree == 0 && it.key !== topClass
+            }
+            .keys.forEach {
+                topClass.dependOn(it)
+            }
     }
 
     override fun getHeadStage(): Stage<TaskNode> {
@@ -176,42 +172,29 @@ internal class TaskGraph private constructor(
         stageSize = 0
         stageCompletedCount.set(0)
     }
-    
-    private fun collectView(){
-        genTasks()
-    }
+
     
     private fun layout(){
-        genNodes()
-        addDepends()
-        dependTop()
+        depends()
+        dependsForTop()
     }
     
-    private fun genTasks() {
+    private fun createNodes() {
         taskContainer.getAll().forEach {
-            genTask(it.getOwner())
+            val clazz = it.getOwner()
+            val safeTaskProvider = TaskOutputProviderImplForTask(taskContainer, it)
+            nodes[clazz] = TaskNode(context, clazz.simpleName, it.ownerInstance, it.input, safeTaskProvider, clazz === taskContainer.topTaskClass)
         }
     }
     
-    private fun genNodes() {
-        tasks.iterator().forEach {
-            val clazz = it
-            taskContainer.find(clazz)?.apply {
-                val safeTaskProvider = TaskOutputProviderImplForTask(taskContainer, this)
-                nodes[clazz] = TaskNode(context, clazz.simpleName, this.ownerInstance, this.input, safeTaskProvider, clazz === taskContainer.topTaskClazz)
+    private fun depends() {
+        taskContainer.getAll().forEach {
+            val owner = it.getOwner()
+            it.getDependencies().forEach { dependClass ->
+                if (!nodes.containsKey(dependClass)) logW("${owner.canonicalName} depend on ${dependClass.canonicalName}, but not registered of ${dependClass.canonicalName}")
+                owner.dependOn(dependClass)
             }
         }
-    }
-    
-    private fun addDepends() {
-        taskContainer.getAll().map { it.getOwner() to it.getDependencies() }
-            .forEach {
-                val owner = it.first
-                it.second.forEach { dependClazz ->
-                    if (!nodes.containsKey(dependClazz)) logW("${owner.canonicalName} depend on ${dependClazz.canonicalName}, but not registered of ${dependClazz.canonicalName}")
-                    owner.addDepend(dependClazz)
-                }
-            }
     }
 
 }

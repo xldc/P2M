@@ -102,7 +102,7 @@ internal class TaskGraphExecution(override val graph: TaskGraph) :
     }
 
     override fun onCompletedForNode(node: TaskNode) {
-        if (node.task is TopTask) return
-        logI("${graph.moduleName}-Task-Graph-Node-${node.taskName} Completed.")
+//        if (node.task is TopTask) return
+//        logI("${graph.moduleName}-Task-Graph-Node-${node.taskName} Completed.")
     }
 }

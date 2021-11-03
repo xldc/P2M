@@ -11,7 +11,7 @@ import com.p2m.annotation.module.api.Launcher
 import com.p2m.example.main.R
 import com.p2m.module.api.Account
 
-@Launcher
+@Launcher("Main")
 class MainActivity : AppCompatActivity() {
 
     @SuppressLint("SetTextI18n")

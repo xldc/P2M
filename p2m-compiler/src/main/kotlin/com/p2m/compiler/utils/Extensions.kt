@@ -8,12 +8,31 @@ import java.lang.IllegalStateException
 import javax.annotation.processing.RoundEnvironment
 import javax.lang.model.element.*
 import javax.lang.model.type.TypeMirror
+import javax.lang.model.util.Elements
 import kotlin.reflect.KClass
 
 /**
  * Returns the package name of a TypeElement.
  */
 fun TypeElement.packageName() = enclosingElement.packageName()
+
+fun Elements.getKDoc(element: Element): CodeBlock? {
+    val sb = StringBuilder()
+    getDocComment(element)
+        ?.lineSequence()
+        ?.map {
+            it.replace(Regex("^\\s*(.*?)"), "")
+        }
+        ?.forEach {
+            sb.append(it)
+            sb.append("\n")
+        }
+    return if (sb.isNotEmpty()) {
+        CodeBlock.of(sb.toString())
+    } else {
+        null
+    }
+}
 
 private fun Element?.packageName(): String {
     return when (this) {
@@ -174,19 +193,19 @@ fun TypeElement.checkKotlinClass() {
     }
 }
 
-fun TypeElement.checkNotInnerClassForAnnotation(aClazz: KClass<*>) {
+fun TypeElement.checkNotInnerClassForAnnotation(aClass: KClass<*>) {
     check(enclosingElement is Symbol.PackageSymbol) {
         """
-            Class annotated by ${aClazz.java.canonicalName} not support inner class, please check the class of ${qualifiedName}.
+            Class annotated by ${aClass.java.canonicalName} not support inner class, please check the class of ${qualifiedName}.
         """.trimIndent()
     }
 }
 
-fun TypeElement.checkNotHasInterfaceClassForAnnotation(aClazz: KClass<*>) {
+fun TypeElement.checkNotHasInterfaceClassForAnnotation(aClass: KClass<*>) {
 
     check(interfaces.isEmpty()) {
         """
-            Class annotated by ${aClazz.java.simpleName} not support extends interface, please check the class of ${qualifiedName}.
+            Class annotated by ${aClass.java.simpleName} not support extends interface, please check the class of ${qualifiedName}.
         """.trimIndent()
     }
 }

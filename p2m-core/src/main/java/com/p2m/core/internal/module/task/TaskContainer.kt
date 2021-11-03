@@ -16,7 +16,7 @@ internal interface TaskContainer<UNIT: TaskUnit>{
 
 
 internal class TaskContainerImpl(
-    val topTaskClazz: Class<out Task<*, *>>,
+    val topTaskClass: Class<out Task<*, *>>,
     private val taskFactory: TaskFactory
 ) : TaskRegister<TaskUnitImpl>, TaskContainer<TaskUnitImpl> {
     private val container = HashMap<Class<out Task<*, *>>, TaskUnitImpl>()
@@ -25,7 +25,7 @@ internal class TaskContainerImpl(
         get() = container.size == 1
     
     init {
-        registers(topTaskClazz)
+        registers(topTaskClass)
     }
 
     override fun registers(vararg clazz: Class<out Task<*, *>>) {

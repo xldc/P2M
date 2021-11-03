@@ -5,13 +5,14 @@ include ':lib-http'
 buildscript {
     repositories {
         google()
+        mavenLocal()
         mavenCentral()
         maven { url 'https://jitpack.io' }
     }
 
     dependencies {
         classpath 'com.android.tools.build:gradle:4.0.2'        // 支持3.4.0以上
-        classpath 'com.github.wangdaqi77.P2M:p2m-plugin:0.0.8'  // P2M插件
+        classpath 'com.github.wangdaqi77.P2M:p2m-plugin:0.0.9'  // P2M插件
     }
 }
 

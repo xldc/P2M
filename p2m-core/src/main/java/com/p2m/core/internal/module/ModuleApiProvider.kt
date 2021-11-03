@@ -5,7 +5,6 @@ import com.p2m.core.module.*
 @Suppress("UNCHECKED_CAST")
 internal class SafeModuleApiProviderImpl(
     private val moduleContainer: ModuleContainerImpl,
-    private val modulePublicClazzName: String,
     private val self: Module<*>
 ) :
     SafeModuleApiProvider,
@@ -18,7 +17,7 @@ internal class SafeModuleApiProviderImpl(
     private fun <MODULE_API : ModuleApi<*, *, *>, MODULE : Module<MODULE_API>> getSelf(
         clazz: Class<MODULE>
     ): MODULE_API {
-        check (checkSelf(clazz)) { "Please Call get(${modulePublicClazzName}::class)." }
+        check (checkSelf(clazz)) { "Please Call get(${self.internalModuleUnit.modulePublicClass.simpleName}::class.java)." }
         return self.api as MODULE_API
     }
 

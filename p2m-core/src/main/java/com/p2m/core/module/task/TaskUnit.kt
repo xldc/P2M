@@ -10,16 +10,16 @@ interface TaskUnit {
     /**
      * Add the given dependency to this task.
      *
-     * @param taskClazz The dependency to add to this task.
+     * @param taskClass The dependency to add to this task.
      */
-    fun dependOn(taskClazz: Class<out Task<*, *>>)
+    fun dependOn(taskClass: Class<out Task<*, *>>)
 
     /**
      * Adds the given dependencies to this task.
      *
-     * @param taskClazz The dependencies to add to this task.
+     * @param taskClass The dependencies to add to this task.
      */
-    fun dependOn(vararg taskClazz: Class<out Task<*, *>>)
+    fun dependOn(vararg taskClass: Class<out Task<*, *>>)
 
 
     fun getDependencies(): Set<Class<out Task<*, *>>>

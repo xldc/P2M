@@ -23,9 +23,9 @@ internal class ModuleGraph private constructor(
         }
     }
 
-    private fun Class<out Module<*>>.addDepend(dependClazz: Class<out Module<*>>) {
+    private fun Class<out Module<*>>.dependOn(dependClass: Class<out Module<*>>) {
         val ownerNode = nodes[this] ?: return
-        val node = nodes[dependClazz] ?: return
+        val node = nodes[dependClass] ?: return
 
         if (node.byDependNodes.add(ownerNode)) {
             node.byDependDegree++
@@ -52,15 +52,20 @@ internal class ModuleGraph private constructor(
 
     override fun evaluate():HashMap<Class<out Module<*>>, ModuleNode>{
         reset()
+        createNodes()
         layout()
         return nodes
     }
-    
-    private fun dependTop(){
-        val topJavaClass = moduleContainer.topModuleImplClazz
-        nodes.filter { it.value.byDependDegree == 0 && it.key !== topJavaClass}
-            .keys
-            .forEach { topJavaClass.addDepend(it) }
+
+    private fun dependsForTop() {
+        val topClass = moduleContainer.topModuleImplClass
+        nodes
+            .filter {
+                it.value.byDependDegree == 0 && it.key !== topClass
+            }
+            .keys.forEach {
+                topClass.dependOn(it)
+            }
     }
 
     override fun getHeadStage(): Stage<ModuleNode> {
@@ -166,27 +171,25 @@ internal class ModuleGraph private constructor(
     }
     
     private fun layout(){
-        genNodes()
-        addDepends()
-        dependTop()
+        depends()
+        dependsForTop()
     }
     
-    private fun genNodes() {
+    private fun createNodes() {
         moduleContainer.getAll().forEach {
-            val safeModuleProviderImpl = SafeModuleApiProviderImpl(moduleContainer, it.module.apiClazzName, it.module)
-            nodes[it.moduleImplClazz] = ModuleNode(context, it.module, safeModuleProviderImpl,it.moduleImplClazz === moduleContainer.topModuleImplClazz)
+            val safeModuleProviderImpl = SafeModuleApiProviderImpl(moduleContainer, it.module)
+            nodes[it.moduleImplClass] = ModuleNode(context, it.module, safeModuleProviderImpl,it.moduleImplClass === moduleContainer.topModuleImplClass)
         }
     }
     
-    private fun addDepends() {
-        moduleContainer.getAll().map { it.moduleImplClazz to it.dependencies }
-            .forEach {
-                val owner = it.first
-                it.second.forEach { dependClazz ->
-                    if (!nodes.containsKey(dependClazz)) logW("${owner.canonicalName} depend on ${dependClazz.canonicalName}, but not registered of ${dependClazz.canonicalName}")
-                    owner.addDepend(dependClazz)
-                }
+    private fun depends() {
+        moduleContainer.getAll().forEach {
+            val owner = it.moduleImplClass
+            it.getDependencies().forEach { dependClass ->
+                if (!nodes.containsKey(dependClass)) logW("${owner.canonicalName} depend on ${dependClass.canonicalName}, but not registered of ${dependClass.canonicalName}")
+                owner.dependOn(dependClass)
             }
+        }
     }
 
 }

@@ -29,7 +29,8 @@ class MainModuleInit : ModuleInit {
                 // 登录成功启动主界面
                 moduleApiProvider.moduleApiOf(Main::class.java)
                     .launcher
-                    .newActivityIntentOfMainActivity(context)
+                    .activityOfMain
+                    .createIntent(context)
                     .run {
                         addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

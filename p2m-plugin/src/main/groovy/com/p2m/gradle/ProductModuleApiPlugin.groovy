@@ -30,9 +30,6 @@ class ProductModuleApiPlugin implements Plugin<Project> {
 
         moduleProject.project.kapt.arguments {
             if (options == null) return
-            def variant = variant as BaseVariant
-            def variantName = variant.getName()
-            def p2mApiSrcDir = new File(moduleProject.project.buildDir, "generated/p2m/src/${variantName}")
 
             StringBuffer sb = new StringBuffer()
             moduleProject.dependencies.forEach{ ModuleProject dependency ->

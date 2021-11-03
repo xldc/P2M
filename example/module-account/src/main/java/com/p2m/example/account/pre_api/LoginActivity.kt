@@ -20,8 +20,10 @@ import java.util.*
 
 /**
  * 登录Activity
+ *
+ * 登录成功后将发送登录成功的事件[AccountEvent.loginSuccess]，外部模块接收此事件可进行跳转。
  */
-@Launcher
+@Launcher("Login")
 class LoginActivity : AppCompatActivity() {
     private var loading: ProgressBar? = null
     private var login: Button? = null

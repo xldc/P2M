@@ -27,7 +27,7 @@ abstract class BaseProcessor : AbstractProcessor() {
         const val CLASS_API_SERVICE_EMPTY = "EmptyModuleService"
         const val CLASS_API_EVENT_EMPTY = "EmptyModuleEvent"
 
-        const val PACKAGE_NAME_EVENT = "com.p2m.core.event"
+        const val PACKAGE_NAME_EVENT = "${PACKAGE_NAME_CORE}.event"
         const val CLASS_LIVE_EVENT = "LiveEvent"
         const val CLASS_BACKGROUND_EVENT = "BackgroundLiveEvent"
         const val CLASS_MUTABLE_LIVE_EVENT = "MutableLiveEvent"
@@ -35,6 +35,12 @@ abstract class BaseProcessor : AbstractProcessor() {
         const val CLASS_EVENT_DELEGATE = "Delegate"
         const val CLASS_EVENT_MUTABLE_DELEGATE = "MutableDelegate"
         const val CLASS_EVENT_INTERNAL_MUTABLE_DELEGATE = "InternalMutableDelegate"
+
+        const val PACKAGE_NAME_LAUNCHER = "${PACKAGE_NAME_CORE}.launcher"
+        const val CLASS_ActivityLauncher = "ActivityLauncher"
+        const val CLASS_FragmentLauncher = "FragmentLauncher"
+        const val CLASS_ServiceLauncher = "ServiceLauncher"
+        const val CLASS_LAUNCHER_DELEGATE = "Delegate"
     }
 
     lateinit var options: Map<String, String>
@@ -49,7 +55,6 @@ abstract class BaseProcessor : AbstractProcessor() {
 
     lateinit var packageNameApi: String
     lateinit var packageNameImpl: String
-    lateinit var packageNameImplLauncher: String
     val dependencies = hashMapOf<String, String>()
 
     override fun init(processingEnv: ProcessingEnvironment) {
@@ -63,7 +68,6 @@ abstract class BaseProcessor : AbstractProcessor() {
         getOptionData(options)
         packageNameImpl = "${optionApplicationId}.impl"
         packageNameApi = "${optionApplicationId}.api"
-        packageNameImplLauncher = "${packageNameImpl}.launcher"
         optionDependencies?.split(",")?.forEach {
             // api-impl
             val values = it.split("-")

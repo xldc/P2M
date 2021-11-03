@@ -19,7 +19,7 @@ internal class ModuleGraphExecution(
     private val executeListener: OnExecutedListener?
 ): AbsGraphExecution<ModuleNode, Class<out Module<*>>, ModuleGraph>() {
 
-    private val executor: ExecutorService =  ThreadPoolExecutor(
+    private val executor: ExecutorService = ThreadPoolExecutor(
             0,
             Int.MAX_VALUE,
             60,
@@ -80,7 +80,7 @@ internal class ModuleGraphExecution(
 
     private fun ModuleNode.evaluating() {
         logI("Module-Graph-Node-$name onEvaluate()")
-        module.internalModuleInit.onEvaluate(context, taskContainer)
+        module.internalInit.onEvaluate(context, taskContainer)
         if (isTop) evaluateListener?.onEvaluate(context, taskContainer)
     }
 
@@ -109,7 +109,7 @@ internal class ModuleGraphExecution(
     private fun ModuleNode.executed() {
         logI("Module-Graph-Node-$name onExecuted()")
         val taskOutputProviderImplForModule = TaskOutputProviderImplForModule(taskContainer)
-        module.internalModuleInit.onExecuted(context, taskOutputProviderImplForModule, provider)
+        module.internalInit.onExecuted(context, taskOutputProviderImplForModule, provider)
         if (isTop) executeListener?.onExecuted(context, taskOutputProviderImplForModule, provider)
     }
 
@@ -126,7 +126,7 @@ internal class ModuleGraphExecution(
     }
 
     override fun onCompletedForNode(node: ModuleNode) {
-        logI("Module-Graph-Node-${node.name} Completed.")
+//        logI("Module-Graph-Node-${node.name} Completed.")
     }
 
 }

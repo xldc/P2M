@@ -49,7 +49,7 @@ Module态
 
 ### Api区
 Api区包含`launcher`、`service`、`event`，P2M注解处理器将参与编译。
- * `launcher` - 启动器，关联注解`@Launcher`，同一模块内可注解多个类，P2M注解处理器会生成相应的接口函数放入`launcher`中，目前支持注解Activity将生成`fun newActivityIntentOf$className(): Intent`、注解Fragment将生成`fun newFragmentOf$className(): Fragment`、注解Service将生成`fun newServiceIntentOf$className(): Intent`；
+ * `launcher` - 启动器，关联注解`@Launcher`，同一模块内可注解多个类，P2M注解处理器会生成相应的接口函数放入`launcher`中，目前支持注解Activity将生成`val activityOf${Launcher.name}() : ActivityLauncher`、注解Fragment将生成`val fragmentOf${Launcher.name}() : FragmentLauncher`、注解Service将生成`val serviceOf${Launcher.name}() : ServiceLauncher`；
  * `service`  - 服务，关联注解`@Service`，同一模块内只能注解一个类，P2M注解处理器会提取被注解类的所有公开成员函数放入`service`中，这样外部模块就可以间接调用到该模块的内部实现；
  * `event`    - 事件，关联注解`@Event`，同一模块内只能注解一个类，P2M注解处理器会提取被注解类中所有被`@EventField`注解的成员变量放入`event`，并根据变量的类型生成[可订阅的事件持有对象][live-event]（概况一下就是类似LiveData，但是比LiveData适合事件场景），用于发送事件和订阅接收事件，`@EventField`可以指定[可订阅的事件持有对象][live-event]发送事件和订阅接收事件是否占用主线程资源。
 
@@ -60,7 +60,7 @@ Api区包含`launcher`、`service`、`event`，P2M注解处理器将参与编译
 #### Source code区如何访问Api区
 当某个模块的Api区需要更新时，我们必须先[编译Api区](#如何编译Api区)，这是访问Api区的前提。在模块内部能存放源码的区域都属于Source code区，我们在Source code区访问Api区：
 ```kotlin
-val aApi = P2M.moduleApiOf<A>()     // 获取模块A的Api区
+val aApi = P2M.moduleApiOf(A)     // 获取模块A的Api区
 
 val launcherOfA = aApi.launcher     // Api区中的launcher
 val serviceOfA = aApi.service       // Api区中的service
@@ -201,38 +201,43 @@ p2m {
 
    * `launcher` - 对外提供登录界面的`Intent`，因此在Source code区定义：
         ```kotlin
-        @Launcher
-        class LoginActivity : Activity() // 具体实现请查看示例源码
+        /**
+         * 登录Activity
+         *
+         * 登录成功后将发送登录成功的事件[AccountEvent.loginSuccess]，外部模块接收此事件可进行跳转。
+         */
+        @Launcher("Login")
+        class LoginActivity : AppCompatActivity() 
         ```
 
         编译后将在Api区生成以下代码：
         ```kotlin
         /**
          * A launcher class of Account module.
-         * Use `P2M.moduleApiOf<Account>().launcher` to get the instance.
          *
-         * Use [newActivityIntentOfLoginActivity] to launch [com.p2m.example.account.pre_api.LoginActivity].
+         * Use `P2M.moduleApiOf(Account).launcher` to get the instance.
          */
         public interface AccountModuleLauncher : ModuleLauncher {
-          public fun newActivityIntentOfLoginActivity(context: Context): Intent
+            /**
+             * 登录Activity
+             *
+             * 登录成功后将发送登录成功的事件[AccountEvent.loginSuccess]，外部模块接收此事件可进行跳转。
+             *
+             * @see com.p2m.example.account.pre_api.LoginActivity - origin.
+             */
+            public val activityOfLogin: ActivityLauncher
         }
         ```
-
+     
    * `service` - 对外提供退出登录功能，因此在Source code区定义：
         ```kotlin
         @Service
-        class AccountService { // 具体实现请查看示例源码
+        class AccountService {
             fun logout() { }
         }
         ```
-        编译后将在Api区生成以下代码：
+        编译后将在Api区生成以下代码（同样会生成文档，此处不再贴出）：
         ```kotlin
-        /**
-         * A service class of Account module.
-         * Use `P2M.moduleApiOf<Account>().service` to get the instance.
-         *
-         * @see com.p2m.example.account.pre_api.AccountService - origin.
-         */
         public interface AccountModuleService : ModuleService {
           public fun logout(): Unit
         }
@@ -257,14 +262,8 @@ p2m {
             val testAPT:Int     // 这个字段没有被注解，因此它将被过滤
         }
         ```
-        编译后将在Api区生成以下代码：
+        编译后将在Api区生成以下代码（同样会生成文档，此处不再贴出）：
         ```kotlin
-        /**
-         * A event class of Account module.
-         * Use `P2M.moduleApiOf<Account>().event` to get the instance.
-         *
-         * @see com.p2m.example.account.pre_api.AccountEvent - origin.
-         */
         public interface AccountModuleEvent : ModuleEvent {
           public val loginInfo: LiveEvent<LoginUserInfo?>
           public val loginState: LiveEvent<Boolean>

@@ -3,20 +3,20 @@ package com.p2m.core.module
 import com.p2m.core.internal.module.ModuleRegister
 
 abstract class ModuleCollector {
-    private val moduleImplClazz = mutableSetOf<String>()
+    private val moduleImplClass = mutableSetOf<String>()
 
-    protected fun collect(implClazzStr: String) {
-        moduleImplClazz.add(implClazzStr)
+    protected fun collect(implClassStr: String) {
+        moduleImplClass.add(implClassStr)
     }
 
     internal fun inject(moduleRegister: ModuleRegister<*>) {
-        for (implClazzStr in moduleImplClazz) {
+        for (implClassStr in moduleImplClass) {
             @Suppress("UNCHECKED_CAST")
             try {
-                val implClazz = Class.forName(implClazzStr) as Class<out Module<*>>
-                moduleRegister.register(implClazz)
+                val implClass = Class.forName(implClassStr) as Class<out Module<*>>
+                moduleRegister.register(implClass)
             }catch (e: NoClassDefFoundError) {
-                val moduleName = implClazzStr.substringAfter("_", "")
+                val moduleName = implClassStr.substringAfter("_", "")
                 if (moduleName.isNotEmpty()) {
                     throw RuntimeException("$moduleName does not exist, please check your config in settings.gradle.", e)
                 }else {

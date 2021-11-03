@@ -56,7 +56,4 @@ object P2M : ModuleApiProvider{
         return moduleContainer.find(clazz)?.module?.api as MODULE_API
     }
 
-    inline fun <reified MODULE_API : ModuleApi<*, *, *>, reified MODULE : Module<MODULE_API>> moduleApiOf(): MODULE_API {
-        return moduleApiOf(MODULE::class.java)
-    }
 }

@@ -7,7 +7,6 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 
 abstract class BaseModulePlugin implements Plugin<Project> {
-    protected Boolean _p2mDevEnv
     protected BaseProject baseProject
     protected RunAppConfig runAppConfig
     protected Set<ModuleProject> moduleDependencies
@@ -17,7 +16,6 @@ abstract class BaseModulePlugin implements Plugin<Project> {
         baseProject = project.p2mProject
         runAppConfig = baseProject.runAppConfig
         moduleDependencies = baseProject.dependencies
-        _p2mDevEnv = project.rootProject._p2mDevEnv as Boolean
         doAction(project)
     }
 

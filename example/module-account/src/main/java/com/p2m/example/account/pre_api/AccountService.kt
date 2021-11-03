@@ -27,7 +27,10 @@ class AccountService{
 
         // 跳转到登录界面
         P2M.moduleApiOf(Account::class.java)
-            .launcher.newActivityIntentOfLoginActivity(context).run {
+            .launcher
+            .activityOfLogin
+            .createIntent(context)
+            .run {
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 context.startActivity(this)

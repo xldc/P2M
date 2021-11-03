@@ -5,6 +5,9 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.view.View
 import com.p2m.annotation.module.api.Launcher
+import com.p2m.core.P2M
+import com.p2m.core.moduleApi
+import com.p2m.module.api.None
 
 @Launcher
 class NoneActivity : AppCompatActivity() {
@@ -14,6 +17,13 @@ class NoneActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         setContentView(View(this))
+
+
+        val fragment = P2M.moduleApiOf(None::class.java)
+            .launcher
+            .fragmentOfTest
+            .create()
+
 
     }
 

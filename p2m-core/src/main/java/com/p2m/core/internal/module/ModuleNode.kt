@@ -15,7 +15,7 @@ internal class ModuleNode constructor(
 ) : Node {
 
     override val name: String
-        get() = module.apiClazzName
+        get() = module.internalModuleUnit.moduleName
 
     // 被依赖
     var byDependDegree: Int = 0

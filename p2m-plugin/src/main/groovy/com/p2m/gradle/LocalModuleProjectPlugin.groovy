@@ -20,6 +20,5 @@ class LocalModuleProjectPlugin extends BaseSupportDependencyModulePlugin {
             handler.add("compileOnly", project._p2mAnnotation())
             handler.add("kapt", project._p2mCompiler())
         }
-
     }
 }

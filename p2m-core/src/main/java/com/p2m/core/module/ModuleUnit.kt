@@ -7,20 +7,28 @@ import kotlin.reflect.KProperty
  * The unit of module.
  */
 interface ModuleUnit {
-    class Delegate(moduleImplClazz: Class<out Module<*>>, module: Module<*>) {
-        private val real by lazy { ModuleUnitImpl(moduleImplClazz, module) }
+    class Delegate(
+        module: Module<*>,
+        moduleImplClass: Class<out Module<*>>,
+        modulePublicClass: Class<out Module<*>> ) {
+        private val real by lazy { ModuleUnitImpl(module, moduleImplClass, modulePublicClass) }
 
         operator fun getValue(thisRef: Any?, property: KProperty<*>): ModuleUnit = real
 
         operator fun setValue(thisRef: Any?, property: KProperty<*>, value: ModuleUnit) = Unit
     }
 
-    val moduleImplClazz: Class<out Module<*>>
+    val moduleName : String
+        get() = modulePublicClass.simpleName
 
-    val dependencies: Set<Class<out Module<*>>>
+    val moduleImplClass: Class<out Module<*>>
+
+    val modulePublicClass: Class<out Module<*>>
 
     /**
      * Adds the given dependencies to this module.
      */
-    fun dependOn(clazz: Class<out Module<*>>, implClazzName: String)
+    fun dependOn(clazz: Class<out Module<*>>, implClassName: String)
+
+    fun getDependencies(): Set<Class<out Module<*>>>
 }

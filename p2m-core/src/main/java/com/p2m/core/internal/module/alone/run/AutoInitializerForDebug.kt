@@ -22,7 +22,7 @@ internal class AutoInitializerForDebug : ContentProvider() {
             }
         }
 
-        P2M.driverBuilder(context).build().open()
+        P2M.init(context)
         return true
     }
 

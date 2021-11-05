@@ -1,11 +1,14 @@
 package com.p2m.annotation.module.api
 
 /**
- * Class annotated by [Event], it will generate a event interface for the module and
- * provide to dependant module, member property of the class is effective that use
- * [EventField] annotation.
+ * A class uses this annotation, it will generate a event interface for event of Api area
+ * and provide to dependant module, that class member property
+ * only use [EventField] annotation to take effect.
  *
- * A module has only one.
+ * Use `P2M.moduleApiOf(${moduleName}::class.java).event` to get event, that `moduleName`
+ * is defined in settings.gradle
+ *
+ * The annotation can only be used once within same module.
  */
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.BINARY)

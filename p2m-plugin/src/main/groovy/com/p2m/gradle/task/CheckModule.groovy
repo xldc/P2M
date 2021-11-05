@@ -33,18 +33,9 @@ Must add source code in Module[${project.p2mProject.getModuleName()}]：
 @ModuleInitializer
 class ${project.p2mProject.getModuleName()}ModuleInit : ModuleInit{
 
-    override fun onEvaluate(context: Context, taskRegister: TaskRegister<out TaskUnit>) {
-        // Evaluate stage of itself.
-        // Here, You can use [taskRegister] to register some task for help initialize module fast,
-        // and then these tasks will be executed order.
-    }
+    override fun onEvaluate(context: Context, taskRegister: TaskRegister<out TaskUnit>) { }
 
-    override fun onExecuted(context: Context, taskOutputProvider: TaskOutputProvider, moduleApiProvider: SafeModuleApiProvider) {
-        // Executed stage of itself, indicates will completed initialized of the module.
-        // Called when its all tasks be completed and all dependencies completed initialized.
-        // Here, You can use [taskOutputProvider] to get some output of itself tasks,
-        // also use [moduleApiProvider] to get some dependency module.
-    }
+    override fun onExecuted(context: Context, taskOutputProvider: TaskOutputProvider) { }
 }
 """)
                 }

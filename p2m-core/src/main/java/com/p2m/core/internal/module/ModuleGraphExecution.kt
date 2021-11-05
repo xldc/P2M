@@ -8,18 +8,18 @@ import com.p2m.core.internal.module.task.TaskOutputProviderImplForModule
 import com.p2m.core.internal.module.task.TaskGraph
 import com.p2m.core.internal.module.task.TaskGraphExecution
 import com.p2m.core.module.Module
-import com.p2m.core.module.OnEvaluateListener
-import com.p2m.core.module.OnExecutedListener
+import com.p2m.core.module.SafeModuleApiProvider
 import java.util.concurrent.*
 import java.util.concurrent.atomic.AtomicInteger
 
 internal class ModuleGraphExecution(
     override val graph: ModuleGraph,
-    private val evaluateListener: OnEvaluateListener?,
-    private val executeListener: OnExecutedListener?
-): AbsGraphExecution<ModuleNode, Class<out Module<*>>, ModuleGraph>() {
+    private val isEvaluating: ThreadLocal<Boolean>,
+    private val executingModuleProvider: ThreadLocal<SafeModuleApiProvider>
+) : AbsGraphExecution<ModuleNode, Class<out Module<*>>, ModuleGraph>() {
 
-    private val executor: ExecutorService = ThreadPoolExecutor(
+    companion object {
+        private val executor: ExecutorService = ThreadPoolExecutor(
             0,
             Int.MAX_VALUE,
             60,
@@ -37,7 +37,8 @@ internal class ModuleGraphExecution(
                     return t
                 }
             }
-    )
+        )
+    }
 
     override val messageQueue: BlockingQueue<Runnable> = ArrayBlockingQueue<Runnable>(graph.moduleSize)
 
@@ -73,15 +74,16 @@ internal class ModuleGraphExecution(
     private fun ModuleNode.executing() {
         if (!taskContainer.onlyHasTop) {
             val taskGraph = TaskGraph.create(context, name, taskContainer, provider)
-            val taskGraphExecution = TaskGraphExecution(taskGraph)
+            val taskGraphExecution = TaskGraphExecution(taskGraph, executingModuleProvider)
             taskGraphExecution.runningAndLoop(BeginDirection.TAIL)
         }
     }
 
     private fun ModuleNode.evaluating() {
         logI("Module-Graph-Node-$name onEvaluate()")
+        isEvaluating.set(true)
         module.internalInit.onEvaluate(context, taskContainer)
-        if (isTop) evaluateListener?.onEvaluate(context, taskContainer)
+        isEvaluating.set(false)
     }
 
     private fun ModuleNode.depending(evaluatingWhenDependingIdle: () -> Unit) {
@@ -109,8 +111,10 @@ internal class ModuleGraphExecution(
     private fun ModuleNode.executed() {
         logI("Module-Graph-Node-$name onExecuted()")
         val taskOutputProviderImplForModule = TaskOutputProviderImplForModule(taskContainer)
-        module.internalInit.onExecuted(context, taskOutputProviderImplForModule, provider)
-        if (isTop) executeListener?.onExecuted(context, taskOutputProviderImplForModule, provider)
+
+        executingModuleProvider.set(provider)
+        module.internalInit.onExecuted(context, taskOutputProviderImplForModule)
+        executingModuleProvider.set(null)
     }
 
     override fun asyncTask(runnable: Runnable) {

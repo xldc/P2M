@@ -3,11 +3,12 @@ package com.p2m.core.internal.module.task
 import com.p2m.core.internal.graph.AbsGraphExecution
 import com.p2m.core.internal.graph.Stage
 import com.p2m.core.internal.log.logI
+import com.p2m.core.module.SafeModuleApiProvider
 import com.p2m.core.module.task.Task
 import java.util.concurrent.*
 import java.util.concurrent.atomic.AtomicInteger
 
-internal class TaskGraphExecution(override val graph: TaskGraph) :
+internal class TaskGraphExecution(override val graph: TaskGraph, private val executingModuleProvider: ThreadLocal<SafeModuleApiProvider>) :
     AbsGraphExecution<TaskNode, Class<out Task<*, *>>, TaskGraph>() {
 
     companion object{
@@ -84,7 +85,9 @@ internal class TaskGraphExecution(override val graph: TaskGraph) :
     private fun TaskNode.executing() {
         logI("${graph.moduleName}-Task-Graph-Node-${taskName} onExecute()")
         task.inputObj = input
-        task.onExecute(context, safeTaskProvider, graph.SafeModuleApiProvider)
+        executingModuleProvider.set(graph.SafeModuleApiProvider)
+        task.onExecute(context, safeTaskProvider)
+        executingModuleProvider.set(null)
     }
 
     override fun asyncTask(runnable: Runnable) {

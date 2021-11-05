@@ -1,5 +1,8 @@
 package com.p2m.core.module
 
+import com.p2m.core.internal.module.ModuleUnitImpl
+import com.p2m.core.internal.module.ModuleVisitor
+
 /**
  * A module has a [Module].
  *
@@ -16,12 +19,16 @@ abstract class Module<MODULE_API : ModuleApi<*, *, *>> {
     protected open val publicClass: Class<out Module<*>> = this.javaClass.superclass as Class<out Module<*>>
     internal val internalInit: ModuleInit
         get() = init
-    internal val internalModuleUnit: ModuleUnit by lazy(LazyThreadSafetyMode.NONE) {
-        val moduleUnit by ModuleUnit.Delegate(this, this.javaClass, publicClass)
-        moduleUnit
+    @Suppress("LeakingThis")
+    internal val internalModuleUnit by lazy(LazyThreadSafetyMode.NONE) {
+        ModuleUnitImpl(this, this.javaClass, publicClass)
     }
 
     protected fun dependOn(moduleClass: Class<out Module<*>>, implClassName: String) {
         internalModuleUnit.dependOn(moduleClass, implClassName)
+    }
+
+    internal fun accept(visitor: ModuleVisitor){
+        visitor.visit(this)
     }
 }

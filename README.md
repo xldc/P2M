@@ -277,7 +277,7 @@ p2m {
     @ModuleInitializer
     class AccountModuleInit : ModuleInit {
 
-        // 运行在子线程，用于注册该模块内的任务、组织任务的依赖关系
+        // 运行在子线程，用于注册该模块内的任务、组织任务的依赖关系，所有的任务在单独的子线程运行。
         override fun onEvaluate(taskRegister: TaskRegister) {
             val userDiskCache = UserDiskCache(context) // 用户本地缓存
    
@@ -290,12 +290,13 @@ p2m {
                 .dependOn(LoadLoginStateTask::class.java) // 执行顺序一定为LoadLoginStateTask.onExecute() > LoadLastUserTask.onExecute()
         }
 
-        // 运行在主线程，当所有的依赖模块完成模块初始化且本模块的任务执行完毕时调用
-        override fun onExecuted(taskOutputProvider: TaskOutputProvider, moduleApiProvider: SafeModuleApiProvider) {
+        // 运行在主线程，当所有的依赖项完成模块初始化且本模块的任务执行完毕时调用
+        override fun onExecuted(taskOutputProvider: TaskOutputProvider) {
             val loginState = taskOutputProvider.getOutputOf(LoadLoginStateTask::class.java) // 获取任务输出-登录状态
             val loginInfo = taskOutputProvider.getOutputOf(LoadLastUserTask::class.java)    // 获取任务输出-用户信息
 
-            val accountApi = moduleApiProvider.moduleApiOf(Account::class.java)     // 找到自身的Api区，在Module init区不能调用P2M.moduleApiOf()
+            // 在该模块初始化完成时务必对其Api区输入正确的数据，只有这样才能保证其他模块安全的使用该模块。
+            val accountApi = moduleApiProvider.moduleApiOf(Account::class.java)     // 找到自身的Api区
             accountApi.event.mutable().loginState.setValue(loginState ?: false)     // 保存到事件持有者
             accountApi.event.mutable().loginInfo.setValue(loginInfo)                // 保存到事件持有者
         }
@@ -304,8 +305,8 @@ p2m {
     // 读取登录状态的任务，input:UserDiskCache output:Boolean
     class LoadLoginStateTask: Task<UserDiskCache, Boolean>() {
 
-        // 运行在子线程，当所有的依赖模块完成模块初始化且所有的依赖任务执行完毕时调用
-        override fun onExecute(taskOutputProvider: TaskOutputProvider, moduleApiProvider: SafeModuleApiProvider) {
+        // 运行在子线程，当所有的依赖项完成模块初始化且所有注册的任务执行完毕时调用
+        override fun onExecute(taskOutputProvider: TaskOutputProvider) {
             val userDiskCache = input
             output = userDiskCache.readLoginState()
         }
@@ -314,8 +315,8 @@ p2m {
     // 注册读取登录用户信息的任务，input:UserDiskCache output:LoginUserInfo
     class LoadLastUserTask: Task<UserDiskCache, LoginUserInfo>() {
 
-        // 运行在子线程，当所有的依赖模块完成模块初始化且所有的依赖任务执行完毕时调用
-        override fun onExecute(taskOutputProvider: TaskOutputProvider, moduleApiProvider: SafeModuleApiProvider) {
+        // 运行在子线程，当所有的依赖项完成模块初始化且所有注册的任务执行完毕时调用
+        override fun onExecute(taskOutputProvider: TaskOutputProvider) {
             val loginState = taskOutputProvider.getOutputOf(LoadLoginStateTask::class.java)
 
             // 查询用户信息

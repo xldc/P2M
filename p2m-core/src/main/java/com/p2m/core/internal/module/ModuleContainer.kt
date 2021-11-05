@@ -4,41 +4,36 @@ import com.p2m.core.module.Module
 import com.p2m.core.module.ModuleFactory
 import com.p2m.core.module.ModuleUnit
 
-internal interface ModuleContainer<UNIT : ModuleUnit>{
+internal interface ModuleContainer{
     /**
-     * Found a task in the container.
+     * Found a module in the container.
      *
      * @param clazz  apiClass or implClass.
      */
-    fun find(clazz: Class<out Module<*>>): UNIT?
+    fun find(clazz: Class<out Module<*>>): Module<*>?
 
-    fun getAll(): Collection<UNIT>
+    fun getAll(): Collection<Module<*>>
 }
 
 
-internal class ModuleContainerImpl(
-    val topModuleImplClass: Class<out Module<*>>,
-    private val moduleFactory: ModuleFactory
-) : ModuleRegister<ModuleUnitImpl>, ModuleContainer<ModuleUnitImpl> {
+internal class ModuleContainerImpl : ModuleRegister, ModuleContainer, ModuleVisitor {
     // K:impl V:ModuleUnitImpl
-    private val container = HashMap<Class<out Module<*>>, ModuleUnitImpl>()
+    private val container = HashMap<Class<out Module<*>>, Module<*>>()
     // K:public api V:impl
     private val clazzMap = HashMap<Class<out Module<*>>, Class<out Module<*>>>()
-    init {
-        register(topModuleImplClass)
+
+    override fun register(module: Module<*>) {
+        val moduleUnit = module.internalModuleUnit
+        if (container.containsKey(moduleUnit.moduleImplClass)) return
+        clazzMap[moduleUnit.modulePublicClass] = moduleUnit.moduleImplClass
+        container[moduleUnit.moduleImplClass] = module
     }
 
-    override fun register(implClass: Class<out Module<*>>): ModuleUnitImpl {
-        if (container.containsKey(implClass)) return container[implClass]!!
-        val module = moduleFactory.newInstance(implClass)
-        val moduleUnit = module.internalModuleUnit as ModuleUnitImpl
-        clazzMap[moduleUnit.modulePublicClass] = implClass
-        container[implClass] = moduleUnit
-        moduleUnit.getDependencies().forEach{ register(it) }
-        return moduleUnit
+    override fun visit(module: Module<*>) {
+        register(module)
     }
 
-    override fun find(clazz: Class<out Module<*>>): ModuleUnitImpl? = container[clazzMap[clazz]] ?: container[clazz]
+    override fun find(clazz: Class<out Module<*>>): Module<*>? = container[clazzMap[clazz]] ?: container[clazz]
 
-    override fun getAll(): Collection<ModuleUnitImpl> = container.values
+    override fun getAll(): Collection<Module<*>> = container.values
 }

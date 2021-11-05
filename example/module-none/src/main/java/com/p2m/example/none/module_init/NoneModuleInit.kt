@@ -12,6 +12,6 @@ class NoneModuleInit : ModuleInit {
 
     override fun onEvaluate(context: Context, taskRegister: TaskRegister<out TaskUnit>) { }
 
-    override fun onExecuted(context: Context, taskOutputProvider: TaskOutputProvider, moduleApiProvider: SafeModuleApiProvider) { }
+    override fun onExecuted(context: Context, taskOutputProvider: TaskOutputProvider) { }
 
 }

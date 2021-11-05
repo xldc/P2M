@@ -27,6 +27,6 @@ internal class SafeModuleApiProviderImpl(
         if (checkSelf(clazz)) {
             return getSelf(clazz)
         }
-        return moduleContainer.find(clazz)?.module?.api as MODULE_API
+        return moduleContainer.find(clazz)?.api as MODULE_API
     }
 }

@@ -15,8 +15,6 @@ class LoginApp : Application() {
                 }
             }
         }
-        P2M.driverBuilder(this)
-            .build()
-            .open()
+        P2M.init(this)
     }
 }

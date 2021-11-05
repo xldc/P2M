@@ -248,7 +248,7 @@ class P2MProcessor : BaseProcessor() {
                         // and then these tasks will be executed order.
                     }
 
-                    override fun onExecuted(context: Context, taskOutputProvider: TaskOutputProvider, moduleApiProvider: SafeModuleApiProvider) {
+                    override fun onExecuted(context: Context, taskOutputProvider: TaskOutputProvider) {
                         // Executed stage of itself, indicates will completed initialized of the module.
                         // Called when its all tasks be completed and all dependencies completed initialized.
                         // Here, You can use [taskOutputProvider] to get some output of itself tasks,

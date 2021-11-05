@@ -8,8 +8,9 @@ import com.p2m.core.module.Module
 import java.util.concurrent.atomic.AtomicInteger
 
 internal class ModuleGraph private constructor(
-    private val context:Context,
-    private val moduleContainer: ModuleContainerImpl
+    private val context: Context,
+    private val moduleContainer: ModuleContainerImpl,
+    private val top: Module<*>
 ) : Graph<ModuleNode, Class<out Module<*>>> {
     private val nodes: HashMap<Class<out Module<*>>, ModuleNode> = HashMap()
     val moduleSize
@@ -18,8 +19,8 @@ internal class ModuleGraph private constructor(
     override var stageCompletedCount = AtomicInteger()
 
     companion object{
-        internal fun create(context:Context, moduleContainer: ModuleContainerImpl): ModuleGraph {
-            return ModuleGraph(context, moduleContainer)
+        internal fun create(context:Context, moduleContainer: ModuleContainerImpl, top: Module<*>): ModuleGraph {
+            return ModuleGraph(context, moduleContainer, top)
         }
     }
 
@@ -55,17 +56,6 @@ internal class ModuleGraph private constructor(
         createNodes()
         layout()
         return nodes
-    }
-
-    private fun dependsForTop() {
-        val topClass = moduleContainer.topModuleImplClass
-        nodes
-            .filter {
-                it.value.byDependDegree == 0 && it.key !== topClass
-            }
-            .keys.forEach {
-                topClass.dependOn(it)
-            }
     }
 
     override fun getHeadStage(): Stage<ModuleNode> {
@@ -172,22 +162,39 @@ internal class ModuleGraph private constructor(
     
     private fun layout(){
         depends()
-        dependsForTop()
     }
-    
+
     private fun createNodes() {
-        moduleContainer.getAll().forEach {
-            val safeModuleProviderImpl = SafeModuleApiProviderImpl(moduleContainer, it.module)
-            nodes[it.moduleImplClass] = ModuleNode(context, it.module, safeModuleProviderImpl,it.moduleImplClass === moduleContainer.topModuleImplClass)
+        createNodeRecursive(top, true)
+    }
+
+    private fun createNodeRecursive(module: Module<*>, isTop: Boolean) {
+        val moduleUnit = module.internalModuleUnit
+        val safeModuleProviderImpl = SafeModuleApiProviderImpl(moduleContainer, module)
+        nodes[moduleUnit.moduleImplClass] = ModuleNode(
+            context,
+            module,
+            safeModuleProviderImpl,
+            isTop
+        )
+
+        for (dependency in moduleUnit.getDependencies()) {
+            val moduleDependency = moduleContainer.find(dependency)!!
+            createNodeRecursive(moduleDependency, false)
         }
     }
     
     private fun depends() {
-        moduleContainer.getAll().forEach {
-            val owner = it.moduleImplClass
-            it.getDependencies().forEach { dependClass ->
-                if (!nodes.containsKey(dependClass)) logW("${owner.canonicalName} depend on ${dependClass.canonicalName}, but not registered of ${dependClass.canonicalName}")
-                owner.dependOn(dependClass)
+        for (node in nodes) {
+            val owner = node.key
+            moduleContainer.find(owner)?.run {
+                for (dependency in internalModuleUnit.getDependencies()) {
+                    if (!nodes.containsKey(dependency)) {
+                        logW("${owner.canonicalName} depend on ${dependency.canonicalName}, but not registered of ${dependency.canonicalName}")
+                    }else {
+                        owner.dependOn(dependency)
+                    }
+                }
             }
         }
     }

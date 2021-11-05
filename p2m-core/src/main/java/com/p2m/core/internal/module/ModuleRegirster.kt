@@ -6,13 +6,12 @@ import com.p2m.core.module.ModuleUnit
 /**
  * Module register.
  */
-internal interface ModuleRegister<UNIT : ModuleUnit> {
+internal interface ModuleRegister {
 
     /**
      * Register a module.
      *
-     * @param implClass the module class.
+     * @param module a module.
      */
-    fun register(implClass: Class<out Module<*>>): UNIT
-
+    fun register(module: Module<*>)
 }

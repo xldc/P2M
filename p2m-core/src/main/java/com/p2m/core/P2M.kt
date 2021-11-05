@@ -1,59 +1,82 @@
 package com.p2m.core
 
-import android.app.Application
+import android.annotation.SuppressLint
 import android.content.Context
+import android.os.Looper
+import androidx.annotation.MainThread
 import com.p2m.core.app.App
 import com.p2m.core.config.P2MConfigManager
-import com.p2m.core.driver.P2MDriverBuilder
-import com.p2m.core.driver.P2MDriverState
 import com.p2m.core.internal.config.InternalP2MConfigManager
-import com.p2m.core.internal.deriver.InternalP2MDriverBuilder
+import com.p2m.core.internal.module.deriver.InternalDriver
 import com.p2m.core.internal.module.DefaultModuleCollectorFactory
 import com.p2m.core.internal.module.DefaultModuleFactory
 import com.p2m.core.internal.module.ModuleContainerImpl
 import com.p2m.core.module.*
 
+@SuppressLint("StaticFieldLeak")
 object P2M : ModuleApiProvider{
+    private lateinit var context : Context
+    private lateinit var moduleCollector : ModuleCollector
+    private lateinit var driver: InternalDriver
+    private val moduleFactory: ModuleFactory = DefaultModuleFactory()
+    private val moduleContainer = ModuleContainerImpl()
     internal val configManager: P2MConfigManager = InternalP2MConfigManager()
-    private var driverState = P2MDriverState()
-    private val moduleContainer by lazy { ModuleContainerImpl(App::class.java, DefaultModuleFactory()) }
 
     /**
      * Start a config.
      */
     fun config(block: P2MConfigManager.() -> Unit) {
-        block(configManager)
+        block(this.configManager)
     }
 
     /**
-     * Create a driver builder.
-     *
-     * Call P2M.driverBuilder().build().open().
-     *
+     * Initialization.
      */
-    fun driverBuilder(context: Context): P2MDriverBuilder {
-        check(!driverState.opening) { "P2M driver is opening." }
-        check(!driverState.opened) { "P2M driver been opened." }
-        val application = context.applicationContext as Application
-        val moduleAutoCollector = DefaultModuleCollectorFactory().newInstance("${application.packageName}.ModuleAutoCollector")
-        moduleAutoCollector.inject(moduleContainer)
-        return InternalP2MDriverBuilder(application, moduleContainer, driverState)
+    @MainThread
+    fun init(context: Context) {
+        check(!this::context.isInitialized) { "P2M.init() can only be called once." }
+        check(Looper.getMainLooper() === Looper.myLooper()) { "P2M.init() must be called on the main thread." }
+        val app = App()
+        val applicationContext = context.applicationContext
+        this.context = applicationContext
+        this.moduleCollector = DefaultModuleCollectorFactory().newInstance("${applicationContext.packageName}.ModuleAutoCollector")
+        prepareModule(app)
+        this.driver = InternalDriver(applicationContext, app, this.moduleContainer)
+        this.driver.considerOpenAwait()
     }
 
-    fun getDriverState(): P2MDriverState = driverState
+    private fun prepareModule(app: App) {
+        this.moduleCollector.injectFrom(app, moduleFactory, moduleContainer) {
+            app.internalModuleUnit.dependOn(
+                it.internalModuleUnit.modulePublicClass,
+                it.internalModuleUnit.moduleImplClass
+            )
+        }
+    }
 
     /**
-     * Get a module api of [clazz].
+     * Get a module api by [clazz] of module.
      *
      * @param clazz its class name is defined module name in settings.gradle.
      */
+    @Suppress("UNCHECKED_CAST")
     override fun <MODULE_API : ModuleApi<*, *, *>, MODULE : Module<MODULE_API>> moduleApiOf(
         clazz: Class<MODULE>
     ): MODULE_API {
-        check(!driverState.opening) { "P2M driver is opening. At this time, you can get a module only by call SafeModuleApiProvider.moduleApiOf()." }
-        check(driverState.opened) { "Must call P2M.driverBuilder().build().open() before when call here." }
-        @Suppress("UNCHECKED_CAST")
-        return moduleContainer.find(clazz)?.module?.api as MODULE_API
+        check(::context.isInitialized) { "Must call P2M.init() before when call here." }
+
+        val driver = this.driver
+        check(driver.isEvaluating?.get() != true) { "Don not call P2M.moduleApiOf() in onEvaluate()." }
+        driver.executingModuleProvider?.get()?.let { moduleProvider ->
+            return moduleProvider.moduleApiOf(clazz)
+        }
+
+        val module = moduleContainer.find(clazz)
+        check(module != null) { "The ${clazz.moduleName} is not exist for ${clazz.name}" }
+        driver.considerOpenAwait()
+        return module.api as MODULE_API
     }
 
+    private inline val Class<out Module<*>>.moduleName: String
+        get() = simpleName.removePrefix("_")
 }

@@ -1,12 +1,21 @@
 package com.p2m.annotation.module.api
 
 /**
- * Class annotated by [Launcher] will generate a launch function for launcher and provide
- * to dependant module.
+ * A class uses this annotation will generate a launch property for launcher of Api area
+ * and provide to dependant module.
  *
- * Supports: Activity, Fragment, Service
+ * Use `P2M.moduleApiOf(${moduleName}::class.java).launcher` to get launcher, that `moduleName`
+ * is defined in settings.gradle
  *
- * @property
+ * Supports:
+ *  * Activity - will generate a property for launch activity,
+ *  that property name is activityOf[name].
+ *  * Fragment - will generate a property for create fragment,
+ *  that property name is fragmentOf[name].
+ *  * Service  - will generate a property for launch service,
+ *  that property name is serviceOf[name].
+ *
+ * @property name - default is class name on annotated.
  */
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.BINARY)

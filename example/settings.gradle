@@ -5,7 +5,6 @@ include ':lib-http'
 buildscript {
     repositories {
         google()
-        mavenLocal()
         mavenCentral()
         maven { url 'https://jitpack.io' }
     }

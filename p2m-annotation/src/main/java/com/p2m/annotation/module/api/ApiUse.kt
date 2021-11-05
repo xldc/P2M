@@ -1,7 +1,7 @@
 package com.p2m.annotation.module.api
 
 /**
- * Class annotated by [ApiUse] will provide to dependant module.
+ * A class uses this annotation will extract to Api area to provide to dependant module.
  *
  * NOTE: recommended only for data classes.
  */

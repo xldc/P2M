@@ -47,24 +47,23 @@ Module态
 
 <img src="https://github.com/wangdaqi77/P2M/blob/master/assets/p2m_module_detail.png" width="450"  alt="image"/><br/>
 
+模块对外打开了一扇窗口，这扇窗口就是Api区，找到窗口也就找到了对应模块的`launcher`、`service`、`event`。
+<img src="https://github.com/wangdaqi77/P2M/blob/master/assets/p2m_module_depend_on_module.png" width="450"  alt="image"/><br/>
+
 ### Api区
 Api区包含`launcher`、`service`、`event`，P2M注解处理器将参与编译。
  * `launcher` - 启动器，关联注解`@Launcher`，同一模块内可注解多个类，P2M注解处理器会生成相应的接口函数放入`launcher`中，目前支持注解Activity将生成`val activityOf${Launcher.name}() : ActivityLauncher`、注解Fragment将生成`val fragmentOf${Launcher.name}() : FragmentLauncher`、注解Service将生成`val serviceOf${Launcher.name}() : ServiceLauncher`；
  * `service`  - 服务，关联注解`@Service`，同一模块内只能注解一个类，P2M注解处理器会提取被注解类的所有公开成员函数放入`service`中，这样外部模块就可以间接调用到该模块的内部实现；
  * `event`    - 事件，关联注解`@Event`，同一模块内只能注解一个类，P2M注解处理器会提取被注解类中所有被`@EventField`注解的成员变量放入`event`，并根据变量的类型生成[可订阅的事件持有对象][live-event]（概况一下就是类似LiveData，但是比LiveData适合事件场景），用于发送事件和订阅接收事件，`@EventField`可以指定[可订阅的事件持有对象][live-event]发送事件和订阅接收事件是否占用主线程资源。
 
-模块对外打开了一扇窗口，这扇窗口就是Api区，找到窗口也就找到了对应模块的`launcher`、`service`、`event`。
-
-<img src="https://github.com/wangdaqi77/P2M/blob/master/assets/p2m_module_depend_on_module.png" width="450"  alt="image"/><br/>
-
 #### Source code区如何访问Api区
 当某个模块的Api区需要更新时，我们必须先[编译Api区](#如何编译Api区)，这是访问Api区的前提。在模块内部能存放源码的区域都属于Source code区，我们在Source code区访问Api区：
 ```kotlin
 val aApi = P2M.moduleApiOf(A)     // 获取模块A的Api区
 
-val launcherOfA = aApi.launcher     // Api区中的launcher
-val serviceOfA = aApi.service       // Api区中的service
-val eventOfA = aApi.event           // Api区中的event
+val launcher = aApi.launcher     // Api区中的launcher
+val service = aApi.service       // Api区中的service
+val event = aApi.event           // Api区中的event
 ```
 
 ### Source code区

@@ -4,11 +4,7 @@ interface ModuleApiProvider {
     /**
      * Get a module api of [clazz].
      *
-     * @param clazz its type name is defined module name in settings.gradle.
+     * @param clazz its class name is defined module name in settings.gradle.
      */
-    fun
-            <MODULE_API : ModuleApi<*, *, *>, MODULE : Module<MODULE_API>>
-            moduleApiOf(clazz: Class<MODULE>): MODULE_API
+    fun <MODULE_API : ModuleApi<*, *, *>> apiOf(clazz: Class<out Module<MODULE_API>>): MODULE_API
 }
-
-interface SafeModuleApiProvider : ModuleApiProvider

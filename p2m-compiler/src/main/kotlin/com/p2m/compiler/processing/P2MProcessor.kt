@@ -28,9 +28,9 @@ import javax.tools.StandardLocation
 @KotlinPoetMetadataPreview
 @AutoService(Processor::class)
 @SupportedAnnotationTypes(
-    "com.p2m.annotation.module.api.Launcher",
-    "com.p2m.annotation.module.api.Service",
-    "com.p2m.annotation.module.api.Event",
+    "com.p2m.annotation.module.api.ApiLauncher",
+    "com.p2m.annotation.module.api.ApiService",
+    "com.p2m.annotation.module.api.ApiEvent",
     "com.p2m.annotation.module.api.ApiUse",
     "com.p2m.annotation.module.ModuleInitializer"
 )
@@ -172,7 +172,7 @@ class P2MProcessor : BaseProcessor() {
                     """
                         A public module class of $apiName.
                         
-                        Use `P2M.moduleApiOf($apiName)` to get instance of its api.
+                        Use `P2M.apiOf($apiName)` to get instance of its api.
                         
                         @see %T - api.
                     """.trimIndent(),
@@ -393,7 +393,7 @@ class P2MProcessor : BaseProcessor() {
         realLauncherClassSimpleName: String
     ): Pair<TypeSpec?, MutableMap<String, Element>> {
 
-        val elements = roundEnv.getElementsAnnotatedWith(Launcher::class.java)
+        val elements = roundEnv.getElementsAnnotatedWith(ApiLauncher::class.java)
         if (elements.isEmpty()) return null to mutableMapOf()
 
         val activityTm = elementUtils.getTypeElement(CLASS_ACTIVITY).asType()
@@ -416,11 +416,11 @@ class P2MProcessor : BaseProcessor() {
             .classBuilder(realLauncherClassSimpleName)
         val elementMap = mutableMapOf<String, Element>()
         for (element in elements) {
-            val launcherAnnotation = element.getAnnotation(Launcher::class.java)
+            val launcherAnnotation = element.getAnnotation(ApiLauncher::class.java)
             val className = element.className()
             val classSimpleName = className.simpleName
-            Launcher.checkName(launcherAnnotation, className.canonicalName)
-            val propertyName : String= launcherAnnotation.name.takeIf { it !== Launcher.NAME_NULL }
+            ApiLauncher.checkName(launcherAnnotation, className.canonicalName)
+            val propertyName : String= launcherAnnotation.name.takeIf { it !== ApiLauncher.NAME_NULL }
                 ?: classSimpleName
             val propertySpec : PropertySpec= when {
                 typeUtils.isSubtype(element.asType(), activityTm) -> { // Activity
@@ -461,7 +461,7 @@ class P2MProcessor : BaseProcessor() {
                         .delegate("lazy(%T(%T::class.java))", ServiceLauncherDelegate, className)
                         .build()
                 }
-                else -> throw IllegalArgumentException("@Launcher not support in ${className.canonicalName}.")
+                else -> throw IllegalArgumentException("@ApiLauncher not support in ${className.canonicalName}.")
             }
             launcherTypeBuilder.addProperty(propertySpec)
             elementMap[propertySpec.name] = element
@@ -550,11 +550,11 @@ class P2MProcessor : BaseProcessor() {
             .addSuperinterface(superModuleApiParameterizedTypeName)
             .addKdoc("A api class of $optionModuleName module.\n")
             .addKdoc("\n")
-            .addKdoc("Use `P2M.moduleApiOf(${optionModuleName})` to get the instance.\n")
+            .addKdoc("Use `P2M.apiOf(${optionModuleName})` to get the instance.\n")
             .addKdoc("\n")
-            .addKdoc("@see %T - $launcherVarName, use `P2M.moduleApiOf($optionModuleName).$launcherVarName` to get the instance.\n", genModuleLauncherResult.apiClassName)
-            .addKdoc("@see %T - $serviceVarName, use `P2M.moduleApiOf($optionModuleName).$serviceVarName` to get the instance.\n", genModuleServiceResult.apiClassName)
-            .addKdoc("@see %T - $eventVarName, use `P2M.moduleApiOf($optionModuleName).$eventVarName` to get the instance.\n", genModuleEventResult.apiClassName)
+            .addKdoc("@see %T - $launcherVarName, use `P2M.apiOf($optionModuleName).$launcherVarName` to get the instance.\n", genModuleLauncherResult.apiClassName)
+            .addKdoc("@see %T - $serviceVarName, use `P2M.apiOf($optionModuleName).$serviceVarName` to get the instance.\n", genModuleServiceResult.apiClassName)
+            .addKdoc("@see %T - $eventVarName, use `P2M.apiOf($optionModuleName).$eventVarName` to get the instance.\n", genModuleEventResult.apiClassName)
 
         val apiTypeSpec = apiTypeSpecBuilder.build()
 
@@ -602,7 +602,7 @@ class P2MProcessor : BaseProcessor() {
         apiImplFileSpecBuilder: FileSpec.Builder
     ): GenResult {
         val apiName = "${optionModuleName}ModuleLauncher"
-        val elements = roundEnv.getElementsAnnotatedWith(Launcher::class.java)
+        val elements = roundEnv.getElementsAnnotatedWith(ApiLauncher::class.java)
         return if (elements.isEmpty()) {
             GenResult(
                 EmptyLauncherClassName,
@@ -649,11 +649,11 @@ class P2MProcessor : BaseProcessor() {
 
         // 接口
         val apiPropertySpecs = elements.map { element ->
-            val launcherAnnotation = element.getAnnotation(Launcher::class.java)
+            val launcherAnnotation = element.getAnnotation(ApiLauncher::class.java)
             val className = element.className()
             val classSimpleName = className.simpleName
-            Launcher.checkName(launcherAnnotation, className.canonicalName)
-            val propertyNameSuffix : String= launcherAnnotation.name.takeIf { it != Launcher.NAME_NULL }
+            ApiLauncher.checkName(launcherAnnotation, className.canonicalName)
+            val propertyNameSuffix : String= launcherAnnotation.name.takeIf { it != ApiLauncher.NAME_NULL }
                 ?: classSimpleName
             val builder =  when {
                 typeUtils.isSubtype(element.asType(), activityTm) -> { // Activity
@@ -688,7 +688,7 @@ class P2MProcessor : BaseProcessor() {
                     PropertySpec.builder(name = "serviceOf$propertyNameSuffix", type = ServiceLauncher)
                         .mutable(false)
                 }
-                else -> throw IllegalArgumentException("@Launcher not support in ${className.canonicalName}.")
+                else -> throw IllegalArgumentException("@ApiLauncher not support in ${className.canonicalName}.")
             }
             builder.run {
                 elementUtils.getKDoc(element)?.apply { addKdoc(this) }
@@ -706,11 +706,11 @@ class P2MProcessor : BaseProcessor() {
         // 启动器实现类
         val implClassName = ClassName(implPackageName, "_${apiName}")
         val implPropertySpecs = elements.map { element ->
-            val launcherAnnotation = element.getAnnotation(Launcher::class.java)
+            val launcherAnnotation = element.getAnnotation(ApiLauncher::class.java)
             val className = element.className()
             val classSimpleName = className.simpleName
-            Launcher.checkName(launcherAnnotation, className.canonicalName)
-            val propertyNameSuffix : String= launcherAnnotation.name.takeIf { it != Launcher.NAME_NULL }
+            ApiLauncher.checkName(launcherAnnotation, className.canonicalName)
+            val propertyNameSuffix : String= launcherAnnotation.name.takeIf { it != ApiLauncher.NAME_NULL }
                 ?: classSimpleName
             val builder =  when {
                 typeUtils.isSubtype(element.asType(), activityTm) -> { // Activity
@@ -751,7 +751,7 @@ class P2MProcessor : BaseProcessor() {
                         .mutable(false)
                         .delegate("%T(%T::class.java)", ServiceLauncherDelegate, className)
                 }
-                else -> throw IllegalArgumentException("@Launcher not support in ${className.canonicalName}.")
+                else -> throw IllegalArgumentException("@ApiLauncher not support in ${className.canonicalName}.")
             }
             builder.run {
                 build()
@@ -767,7 +767,7 @@ class P2MProcessor : BaseProcessor() {
         apiFileSpecBuilder.addType(apiTypeSpec.toBuilder().run {
             addKdoc("A launcher class of $optionModuleName module.\n")
             addKdoc("\n")
-            addKdoc("Use `P2M.moduleApiOf(${optionModuleName}).launcher` to get the instance.\n")
+            addKdoc("Use `P2M.apiOf(${optionModuleName}).launcher` to get the instance.\n")
             build()
         })
         apiImplFileSpecBuilder.addType(implTypeSpec)
@@ -786,7 +786,7 @@ class P2MProcessor : BaseProcessor() {
         val serviceElement = roundEnv.getSingleTypeElementAnnotatedWith(
             mLogger,
             optionModuleName,
-            Service::class.java
+            ApiService::class.java
         ) as? TypeElement
         return if (serviceElement == null) {
             GenResult(
@@ -821,7 +821,7 @@ class P2MProcessor : BaseProcessor() {
 
         // service类型源
         val serviceTypeSpecOrigin = serviceElement.toTypeSpec().also {
-            check(it.kind === TypeSpec.Kind.CLASS) {
+            check(it.kind == TypeSpec.Kind.CLASS) {
                 "${serviceElement.qualifiedName} must is a class."
             }
         }
@@ -926,7 +926,7 @@ class P2MProcessor : BaseProcessor() {
         apiFileSpecBuilder.addType(apiTypeSpec.toBuilder().run {
             addKdoc("A service class of $optionModuleName module.\n")
             addKdoc("\n")
-            addKdoc("Use `P2M.moduleApiOf(${optionModuleName}).service` to get the instance.\n")
+            addKdoc("Use `P2M.apiOf(${optionModuleName}).service` to get the instance.\n")
             addKdoc("\n")
             addKdoc("@see %T - origin.", serviceClassNameOrigin)
             addKdoc("\n")
@@ -949,15 +949,15 @@ class P2MProcessor : BaseProcessor() {
         val eventElement = roundEnv.getSingleTypeElementAnnotatedWith(
             mLogger,
             optionModuleName,
-            Event::class.java
+            ApiEvent::class.java
         ) as? TypeElement
-        val eventFieldElements = roundEnv.getElementsAnnotatedWith(EventField::class.java)
+        val eventFieldElements = roundEnv.getElementsAnnotatedWith(ApiEventField::class.java)
         val eventFieldMap = mutableMapOf(
             *(eventFieldElements.map { eventFieldElement ->
-                //  @Event
+                //  @ApiEvent
                 //  public interface ClassName{
                 //      public static final class DefaultImpls {
-                //          @EventField
+                //          @ApiEventField
                 //          public static void eventFieldName$annotations() {
                 //          }
                 //      }
@@ -965,10 +965,10 @@ class P2MProcessor : BaseProcessor() {
                 val eventFieldName = eventFieldElement.simpleName.toString().split("$")[0]
                 val interfaceName =
                     eventFieldElement.enclosingElement.enclosingElement.simpleName.toString()
-                check(eventFieldElement.enclosingElement?.enclosingElement?.hasAnnotation(Event::class.java) == true) {
-                    "${eventFieldElement.simpleName} not use ${EventField::class.java.canonicalName} annotated, because owner $interfaceName interface no use ${Event::class.java.canonicalName} annotated."
+                check(eventFieldElement.enclosingElement?.enclosingElement?.hasAnnotation(ApiEvent::class.java) == true) {
+                    "${eventFieldElement.simpleName} not use ${ApiEventField::class.java.canonicalName} annotated, because owner $interfaceName interface no use ${ApiEvent::class.java.canonicalName} annotated."
                 }
-                val eventField = eventFieldElement.getAnnotation(EventField::class.java)
+                val eventField = eventFieldElement.getAnnotation(ApiEventField::class.java)
                 val kdoc = elementUtils.getKDoc(eventFieldElement)
                 eventFieldName to (eventField to kdoc)
             }.toTypedArray())
@@ -1006,11 +1006,11 @@ class P2MProcessor : BaseProcessor() {
         implPackageName: String,
         apiFileSpecBuilder: FileSpec.Builder,
         apiImplFileSpecBuilder: FileSpec.Builder,
-        eventFieldMap: MutableMap<String, Pair<EventField, CodeBlock?>>
+        eventFieldMap: MutableMap<String, Pair<ApiEventField, CodeBlock?>>
     ): GenResult {
         // event类型源
         val eventTypeSpecOrigin = eventElement.toTypeSpec().also {
-            check(it.kind === TypeSpec.Kind.INTERFACE) {
+            check(it.kind == TypeSpec.Kind.INTERFACE) {
                 "${eventElement.qualifiedName} must is a interface class."
             }
         }
@@ -1065,7 +1065,7 @@ class P2MProcessor : BaseProcessor() {
         val implInternalMutableEventProperty : PropertySpec = PropertySpec.builder(implInternalMutableEventPropertyName, internalMutableImplClassName).run {
             addModifiers(KModifier.INTERNAL)
             mutable(false)
-            delegate("lazy() { %T(this) }", internalMutableImplClassName)
+            delegate("lazy(LazyThreadSafetyMode.NONE) { %T(this) }", internalMutableImplClassName)
             build()
         }
 
@@ -1154,9 +1154,9 @@ class P2MProcessor : BaseProcessor() {
         apiFileSpecBuilder.addType(apiTypeSpec.toBuilder().run {
             addKdoc("A event class of $optionModuleName module.\n")
             addKdoc("\n")
-            addKdoc("Use `P2M.moduleApiOf(${optionModuleName}).event` to get the instance.\n")
+            addKdoc("Use `P2M.apiOf(${optionModuleName}).event` to get the instance.\n")
             addKdoc("\n")
-            addKdoc("Use `P2M.moduleApiOf(${optionModuleName}).event.mutable()` to get holder instance of mutable event inside the own module.\n")
+            addKdoc("Use `P2M.apiOf(${optionModuleName}).event.mutable()` to get holder instance of mutable event inside the own module.\n")
             addKdoc("\n")
             addKdoc("@see %T - origin.", eventClassNameOrigin)
             build()

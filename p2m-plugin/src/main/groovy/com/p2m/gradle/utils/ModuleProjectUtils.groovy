@@ -16,37 +16,15 @@ class ModuleProjectUtils {
         }
     }
 
-    static def collectValidModuleTableFromTop = { BaseProject baseProject ->
-        def moduleProjects = new HashMap<String, BaseProject>()
-        moduleProjects[baseProject.moduleName] = baseProject
-        //noinspection UnnecessaryQualifiedReference
-        ModuleProjectUtils.putDependencies(baseProject.dependencies, moduleProjects)
-        return moduleProjects
-    }
-
     static def collectValidModuleProjectsFromTop = { BaseProject baseProject, boolean collectSelf ->
         HashSet moduleProjects = new HashSet<BaseProject>()
         if (collectSelf){
             moduleProjects.add(baseProject)
         }
-        //noinspection UnnecessaryQualifiedReference
-        ModuleProjectUtils.putDependenciesV2(baseProject.dependencies, moduleProjects)
-        return moduleProjects
-    }
-
-    private static def putDependencies = { Set<ModuleProject> dependencies, HashMap<String, BaseProject> moduleProjects ->
-        dependencies.forEach { dependencyModule ->
-            moduleProjects[dependencyModule.moduleName] = dependencyModule
-            //noinspection UnnecessaryQualifiedReference
-            ModuleProjectUtils.putDependencies(dependencyModule.dependencies, moduleProjects)
-        }
-    }
-    private static def putDependenciesV2 = { Set<ModuleProject> dependencies, HashSet<BaseProject> moduleProjects ->
-        dependencies.forEach { dependencyModule ->
+        baseProject.dependencies.forEach{ dependencyModule ->
             moduleProjects.add(dependencyModule)
-            //noinspection UnnecessaryQualifiedReference
-            ModuleProjectUtils.putDependenciesV2(dependencyModule.dependencies, moduleProjects)
         }
+        return moduleProjects
     }
 
     static def getStatement = { BaseProject baseProject->

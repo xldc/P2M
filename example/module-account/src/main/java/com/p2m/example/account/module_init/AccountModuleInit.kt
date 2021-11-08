@@ -10,7 +10,6 @@ import com.p2m.core.module.task.TaskRegister
 import com.p2m.core.module.task.TaskUnit
 import com.p2m.example.account.UserDiskCache
 import com.p2m.module.impl.mutable
-import kotlin.concurrent.thread
 
 @ModuleInitializer
 class AccountModuleInit : ModuleInit {
@@ -30,12 +29,12 @@ class AccountModuleInit : ModuleInit {
 
     // 运行在主线程，当所有的依赖项完成模块初始化且本模块的任务执行完毕时调用
     override fun onExecuted(context: Context, taskOutputProvider: TaskOutputProvider) {
-        val loginState = taskOutputProvider.getOutputOf(LoadLoginStateTask::class.java) // 获取任务输出-登录状态
-        val loginInfo = taskOutputProvider.getOutputOf(LoadLastUserTask::class.java)    // 获取任务输出-用户信息
+        val loginState = taskOutputProvider.outputOf(LoadLoginStateTask::class.java) // 获取任务输出-登录状态
+        val loginInfo = taskOutputProvider.outputOf(LoadLastUserTask::class.java)
 
         // 在该模块初始化完成时务必对其Api区输入正确的数据，只有这样才能保证其他模块安全的使用该模块。
-        val account = P2M.moduleApiOf(Account::class.java)                      // 找到自身的Api区
-        account.event.mutable().loginState.setValue(loginState ?: false)        // 保存到事件持有者
-        account.event.mutable().loginInfo.setValue(loginInfo)                   // 保存到事件持有者
+        val account = P2M.apiOf(Account::class.java)                        // 找到自身的Api区
+        account.event.mutable().loginState.setValue(loginState ?: false)    // 保存到事件持有者
+        account.event.mutable().loginInfo.setValue(loginInfo)               // 保存到事件持有者
     }
 }

@@ -1,22 +1,22 @@
 package com.p2m.core.internal.module
 
 import com.p2m.core.internal.execution.BeginDirection
-import com.p2m.core.internal.graph.AbsGraphExecution
+import com.p2m.core.internal.graph.AbsGraphExecutor
 import com.p2m.core.internal.graph.Stage
+import com.p2m.core.internal.graph.Node.State
 import com.p2m.core.internal.log.logI
 import com.p2m.core.internal.module.task.TaskOutputProviderImplForModule
 import com.p2m.core.internal.module.task.TaskGraph
-import com.p2m.core.internal.module.task.TaskGraphExecution
+import com.p2m.core.internal.module.task.TaskGraphExecutor
 import com.p2m.core.module.Module
-import com.p2m.core.module.SafeModuleApiProvider
 import java.util.concurrent.*
 import java.util.concurrent.atomic.AtomicInteger
 
-internal class ModuleGraphExecution(
+internal class ModuleGraphExecutor(
     override val graph: ModuleGraph,
     private val isEvaluating: ThreadLocal<Boolean>,
     private val executingModuleProvider: ThreadLocal<SafeModuleApiProvider>
-) : AbsGraphExecution<ModuleNode, Class<out Module<*>>, ModuleGraph>() {
+) : AbsGraphExecutor<Class<out Module<*>>, ModuleNode, ModuleGraph>() {
 
     companion object {
         private val executor: ExecutorService = ThreadPoolExecutor(
@@ -43,50 +43,48 @@ internal class ModuleGraphExecution(
     override val messageQueue: BlockingQueue<Runnable> = ArrayBlockingQueue<Runnable>(graph.moduleSize)
 
     override fun runNode(node: ModuleNode, onDependsNodeComplete: () -> Unit) {
-        if (node.isStartedConsiderNotifyCompleted(onDependsNodeComplete)) return
+        node.markStarted(onDependsNodeComplete) {
+            // Started
+            asyncTask(Runnable {
+                val evaluatingWhenDependingIdle = {
+                    // Evaluating
+                    node.evaluating()
+                }
 
-        // Started
-        node.state = ModuleNode.State.STARTED
+                // Depending
+                node.depending(evaluatingWhenDependingIdle)
 
-        asyncTask(Runnable {
-            val evaluatingWhenDependingIdle = {
-                // Evaluating
-                node.state = ModuleNode.State.EVALUATING
-                node.evaluating()
-            }
-
-            // Depending
-            node.state = ModuleNode.State.DEPENDING
-            node.depending(evaluatingWhenDependingIdle)
-
-            // Executing
-            node.state = ModuleNode.State.EXECUTING
-            node.executing()
-            postTask(Runnable {
-                node.executed()
-                // Completed
-                node.state = ModuleNode.State.COMPLETED
-                onDependsNodeComplete()
+                // Executing
+                node.executing()
+                postTask(Runnable {
+                    // Completed
+                    node.markSelfAvailable()
+                    node.executed()
+                    onDependsNodeComplete()
+                })
             })
-        })
+        }
     }
 
     private fun ModuleNode.executing() {
+        mark(State.EXECUTING)
         if (!taskContainer.onlyHasTop) {
-            val taskGraph = TaskGraph.create(context, name, taskContainer, provider)
-            val taskGraphExecution = TaskGraphExecution(taskGraph, executingModuleProvider)
+            val taskGraph = TaskGraph.create(context, name, taskContainer, safeModuleApiProvider)
+            val taskGraphExecution = TaskGraphExecutor(taskGraph, executingModuleProvider)
             taskGraphExecution.runningAndLoop(BeginDirection.TAIL)
         }
     }
 
     private fun ModuleNode.evaluating() {
-        logI("Module-Graph-Node-$name onEvaluate()")
+        mark(State.EVALUATING)
+        logI("$name `onEvaluate()`")
         isEvaluating.set(true)
         module.internalInit.onEvaluate(context, taskContainer)
         isEvaluating.set(false)
     }
 
     private fun ModuleNode.depending(evaluatingWhenDependingIdle: () -> Unit) {
+        mark(State.DEPENDING)
         if (dependNodes.isEmpty()) {
             evaluatingWhenDependingIdle()
             return
@@ -109,12 +107,13 @@ internal class ModuleGraphExecution(
     }
 
     private fun ModuleNode.executed() {
-        logI("Module-Graph-Node-$name onExecuted()")
+        logI("$name `onExecuted()`")
         val taskOutputProviderImplForModule = TaskOutputProviderImplForModule(taskContainer)
 
-        executingModuleProvider.set(provider)
+        executingModuleProvider.set(safeModuleApiProvider)
         module.internalInit.onExecuted(context, taskOutputProviderImplForModule)
         executingModuleProvider.set(null)
+        markCompleted()
     }
 
     override fun asyncTask(runnable: Runnable) {
@@ -130,7 +129,7 @@ internal class ModuleGraphExecution(
     }
 
     override fun onCompletedForNode(node: ModuleNode) {
-//        logI("Module-Graph-Node-${node.name} Completed.")
+//        logI("${node.name} Completed.")
     }
 
 }

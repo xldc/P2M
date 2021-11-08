@@ -1,26 +1,19 @@
 package com.p2m.core.module
 
-import com.p2m.core.app.App
 import com.p2m.core.internal.module.ModuleVisitor
 
 abstract class ModuleCollector {
     private val moduleImplClass = mutableSetOf<String>()
 
-    protected fun collect(implClassStr: String) {
-        moduleImplClass.add(implClassStr)
+    protected fun collect(implClazz: String) {
+        moduleImplClass.add(implClazz)
     }
 
-    internal fun injectFrom(
-        app: App,
-        moduleFactory: ModuleFactory,
-        moduleVisitor: ModuleVisitor,
-        block: (Module<*>) -> Unit
-    ) {
-        injectModule(app, moduleVisitor)
-        inject(moduleFactory, moduleVisitor, block)
+    internal fun collectExternal(vararg implClazz: String) {
+        moduleImplClass.addAll(implClazz.asList())
     }
 
-    private fun inject(
+    internal fun injectForAllUncreatedModule(
         moduleFactory: ModuleFactory,
         moduleVisitor: ModuleVisitor,
         block: (Module<*>) -> Unit
@@ -41,7 +34,7 @@ abstract class ModuleCollector {
         }
     }
 
-    private fun injectModule(module: Module<*>, moduleVisitor: ModuleVisitor){
+    internal fun injectForCreatedModule(module: Module<*>, moduleVisitor: ModuleVisitor){
         module.accept(moduleVisitor)
     }
 
@@ -52,7 +45,7 @@ abstract class ModuleCollector {
         block: (Module<*>) -> Unit
     ) {
         val module = moduleFactory.newInstance(implClass)
-        injectModule(module, moduleVisitor)
+        injectForCreatedModule(module, moduleVisitor)
         block.invoke(module)
         for (dependency in module.internalModuleUnit.getDependencies()) {
             injectModule(moduleFactory, moduleVisitor, dependency, block)

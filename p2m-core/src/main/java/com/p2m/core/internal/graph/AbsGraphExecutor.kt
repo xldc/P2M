@@ -1,11 +1,10 @@
 package com.p2m.core.internal.graph
 
 import com.p2m.core.internal.execution.BeginDirection
-import com.p2m.core.internal.execution.Execution
-import com.p2m.core.internal.log.logI
+import com.p2m.core.internal.execution.Executor
 import java.util.concurrent.*
 
-internal abstract class AbsGraphExecution<NODE : Node, KEY, GRAPH : Graph<NODE, KEY>> : Execution {
+internal abstract class AbsGraphExecutor<KEY, NODE : Node<NODE>, GRAPH : Graph<KEY, NODE>> : Executor {
 
     private var ownerThread: Thread? = null
     private var quit = false

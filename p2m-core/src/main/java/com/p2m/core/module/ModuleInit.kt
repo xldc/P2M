@@ -46,7 +46,7 @@ interface OnEvaluateListener{
      * on different worker threads in the order of dependencies.
      *
      * Note:
-     *  * Can not call `P2M.moduleApiOf()` here.
+     *  * Can not call `P2M.apiOf()` here.
      *  * It running in work thread.
      *
      * @param taskRegister task register.

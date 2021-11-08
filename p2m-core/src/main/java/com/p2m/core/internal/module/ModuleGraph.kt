@@ -2,26 +2,33 @@ package com.p2m.core.internal.module
 
 import android.content.Context
 import com.p2m.core.internal.graph.Graph
-import com.p2m.core.internal.graph.Stage
 import com.p2m.core.internal.log.logW
+import com.p2m.core.internal.module.task.DefaultTaskFactory
 import com.p2m.core.module.Module
-import java.util.concurrent.atomic.AtomicInteger
+import com.p2m.core.module.task.TaskFactory
 
 internal class ModuleGraph private constructor(
     private val context: Context,
     private val moduleContainer: ModuleContainerImpl,
     private val top: Module<*>
-) : Graph<ModuleNode, Class<out Module<*>>> {
-    private val nodes: HashMap<Class<out Module<*>>, ModuleNode> = HashMap()
-    val moduleSize
-        get() = moduleContainer.getAll().size
-    override var stageSize = 0
-    override var stageCompletedCount = AtomicInteger()
+) : Graph<Class<out Module<*>>, ModuleNode>() {
 
     companion object{
         internal fun create(context:Context, moduleContainer: ModuleContainerImpl, top: Module<*>): ModuleGraph {
             return ModuleGraph(context, moduleContainer, top)
         }
+    }
+
+    private val taskFactory: TaskFactory = DefaultTaskFactory()
+    private val nodes: HashMap<Class<out Module<*>>, ModuleNode> = HashMap()
+    val moduleSize
+        get() = moduleContainer.getAll().size
+
+    override fun evaluate():HashMap<Class<out Module<*>>, ModuleNode>{
+        reset()
+        createNodes()
+        layout()
+        return nodes
     }
 
     private fun Class<out Module<*>>.dependOn(dependClass: Class<out Module<*>>) {
@@ -34,115 +41,6 @@ internal class ModuleGraph private constructor(
 
         if (ownerNode.dependNodes.add(node)) {
             ownerNode.dependDegree++
-        }
-    }
-
-    private fun findRingNodes(nodes: Collection<ModuleNode>): HashMap<ModuleNode, ModuleNode> {
-        val ringNodes = HashMap<ModuleNode, ModuleNode>()
-        nodes.forEach { node: ModuleNode ->
-            node.dependNodes.forEach { dependNode: ModuleNode ->
-                if (dependNode.dependNodes.contains(node)) {
-                    if (ringNodes[dependNode] != node) {
-                        ringNodes[node] = dependNode
-                    }
-                }
-            }
-        }
-        return ringNodes
-    }
-
-    override fun evaluate():HashMap<Class<out Module<*>>, ModuleNode>{
-        reset()
-        createNodes()
-        layout()
-        return nodes
-    }
-
-    override fun getHeadStage(): Stage<ModuleNode> {
-        val stage = Stage<ModuleNode>()
-        val nodes = evaluate().values
-        val noByDependDegreeNodes = ArrayList<ModuleNode>()
-        nodes.forEach { node ->
-            if (node.byDependDegree == 0) {
-                noByDependDegreeNodes.add(node)
-            }
-        }
-        stageSize = 1
-        stage.nodes = noByDependDegreeNodes
-        return stage
-    }
-
-    override fun getTailStage(): Stage<ModuleNode> {
-        val stage = Stage<ModuleNode>()
-        val nodes = evaluate().values
-        val noDependDegreeNodes = ArrayList<ModuleNode>()
-        nodes.forEach { node ->
-            if (node.dependDegree == 0) {
-                noDependDegreeNodes.add(node)
-            }
-        }
-        stageSize = 1
-        stage.nodes = noDependDegreeNodes
-        return stage
-    }
-    
-    override fun eachStageBeginFromTail(block: (stage: Stage<ModuleNode>) -> Unit) {
-        val nodes = evaluate().values
-        while (!nodes.isEmpty()) {
-            val stage = Stage<ModuleNode>()
-            val noDependDegreeNodes = ArrayList<ModuleNode>()
-
-            nodes.forEach{ node ->
-                if (node.dependDegree == 0) {
-                    noDependDegreeNodes.add(node)
-                }
-            }
-
-            if (noDependDegreeNodes.isEmpty()) {
-                stage.hasRing = true
-                stage.ringNodes = findRingNodes(nodes)
-            }
-
-            stageSize++
-            stage.nodes = noDependDegreeNodes
-            block(stage)
-
-            noDependDegreeNodes.forEach { node: ModuleNode ->
-                node.byDependNodes.forEach { byDependNode: ModuleNode ->
-                    byDependNode.dependDegree--
-                }
-                nodes.remove(node)
-            }
-        }
-    }
-    
-    override fun eachStageBeginFromHead(block:(stage:Stage<ModuleNode>)->Unit) {
-        val nodes = evaluate().values
-        while (!nodes.isEmpty()) {
-            val stage = Stage<ModuleNode>()
-            val noByDependDegreeNodes = ArrayList<ModuleNode>()
-
-            nodes.forEach{ node ->
-                if (node.byDependDegree == 0) {
-                    noByDependDegreeNodes.add(node)
-                }
-            }
-
-            if (noByDependDegreeNodes.isEmpty()) {
-                stage.hasRing = true
-                stage.ringNodes = findRingNodes(nodes)
-            }
-
-            stageSize++
-            stage.nodes = noByDependDegreeNodes
-            block(stage)
-
-            noByDependDegreeNodes.forEach { node: ModuleNode ->
-                node.dependNodes.forEach { dependNode: ModuleNode ->
-                    dependNode.byDependDegree--
-                }
-                nodes.remove(node)
-            }
         }
     }
 
@@ -170,12 +68,11 @@ internal class ModuleGraph private constructor(
 
     private fun createNodeRecursive(module: Module<*>, isTop: Boolean) {
         val moduleUnit = module.internalModuleUnit
-        val safeModuleProviderImpl = SafeModuleApiProviderImpl(moduleContainer, module)
         nodes[moduleUnit.moduleImplClass] = ModuleNode(
             context,
             module,
-            safeModuleProviderImpl,
-            isTop
+            isTop,
+            taskFactory
         )
 
         for (dependency in moduleUnit.getDependencies()) {

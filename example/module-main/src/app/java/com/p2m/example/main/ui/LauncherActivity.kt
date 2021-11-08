@@ -14,14 +14,14 @@ class LauncherActivity : AppCompatActivity() {
         setContentView(View(this))
 
         // 获取登录状态
-        val loginState = P2M.moduleApiOf(Account::class.java)
+        val loginState = P2M.apiOf(Account::class.java)
             .event
             .loginState
             .getValue()
 
         if (loginState == true) {
             // 登录过
-            P2M.moduleApiOf(Main::class.java)
+            P2M.apiOf(Main::class.java)
                 .launcher
                 .activityOfMain
                 .createIntent(this)
@@ -33,7 +33,7 @@ class LauncherActivity : AppCompatActivity() {
             finish()
         }else{
             // 未登录
-            P2M.moduleApiOf(Account::class.java)
+            P2M.apiOf(Account::class.java)
                 .launcher
                 .activityOfLogin
                 .createIntent(this)

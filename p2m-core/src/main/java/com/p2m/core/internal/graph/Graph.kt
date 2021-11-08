@@ -2,21 +2,85 @@ package com.p2m.core.internal.graph
 
 import java.util.concurrent.atomic.AtomicInteger
 
+internal abstract class Graph<KEY, N:Node<N>> {
 
-internal interface Graph<N:Node, KEY> {
+    var stageSize = 0
+    var stageCompletedCount = AtomicInteger()
 
-    var stageSize: Int
+    abstract fun evaluate(): Map<KEY, N>
 
-    var stageCompletedCount: AtomicInteger
+    fun eachStageBeginFromTail(block: (stage: Stage<N>) -> Unit) {
+        val nodes = evaluate().values.toMutableList()
+        while (nodes.isNotEmpty()) {
+            val stage = Stage<N>()
+            val noDependDegreeNodes = ArrayList<N>()
 
-    fun evaluate():Map<KEY, N>
+            nodes.forEach{ node ->
+                if (node.dependDegree == 0) {
+                    noDependDegreeNodes.add(node)
+                }
+            }
 
-    fun getHeadStage(): Stage<N>
+            if (noDependDegreeNodes.isEmpty()) {
+                stage.hasRing = true
+                stage.ringNodes = findRingNodes(nodes)
+            }
 
-    fun getTailStage(): Stage<N>
+            stageSize++
+            stage.nodes = noDependDegreeNodes
+            block(stage)
 
-    fun eachStageBeginFromTail(block:(stage:Stage<N>)->Unit)
+            noDependDegreeNodes.forEach { node: N ->
+                node.byDependNodes.forEach { byDependNode: N ->
+                    byDependNode.dependDegree--
+                }
+                nodes.remove(node)
+            }
+        }
+    }
 
-    fun eachStageBeginFromHead(block:(stage:Stage<N>)->Unit)
+    fun eachStageBeginFromHead(block:(stage:Stage<N>)->Unit) {
+        val nodes = evaluate().values.toMutableList()
+        while (nodes.isNotEmpty()) {
+            val stage = Stage<N>()
+            val noByDependDegreeNodes = ArrayList<N>()
 
+            nodes.forEach{ node ->
+                if (node.byDependDegree == 0) {
+                    noByDependDegreeNodes.add(node)
+                }
+            }
+
+            if (noByDependDegreeNodes.isEmpty()) {
+                stage.hasRing = true
+                stage.ringNodes = findRingNodes(nodes)
+            }
+
+            stageSize++
+            stage.nodes = noByDependDegreeNodes
+            block(stage)
+
+            noByDependDegreeNodes.forEach { node: N ->
+                node.dependNodes.forEach { dependNode: N ->
+                    dependNode.byDependDegree--
+                }
+                nodes.remove(node)
+            }
+        }
+    }
+
+    private fun findRingNodes(nodes: Collection<N>): HashMap<N, N> {
+        val ringNodes = HashMap<N, N>()
+        nodes.forEach { node: N ->
+            node.dependNodes.forEach { dependNode: N ->
+                if (dependNode.dependNodes.contains(node)) {
+                    if (ringNodes[dependNode] != node) {
+                        @Suppress("UNCHECKED_CAST")
+                        ringNodes[node] = dependNode
+                    }
+                }
+            }
+        }
+        return ringNodes
+    }
 }

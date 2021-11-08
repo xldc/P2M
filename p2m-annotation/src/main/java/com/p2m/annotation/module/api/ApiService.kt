@@ -4,7 +4,7 @@ package com.p2m.annotation.module.api
  * A class uses this annotation will generate a interface for service of Api area and
  * provide to dependant module.
  *
- * Use `P2M.moduleApiOf(${moduleName}::class.java).service` to get service, that `moduleName`
+ * Use `P2M.apiOf(${moduleName}::class.java).service` to get service, that `moduleName`
  * is defined in settings.gradle
  *
  *
@@ -12,4 +12,4 @@ package com.p2m.annotation.module.api
  */
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.BINARY)
-annotation class Service
+annotation class ApiService

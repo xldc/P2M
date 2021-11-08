@@ -7,6 +7,7 @@ import androidx.annotation.MainThread
 import com.p2m.core.app.App
 import com.p2m.core.config.P2MConfigManager
 import com.p2m.core.internal.config.InternalP2MConfigManager
+import com.p2m.core.internal.log.moduleName
 import com.p2m.core.internal.module.deriver.InternalDriver
 import com.p2m.core.internal.module.DefaultModuleCollectorFactory
 import com.p2m.core.internal.module.DefaultModuleFactory
@@ -33,25 +34,26 @@ object P2M : ModuleApiProvider{
      * Initialization.
      */
     @MainThread
-    fun init(context: Context) {
-        check(!this::context.isInitialized) { "P2M.init() can only be called once." }
-        check(Looper.getMainLooper() === Looper.myLooper()) { "P2M.init() must be called on the main thread." }
+    fun init(context: Context, vararg implClazz: String) {
+        check(!this::context.isInitialized) { "`P2M.init()` can only be called once." }
+        check(Looper.getMainLooper() === Looper.myLooper()) { "`P2M.init()` must be called on the main thread." }
         val app = App()
         val applicationContext = context.applicationContext
         this.context = applicationContext
-        this.moduleCollector = DefaultModuleCollectorFactory().newInstance("${applicationContext.packageName}.ModuleAutoCollector")
-        prepareModule(app)
+        this.moduleCollector = DefaultModuleCollectorFactory()
+            .newInstance("${applicationContext.packageName}.ModuleAutoCollector")
+            .apply {
+                collectExternal(*implClazz)
+                injectForCreatedModule(app, moduleContainer)
+                injectForAllUncreatedModule(moduleFactory, moduleContainer) {
+                    app.internalModuleUnit.dependOn(
+                        it.internalModuleUnit.modulePublicClass,
+                        it.internalModuleUnit.moduleImplClass
+                    )
+                }
+            }
         this.driver = InternalDriver(applicationContext, app, this.moduleContainer)
         this.driver.considerOpenAwait()
-    }
-
-    private fun prepareModule(app: App) {
-        this.moduleCollector.injectFrom(app, moduleFactory, moduleContainer) {
-            app.internalModuleUnit.dependOn(
-                it.internalModuleUnit.modulePublicClass,
-                it.internalModuleUnit.moduleImplClass
-            )
-        }
     }
 
     /**
@@ -59,24 +61,21 @@ object P2M : ModuleApiProvider{
      *
      * @param clazz its class name is defined module name in settings.gradle.
      */
-    @Suppress("UNCHECKED_CAST")
-    override fun <MODULE_API : ModuleApi<*, *, *>, MODULE : Module<MODULE_API>> moduleApiOf(
-        clazz: Class<MODULE>
+    override fun <MODULE_API : ModuleApi<*, *, *>> apiOf(
+        clazz: Class<out Module<MODULE_API>>
     ): MODULE_API {
         check(::context.isInitialized) { "Must call P2M.init() before when call here." }
 
         val driver = this.driver
-        check(driver.isEvaluating?.get() != true) { "Don not call P2M.moduleApiOf() in onEvaluate()." }
-        driver.executingModuleProvider?.get()?.let { moduleProvider ->
-            return moduleProvider.moduleApiOf(clazz)
+        check(driver.isEvaluating?.get() != true) { "Don not call `P2M.apiOf()` in `onEvaluate()`." }
+        driver.safeModuleApiProvider?.get()?.let { moduleProvider ->
+            return moduleProvider.apiOf(clazz)
         }
 
         val module = moduleContainer.find(clazz)
         check(module != null) { "The ${clazz.moduleName} is not exist for ${clazz.name}" }
         driver.considerOpenAwait()
+        @Suppress("UNCHECKED_CAST")
         return module.api as MODULE_API
     }
-
-    private inline val Class<out Module<*>>.moduleName: String
-        get() = simpleName.removePrefix("_")
 }

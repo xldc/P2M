@@ -9,7 +9,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.ProgressBar
 import com.p2m.core.P2M
-import com.p2m.annotation.module.api.Launcher
+import com.p2m.annotation.module.api.ApiLauncher
 import com.p2m.example.account.UserDiskCache
 import com.p2m.example.account.R
 import com.p2m.example.http.Http
@@ -23,7 +23,7 @@ import java.util.*
  *
  * 登录成功后将发送登录成功的事件[AccountEvent.loginSuccess]，外部模块接收此事件可进行跳转。
  */
-@Launcher("Login")
+@ApiLauncher("Login")
 class LoginActivity : AppCompatActivity() {
     private var loading: ProgressBar? = null
     private var login: Button? = null
@@ -64,7 +64,7 @@ class LoginActivity : AppCompatActivity() {
         userDiskCache.saveLoginState(true)
         userDiskCache.saveLoginUserInfo(loginUserInfo)
         
-        P2M.moduleApiOf(Account::class.java).event.mutable().apply {
+        P2M.apiOf(Account::class.java).event.mutable().apply {
             loginState.setValue(true)        // 发送登录状态事件
             loginInfo.setValue(loginUserInfo)      // 发送用户信息事件
             loginSuccess.setValue(Unit)            // 发送主动登录成功事件
@@ -88,7 +88,7 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun testBackgroundLiveEvent() {
-        P2M.moduleApiOf(Account::class.java).event.loginSuccess.observe(this, androidx.lifecycle.Observer {  })
+        P2M.apiOf(Account::class.java).event.loginSuccess.observe(this, androidx.lifecycle.Observer {  })
     }
 }
 

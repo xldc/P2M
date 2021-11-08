@@ -7,11 +7,11 @@ import android.widget.Button
 import android.widget.TextView
 import androidx.lifecycle.Observer
 import com.p2m.core.P2M
-import com.p2m.annotation.module.api.Launcher
+import com.p2m.annotation.module.api.ApiLauncher
 import com.p2m.example.main.R
 import com.p2m.module.api.Account
 
-@Launcher("Main")
+@ApiLauncher("Main")
 class MainActivity : AppCompatActivity() {
 
     @SuppressLint("SetTextI18n")
@@ -21,7 +21,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.main_activity_main)
 
         // 监听用户信息事件
-        P2M.moduleApiOf(Account::class.java)
+        P2M.apiOf(Account::class.java)
             .event
             .loginInfo
             .observe(this, Observer { loginInfo ->
@@ -36,14 +36,14 @@ class MainActivity : AppCompatActivity() {
 
         // 退出登录
         findViewById<Button>(R.id.main_btn_logout).setOnClickListener {
-            P2M.moduleApiOf(Account::class.java)
+            P2M.apiOf(Account::class.java)
                 .service
                 .logout(this)
             finish()
         }
 
         // 测试事件的外部可变性
-        P2M.moduleApiOf(Account::class.java)
+        P2M.apiOf(Account::class.java)
             .event
             .testMutableEventFromExternal
             .setValue(1)

@@ -22,13 +22,13 @@ class MainModuleInit : ModuleInit {
 
     // 运行在主线程，当所有的依赖项完成模块初始化且本模块的任务执行完毕时调用
     override fun onExecuted(context: Context, taskOutputProvider: TaskOutputProvider) {
-        val account = P2M.moduleApiOf(Account::class.java)
+        val account = P2M.apiOf(Account::class.java)
         
         // 登录成功跳转主页
         account.event.loginSuccess.observeForeverNoSticky(object: BackgroundObserver<Unit>(ObserveOn.BACKGROUND) {
             override fun onChanged(t: Unit) {
                 // 登录成功启动主界面
-                P2M.moduleApiOf(Main::class.java)
+                P2M.apiOf(Main::class.java)
                     .launcher
                     .activityOfMain
                     .createIntent(context)

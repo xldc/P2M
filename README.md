@@ -10,9 +10,7 @@ P2M
 
 P2M是什么？
 ---------
-P2M是完整的组件化工具，支持单独编译、单独运行、打包到仓库等主要功能。
-
-P2M主要是将Project态升级为完全独立封闭的Module态，它能在Module态提取开发者指定的开放功能提供给其他Module态使用，它还能根据依赖关系进行安全的初始化。
+P2M是完整的组件化工具，它将Project态升级为Module态，支持Module态单独编译、单独运行、打包到仓库等主要功能。
 
 Project态与Module态简易对比：
 <div class="table-wrap">
@@ -43,23 +41,26 @@ Project态与Module态简易对比：
 
 Module态
 --------
-一个Module态对应是一个模块，一个模块包含Api区和Source code区，Source code区可以访问自身和其所依赖模块的Api区。
+一个Module态对应是一个模块，一个模块包含[Api区](#Api区)和[Source code区](#Source-code区)。
 
 <img src="https://github.com/wangdaqi77/P2M/blob/master/assets/p2m_module_detail.png" width="450"  alt="image"/><br/>
 
-模块对外打开了一扇窗口，这扇窗口就是Api区，找到窗口也就找到了对应模块的`launcher`、`service`、`event`。
+Api区是对外开放的，Source Code区是对外隐藏的。
+
+模块对外打开了一扇窗口，这扇窗口就是Api区，Source code区可以访问自身和其所依赖模块的Api区。
+
 <img src="https://github.com/wangdaqi77/P2M/blob/master/assets/p2m_module_depend_on_module.png" width="450"  alt="image"/><br/>
 
 ### Api区
-Api区包含`launcher`、`service`、`event`，P2M注解处理器将参与编译。
- * `launcher` - 启动器，关联注解`@Launcher`，同一模块内可注解多个类，P2M注解处理器会生成相应的接口函数放入`launcher`中，目前支持注解Activity将生成`val activityOf${Launcher.name}() : ActivityLauncher`、注解Fragment将生成`val fragmentOf${Launcher.name}() : FragmentLauncher`、注解Service将生成`val serviceOf${Launcher.name}() : ServiceLauncher`；
- * `service`  - 服务，关联注解`@Service`，同一模块内只能注解一个类，P2M注解处理器会提取被注解类的所有公开成员函数放入`service`中，这样外部模块就可以间接调用到该模块的内部实现；
- * `event`    - 事件，关联注解`@Event`，同一模块内只能注解一个类，P2M注解处理器会提取被注解类中所有被`@EventField`注解的成员变量放入`event`，并根据变量的类型生成[可订阅的事件持有对象][live-event]（概况一下就是类似LiveData，但是比LiveData适合事件场景），用于发送事件和订阅接收事件，`@EventField`可以指定[可订阅的事件持有对象][live-event]发送事件和订阅接收事件是否占用主线程资源。
+每个模块的Api区是对外开放的，它们全部由P2M注解处理器编译生成，包含：
+ * `launcher` - 启动器，关联注解`@ApiLauncher`，同一模块内可注解多个类，P2M注解处理器会生成相应的接口函数放入`launcher`中，目前支持注解Activity将生成`val activityOf${ApiLauncher.name}() : ActivityLauncher`、注解Fragment将生成`val fragmentOf${ApiLauncher.name}() : FragmentLauncher`、注解Service将生成`val serviceOf${ApiLauncher.name}() : ServiceLauncher`；
+ * `service`  - 服务，关联注解`@ApiService`，同一模块内只能注解一个类，P2M注解处理器会提取被注解类的所有公开成员函数放入`service`中，这样外部模块就可以间接调用到该模块的内部实现；
+ * `event`    - 事件，关联注解`@ApiEvent`，同一模块内只能注解一个类，P2M注解处理器会提取被注解类中所有被`@ApiEventField`注解的成员变量放入`event`，并根据变量的类型生成[可订阅的事件持有对象][live-event]（概况一下就是类似LiveData，但是比LiveData适合事件场景），用于发送事件和订阅接收事件，`@ApiEventField`可以指定[可订阅的事件持有对象][live-event]发送事件和订阅接收事件是否占用主线程资源。
 
 #### Source code区如何访问Api区
-当某个模块的Api区需要更新时，我们必须先[编译Api区](#如何编译Api区)，这是访问Api区的前提。在模块内部能存放源码的区域都属于Source code区，我们在Source code区访问Api区：
+当某个模块的Api区需要更新时，我们首先[编译Api区](#如何编译Api区)，这是访问Api区的前提。在模块内部能存放源码的区域都属于Source code区，我们在Source code区访问Api区：
 ```kotlin
-val aApi = P2M.moduleApiOf(A)     // 获取模块A的Api区
+val aApi = P2M.apiOf(A)     // 获取模块A的Api区
 
 val launcher = aApi.launcher     // Api区中的launcher
 val service = aApi.service       // Api区中的service
@@ -67,7 +68,7 @@ val event = aApi.event           // Api区中的event
 ```
 
 ### Source code区
-Source code区是指模块内部存放源码的区域，每个模块的Source code区是对外隐藏的，包含以下内容：
+Source code区是指模块内部存放源码的区域，每个模块的Source code区是对外隐藏的，包含：
  * Module init      - 模块初始化，关联`@ModuleInitializer`注解，同一模块内只能注解一个类且必须实现`ModuleInit`接口，每个模块必须声明此类，由开发者编码完成；
  * Implementation   - Api区的具体实现区，由P2M注解处理器生成，该部分开发者无需感知；
  * Feature code     - 内部功能源码区，由开发者编码完成。
@@ -205,7 +206,7 @@ p2m {
          *
          * 登录成功后将发送登录成功的事件[AccountEvent.loginSuccess]，外部模块接收此事件可进行跳转。
          */
-        @Launcher("Login")
+        @ApiLauncher("Login")
         class LoginActivity : AppCompatActivity() 
         ```
 
@@ -214,7 +215,7 @@ p2m {
         /**
          * A launcher class of Account module.
          *
-         * Use `P2M.moduleApiOf(Account).launcher` to get the instance.
+         * Use `P2M.apiOf(Account).launcher` to get the instance.
          */
         public interface AccountModuleLauncher : ModuleLauncher {
             /**
@@ -230,7 +231,7 @@ p2m {
      
    * `service` - 对外提供退出登录功能，因此在Source code区定义：
         ```kotlin
-        @Service
+        @ApiService
         class AccountService {
             fun logout() { }
         }
@@ -244,18 +245,18 @@ p2m {
 
    * `event` - 对外提供登录状态，登录用户信息等，因此在Source code区定义：
         ```kotlin
-        @Event
+        @ApiEvent
         interface AccountEvent{
-            @EventField(eventOn = EventOn.MAIN, mutableFromExternal = false)        // 发送、订阅接收事件在主线程
+            @ApiEventField(eventOn = EventOn.MAIN, mutableFromExternal = false)        // 发送、订阅接收事件在主线程
             val loginInfo: LoginUserInfo?                                           // 登录用户信息
 
-            @EventField                                                             // 发送、订阅接收事件在主线程（等效于@EventField(eventOn = EventOn.MAIN, mutableFromExternal = false)）
+            @ApiEventField                                                             // 发送、订阅接收事件在主线程（等效于@ApiEventField(eventOn = EventOn.MAIN, mutableFromExternal = false)）
             val loginState: Boolean                                                 // 登录状态
 
-            @EventField(eventOn = EventOn.BACKGROUND, mutableFromExternal = false)  // 发送、订阅接收事件不占用主线程资源
+            @ApiEventField(eventOn = EventOn.BACKGROUND, mutableFromExternal = false)  // 发送、订阅接收事件不占用主线程资源
             val loginSuccess: Boolean                                               // 登录成功
             
-            @EventField(eventOn = EventOn.MAIN, mutableFromExternal = true)         // mutableFromExternal = true，表示外部模块可以setValue和postValue，为了保证事件的安全性不推荐设置
+            @ApiEventField(eventOn = EventOn.MAIN, mutableFromExternal = true)         // mutableFromExternal = true，表示外部模块可以setValue和postValue，为了保证事件的安全性不推荐设置
             val testMutableEventFromExternal: Int                                   // 用于测试外部可变性
             
             val testAPT:Int     // 这个字段没有被注解，因此它将被过滤
@@ -280,10 +281,10 @@ p2m {
         override fun onEvaluate(taskRegister: TaskRegister) {
             val userDiskCache = UserDiskCache(context) // 用户本地缓存
    
-            // 注册读取登录状态的任务
+            // 注册读取登录状态的任务, 输入：userDiskCache
             taskRegister.register(LoadLoginStateTask::class.java, userDiskCache)
 
-            // 注册读取登录用户信息的任务
+            // 注册读取登录用户信息的任务，输入：userDiskCache
             taskRegister
                 .register(LoadLastUserTask::class.java, userDiskCache)
                 .dependOn(LoadLoginStateTask::class.java) // 执行顺序一定为LoadLoginStateTask.onExecute() > LoadLastUserTask.onExecute()
@@ -291,11 +292,11 @@ p2m {
 
         // 运行在主线程，当所有的依赖项完成模块初始化且本模块的任务执行完毕时调用
         override fun onExecuted(taskOutputProvider: TaskOutputProvider) {
-            val loginState = taskOutputProvider.getOutputOf(LoadLoginStateTask::class.java) // 获取任务输出-登录状态
-            val loginInfo = taskOutputProvider.getOutputOf(LoadLastUserTask::class.java)    // 获取任务输出-用户信息
+            val loginState = taskOutputProvider.outputOf(LoadLoginStateTask::class.java) // 获取任务输出-登录状态
+            val loginInfo = taskOutputProvider.outputOf(LoadLastUserTask::class.java)    // 获取任务输出-用户信息
 
             // 在该模块初始化完成时务必对其Api区输入正确的数据，只有这样才能保证其他模块安全的使用该模块。
-            val accountApi = moduleApiProvider.moduleApiOf(Account::class.java)     // 找到自身的Api区
+            val accountApi = P2M.apiOf(Account::class.java)                         // 找到自身的Api区
             accountApi.event.mutable().loginState.setValue(loginState ?: false)     // 保存到事件持有者
             accountApi.event.mutable().loginInfo.setValue(loginInfo)                // 保存到事件持有者
         }
@@ -316,7 +317,7 @@ p2m {
 
         // 运行在子线程，当所有的依赖项完成模块初始化且所有注册的任务执行完毕时调用
         override fun onExecute(taskOutputProvider: TaskOutputProvider) {
-            val loginState = taskOutputProvider.getOutputOf(LoadLoginStateTask::class.java)
+            val loginState = taskOutputProvider.outputOf(LoadLoginStateTask::class.java)
 
             // 查询用户信息
             if (loginState == true) {
@@ -337,7 +338,7 @@ Q&A
 
 如何编译Api区？
 -------------
-如果Api区使用的相关注解（@Launcher、@Service、@Event、@EventField、@ApiUse）在代码中有增删改操作，需要点击Android Studio中的[Build][AS-Build] > Make Module或者[Build][AS-Build] > Make Project编译项目。
+如果Api区使用的相关注解（@ApiLauncher、@ApiService、@ApiEvent、@ApiEventField、@ApiUse）在代码中有增删改操作，需要点击Android Studio中的[Build][AS-Build] > Make Module或者[Build][AS-Build] > Make Project编译项目。
 
 如何单独运行模块？
 ------------

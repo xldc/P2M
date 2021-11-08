@@ -7,7 +7,7 @@ import com.p2m.core.module.task.TaskUnit
 internal class TaskOutputProviderImplForTask constructor(private val taskContainer: TaskContainerImpl, private val taskUnit: TaskUnit) : TaskOutputProvider {
     
     @Suppress("UNCHECKED_CAST")
-    override fun <OUTPUT> getOutputOf(clazz: Class<out Task<*, OUTPUT>>): OUTPUT? {
+    override fun <OUTPUT> outputOf(clazz: Class<out Task<*, OUTPUT>>): OUTPUT? {
 
         check(taskUnit.getDependencies().contains(clazz)) {
             "${taskUnit.getOwner().canonicalName} must depend on ${clazz.canonicalName}"

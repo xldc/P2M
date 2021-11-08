@@ -15,7 +15,7 @@ class LoadLastUserTask: Task<UserDiskCache, LoginUserInfo>() {
 
     // 运行在子线程，当所有的依赖项完成模块初始化且所有注册的任务执行完毕时调用
     override fun onExecute(context: Context, taskOutputProvider: TaskOutputProvider) {
-        val loginState = taskOutputProvider.getOutputOf(LoadLoginStateTask::class.java)
+        val loginState = taskOutputProvider.outputOf(LoadLoginStateTask::class.java)
 
         // 查询用户信息
         if (loginState == true) {

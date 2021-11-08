@@ -1,5 +1,7 @@
 package com.p2m.core.launcher
 
+import android.app.Fragment
+import com.p2m.annotation.module.api.ApiLauncher
 import com.p2m.core.internal.launcher.InternalFragmentLauncher
 import kotlin.reflect.KProperty
 
@@ -13,5 +15,10 @@ interface FragmentLauncher<T> {
         operator fun setValue(thisRef: Any?, property: KProperty<*>, value: FragmentLauncher<T>) = Unit
     }
 
+    /**
+     * Create a instance for that [Fragment] class annotated by [ApiLauncher].
+     *
+     * @return a instance.
+     */
     fun create(): T
 }

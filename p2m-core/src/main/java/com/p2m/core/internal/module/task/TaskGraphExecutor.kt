@@ -1,15 +1,16 @@
 package com.p2m.core.internal.module.task
 
-import com.p2m.core.internal.graph.AbsGraphExecution
+import com.p2m.core.internal.graph.AbsGraphExecutor
 import com.p2m.core.internal.graph.Stage
+import com.p2m.core.internal.graph.Node.State
 import com.p2m.core.internal.log.logI
-import com.p2m.core.module.SafeModuleApiProvider
+import com.p2m.core.internal.module.SafeModuleApiProvider
 import com.p2m.core.module.task.Task
 import java.util.concurrent.*
 import java.util.concurrent.atomic.AtomicInteger
 
-internal class TaskGraphExecution(override val graph: TaskGraph, private val executingModuleProvider: ThreadLocal<SafeModuleApiProvider>) :
-    AbsGraphExecution<TaskNode, Class<out Task<*, *>>, TaskGraph>() {
+internal class TaskGraphExecutor(override val graph: TaskGraph, private val executingModuleProvider: ThreadLocal<SafeModuleApiProvider>) :
+    AbsGraphExecutor<Class<out Task<*, *>>, TaskNode, TaskGraph>() {
 
     companion object{
         private val EXECUTOR: ExecutorService =  ThreadPoolExecutor(
@@ -38,32 +39,34 @@ internal class TaskGraphExecution(override val graph: TaskGraph, private val exe
     override val messageQueue: BlockingQueue<Runnable> = ArrayBlockingQueue<Runnable>(graph.taskSize)
 
     override fun runNode(node: TaskNode, onDependsNodeComplete: () -> Unit) {
-        if (node.isStartedConsiderNotifyCompleted(onDependsNodeComplete)) return
+        node.markStarted(onDependsNodeComplete) {
+            // Started
+            asyncTask(Runnable {
+                // Depending
+                node.depending()
 
-        // Started
-        node.state = TaskNode.State.STARTED
-        asyncTask(Runnable {
-            // Depending
-            node.state = TaskNode.State.DEPENDING
-            node.depending()
+                if (node.isTop) {
+                    node.executed()
+                    onDependsNodeComplete()
+                    return@Runnable
+                }
 
-            if (node.isTop) {
-                node.state = TaskNode.State.COMPLETED
+                // Executing
+                node.executing()
+
+                // Completed
+                node.executed()
                 onDependsNodeComplete()
-                return@Runnable
-            }
+            })
+        }
+    }
 
-            // Executing
-            node.state = TaskNode.State.EXECUTING
-            node.executing()
-
-            // Completed
-            node.state = TaskNode.State.COMPLETED
-            onDependsNodeComplete()
-        })
+    private fun TaskNode.executed() {
+        markCompleted()
     }
 
     private fun TaskNode.depending() {
+        mark(State.DEPENDING)
         if (dependNodes.isEmpty()) {
             return
         }
@@ -83,7 +86,8 @@ internal class TaskGraphExecution(override val graph: TaskGraph, private val exe
     }
 
     private fun TaskNode.executing() {
-        logI("${graph.moduleName}-Task-Graph-Node-${taskName} onExecute()")
+        mark(State.EXECUTING)
+        logI("${graph.moduleName}-Task-${taskName} `onExecute()`")
         task.inputObj = input
         executingModuleProvider.set(graph.SafeModuleApiProvider)
         task.onExecute(context, safeTaskProvider)
@@ -95,7 +99,7 @@ internal class TaskGraphExecution(override val graph: TaskGraph, private val exe
     }
 
     override fun onCompletedForGraph(graph: TaskGraph) {
-        logI("${graph.moduleName}-Task-Graph Completed.")
+        logI("${graph.moduleName}-Task Completed.")
     }
 
     override fun onCompletedForStage(stage: Stage<TaskNode>) {
@@ -106,6 +110,6 @@ internal class TaskGraphExecution(override val graph: TaskGraph, private val exe
 
     override fun onCompletedForNode(node: TaskNode) {
 //        if (node.task is TopTask) return
-//        logI("${graph.moduleName}-Task-Graph-Node-${node.taskName} Completed.")
+//        logI("${graph.moduleName}-Task-${node.taskName} Completed.")
     }
 }

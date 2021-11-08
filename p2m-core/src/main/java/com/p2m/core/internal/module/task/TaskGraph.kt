@@ -2,23 +2,19 @@ package com.p2m.core.internal.module.task
 
 import android.content.Context
 import com.p2m.core.internal.graph.Graph
-import com.p2m.core.internal.graph.Stage
 import com.p2m.core.internal.log.logW
-import com.p2m.core.module.SafeModuleApiProvider
+import com.p2m.core.internal.module.SafeModuleApiProvider
 import com.p2m.core.module.task.Task
-import java.util.concurrent.atomic.AtomicInteger
 
 internal class TaskGraph private constructor(
     val context: Context,
     val moduleName: String,
     private val taskContainer: TaskContainerImpl,
     val SafeModuleApiProvider: SafeModuleApiProvider
-) : Graph<TaskNode, Class<out Task<*, *>>> {
+) : Graph<Class<out Task<*, *>>, TaskNode>() {
     private val nodes: HashMap<Class<out Task<*, *>>, TaskNode> = HashMap()
     val taskSize
         get() = taskContainer.getAll().size
-    override var stageSize = 0
-    override var stageCompletedCount = AtomicInteger()
 
     companion object{
         internal fun create(context: Context, moduleName: String, taskContainer: TaskContainerImpl, SafeModuleApiProvider: SafeModuleApiProvider): TaskGraph {
@@ -39,21 +35,7 @@ internal class TaskGraph private constructor(
         }
     }
 
-    private fun findRingNodes(nodes: Collection<TaskNode>): HashMap<TaskNode, TaskNode> {
-        val ringNodes = HashMap<TaskNode, TaskNode>()
-        nodes.forEach { node: TaskNode ->
-            node.dependNodes.forEach { dependNode: TaskNode ->
-                if (dependNode.dependNodes.contains(node)) {
-                    if (ringNodes[dependNode] != node) {
-                        ringNodes[node] = dependNode
-                    }
-                }
-            }
-        }
-        return ringNodes
-    }
-
-    override fun evaluate():HashMap<Class<out Task<*, *>>, TaskNode>{
+    override fun evaluate(): HashMap<Class<out Task<*, *>>, TaskNode> {
         reset()
         createNodes()
         layout()
@@ -69,94 +51,6 @@ internal class TaskGraph private constructor(
             .keys.forEach {
                 topClass.dependOn(it)
             }
-    }
-
-    override fun getHeadStage(): Stage<TaskNode> {
-        val stage = Stage<TaskNode>()
-        val nodes = evaluate().values
-        val noByDependDegreeNodes = ArrayList<TaskNode>()
-        nodes.forEach { node ->
-            if (node.byDependDegree == 0) {
-                noByDependDegreeNodes.add(node)
-            }
-        }
-        stageSize = 1
-        stage.nodes = noByDependDegreeNodes
-        return stage
-    }
-
-    override fun getTailStage(): Stage<TaskNode> {
-        val stage = Stage<TaskNode>()
-        val nodes = evaluate().values
-        val noDependDegreeNodes = ArrayList<TaskNode>()
-        nodes.forEach { node ->
-            if (node.dependDegree == 0) {
-                noDependDegreeNodes.add(node)
-            }
-        }
-        stageSize = 1
-        stage.nodes = noDependDegreeNodes
-        return stage
-    }
-    
-    override fun eachStageBeginFromTail(block: (stage: Stage<TaskNode>) -> Unit) {
-        val nodes = evaluate().values
-        while (!nodes.isEmpty()) {
-            val stage = Stage<TaskNode>()
-            val noDependDegreeNodes = ArrayList<TaskNode>()
-
-            nodes.forEach{ node ->
-                if (node.dependDegree == 0) {
-                    noDependDegreeNodes.add(node)
-                }
-            }
-
-            if (noDependDegreeNodes.isEmpty()) {
-                stage.hasRing = true
-                stage.ringNodes = findRingNodes(nodes)
-            }
-
-            stageSize++
-            stage.nodes = noDependDegreeNodes
-            block(stage)
-
-            noDependDegreeNodes.forEach { node: TaskNode ->
-                node.byDependNodes.forEach { byDependNode: TaskNode ->
-                    byDependNode.dependDegree--
-                }
-                nodes.remove(node)
-            }
-        }
-    }
-    
-    override fun eachStageBeginFromHead(block:(stage:Stage<TaskNode>)->Unit) {
-        val nodes = evaluate().values
-        while (!nodes.isEmpty()) {
-            val stage = Stage<TaskNode>()
-            val noByDependDegreeNodes = ArrayList<TaskNode>()
-
-            nodes.forEach{ node ->
-                if (node.byDependDegree == 0) {
-                    noByDependDegreeNodes.add(node)
-                }
-            }
-
-            if (noByDependDegreeNodes.isEmpty()) {
-                stage.hasRing = true
-                stage.ringNodes = findRingNodes(nodes)
-            }
-
-            stageSize++
-            stage.nodes = noByDependDegreeNodes
-            block(stage)
-
-            noByDependDegreeNodes.forEach { node: TaskNode ->
-                node.dependNodes.forEach { dependNode: TaskNode ->
-                    dependNode.byDependDegree--
-                }
-                nodes.remove(node)
-            }
-        }
     }
 
     private fun reset(){

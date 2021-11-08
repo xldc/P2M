@@ -3,7 +3,7 @@ package com.p2m.core.internal.graph
 import java.lang.StringBuilder
 import java.util.concurrent.atomic.AtomicInteger
 
-internal class Stage<N : Node> {
+internal class Stage<N : Node<N>> {
 
     var nodes: ArrayList<N>? = null
         set(value) {

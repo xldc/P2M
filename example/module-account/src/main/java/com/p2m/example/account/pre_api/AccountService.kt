@@ -8,14 +8,14 @@ import com.p2m.example.account.UserDiskCache
 import com.p2m.module.api.Account
 import com.p2m.module.impl.mutable
 
-@Service
+@ApiService
 class AccountService{
     /**
      * 退出登录
      */
     fun logout(context: Context){
         // 清除用户缓存
-        P2M.moduleApiOf(Account::class.java)
+        P2M.apiOf(Account::class.java)
             .event
             .mutable()
             .apply {
@@ -26,7 +26,7 @@ class AccountService{
             }
 
         // 跳转到登录界面
-        P2M.moduleApiOf(Account::class.java)
+        P2M.apiOf(Account::class.java)
             .launcher
             .activityOfLogin
             .createIntent(context)

@@ -15,9 +15,7 @@ interface ModuleUnit {
     /**
      * Adds the given dependencies to this module.
      */
-    fun dependOn(publicClass: Class<out Module<*>>, implClassName: String)
-
-    fun dependOn(publicClass: Class<out Module<*>>, implClass: Class<out Module<*>>)
+    fun dependOn(implClass: Class<out Module<*>>)
 
     fun getDependencies(): Set<Class<out Module<*>>>
 }

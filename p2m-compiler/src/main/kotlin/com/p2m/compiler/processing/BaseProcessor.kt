@@ -49,13 +49,12 @@ abstract class BaseProcessor : AbstractProcessor() {
     lateinit var mFiler: Filer
     lateinit var mLogger: Logger
     lateinit var optionModuleName: String
+    lateinit var optionApplicationId: String
     var optionDependencies: String? = null
-//    lateinit var optionApplicationId: String
-    var optionApplicationId: String = "com.p2m.module"
 
     lateinit var packageNameApi: String
     lateinit var packageNameImpl: String
-    val dependencies = hashMapOf<String, String>()
+    val dependencies = hashSetOf<String>() // 依赖的模块
 
     override fun init(processingEnv: ProcessingEnvironment) {
         super.init(processingEnv)
@@ -66,12 +65,10 @@ abstract class BaseProcessor : AbstractProcessor() {
         options = processingEnv.options
 
         getOptionData(options)
-        packageNameImpl = "${optionApplicationId}.impl"
-        packageNameApi = "${optionApplicationId}.api"
+        packageNameApi = "${optionApplicationId}.p2m.api"
+        packageNameImpl = "${optionApplicationId}.p2m.impl"
         optionDependencies?.split(",")?.forEach {
-            // api-impl
-            val values = it.split("-")
-            dependencies[values[0]] = values[1]
+            dependencies.add(it.trim())
         }
     }
 
@@ -93,19 +90,19 @@ abstract class BaseProcessor : AbstractProcessor() {
         }else{
             this.optionModuleName = optionModuleName
         }
-//        if (optionApplicationId.isNullOrEmpty()) {
-//            mLogger.error(
-//                """
-//                    请在build.gradle添加以下内容：
-//                    kapt {
-//                            arguments {
-//                                arg("$OPTION_APPLICATION_ID", "你的applicationId")
-//                            }
-//                    }
-//                """.trimIndent()
-//            )
-//        }else{
-//            this.optionApplicationId = optionApplicationId
-//        }
+        if (optionApplicationId.isNullOrEmpty()) {
+            mLogger.error(
+                """
+                    请在build.gradle添加以下内容：
+                    kapt {
+                            arguments {
+                                arg("$OPTION_APPLICATION_ID", "你的applicationId")
+                            }
+                    }
+                """.trimIndent()
+            )
+        }else{
+            this.optionApplicationId = optionApplicationId
+        }
     }
 }

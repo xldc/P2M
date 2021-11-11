@@ -1,54 +1,51 @@
 package com.p2m.core.module
 
-import com.p2m.core.internal.module.ModuleVisitor
+import com.p2m.core.internal.module.ModuleContainerImpl
+import com.p2m.core.internal.module.ModuleFinder
 
 abstract class ModuleCollector {
-    private val moduleImplClass = mutableSetOf<String>()
+    private val modules = mutableSetOf<String>()
 
-    protected fun collect(implClazz: String) {
-        moduleImplClass.add(implClazz)
+    protected fun collect(moduleName: String) {
+        modules.add(moduleName)
     }
 
-    internal fun collectExternal(vararg implClazz: String) {
-        moduleImplClass.addAll(implClazz.asList())
+    internal fun collectExternal(vararg moduleName: String) {
+        modules.addAll(moduleName.asList())
     }
 
-    internal fun injectForAllUncreatedModule(
+    internal fun injectForAllFromTop(
+        topModule: Module<*>,
+        moduleFinder: ModuleFinder,
         moduleFactory: ModuleFactory,
-        moduleVisitor: ModuleVisitor,
-        block: (Module<*>) -> Unit
+        moduleContainer: ModuleContainerImpl
     ) {
-        for (implClassStr in moduleImplClass) {
-            @Suppress("UNCHECKED_CAST")
-            try {
-                val implClass = Class.forName(implClassStr) as Class<out Module<*>>
-                injectModule(moduleFactory, moduleVisitor, implClass, block)
-            }catch (e: NoClassDefFoundError) {
-                val moduleName = implClassStr.substringAfter("_", "")
-                if (moduleName.isNotEmpty()) {
-                    throw RuntimeException("$moduleName does not exist, please check your config in settings.gradle.", e)
-                }else {
-                    throw e
-                }
+        for (moduleName in modules) {
+            injectModule(moduleFinder, moduleFactory, moduleContainer, moduleName).also {
+                topModule.internalModuleUnit.dependOn(it.internalModuleUnit.moduleImplClass)
             }
         }
     }
 
-    internal fun injectForCreatedModule(module: Module<*>, moduleVisitor: ModuleVisitor){
-        module.accept(moduleVisitor)
+    internal fun injectForCreatedModule(module: Module<*>, moduleContainer: ModuleContainerImpl){
+        module.accept(moduleContainer)
     }
 
     private fun injectModule(
+        moduleFinder: ModuleFinder,
         moduleFactory: ModuleFactory,
-        moduleVisitor: ModuleVisitor,
-        implClass: Class<out Module<*>>,
-        block: (Module<*>) -> Unit
-    ) {
-        val module = moduleFactory.newInstance(implClass)
-        injectForCreatedModule(module, moduleVisitor)
-        block.invoke(module)
-        for (dependency in module.internalModuleUnit.getDependencies()) {
-            injectModule(moduleFactory, moduleVisitor, dependency, block)
+        moduleContainer: ModuleContainerImpl,
+        moduleName: String
+    ): Module<*> {
+        val implClass = moduleFinder.getModuleImplClass(moduleName)
+        val module = moduleContainer.find(implClass) ?: moduleFactory.newInstance(implClass).also {
+            injectForCreatedModule(it, moduleContainer)
         }
+        for (moduleNameOfDependency in module.dependencies) {
+            injectModule(moduleFinder, moduleFactory, moduleContainer, moduleNameOfDependency).also {
+                module.internalModuleUnit.dependOn(it.internalModuleUnit.moduleImplClass)
+            }
+        }
+        return module
     }
 }

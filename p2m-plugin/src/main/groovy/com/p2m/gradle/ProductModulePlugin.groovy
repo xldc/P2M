@@ -1,8 +1,8 @@
 package com.p2m.gradle
 
 import com.android.build.gradle.api.BaseVariant
-import com.p2m.gradle.bean.LocalModuleProject
-import com.p2m.gradle.bean.ModuleProject
+import com.p2m.gradle.bean.LocalModuleProjectUnit
+import com.p2m.gradle.bean.ModuleProjectUnit
 import com.p2m.gradle.task.ApiJar
 import com.p2m.gradle.task.ApiSourceJar
 import com.p2m.gradle.task.CheckModule
@@ -19,8 +19,8 @@ import org.jetbrains.kotlin.gradle.internal.KaptTask
 
 import java.nio.charset.StandardCharsets
 
-class ProductModuleApiPlugin implements Plugin<Project> {
-    private LocalModuleProject moduleProject
+class ProductModulePlugin implements Plugin<Project> {
+    private LocalModuleProjectUnit moduleProject
 
     @Override
     void apply(Project project) {
@@ -32,9 +32,8 @@ class ProductModuleApiPlugin implements Plugin<Project> {
             if (options == null) return
 
             StringBuffer sb = new StringBuffer()
-            moduleProject.dependencies.forEach{ ModuleProject dependency ->
-                // api-impl
-                String unit = ",com.p2m.module.api.${dependency.getModuleName()}-com.p2m.module.impl._${dependency.getModuleName()}"
+            moduleProject.dependencies.forEach{ ModuleProjectUnit dependency ->
+                String unit = ",${dependency.getModuleName()}"
                 sb.append(unit)
             }
 
@@ -44,9 +43,12 @@ class ProductModuleApiPlugin implements Plugin<Project> {
 
             arg("moduleName", moduleProject.getModuleName())
             arg("dependencies", sb.toString())
+        }
 
-
-            // arg("apiSrcDir", p2mApiSrcDir.absolutePath)
+        AndroidUtils.forEachVariant(project) { BaseVariant variant ->
+            moduleProject.project.kapt.arguments {
+                arg("applicationId", variant.getApplicationId())
+            }
         }
 
         project.afterEvaluate {

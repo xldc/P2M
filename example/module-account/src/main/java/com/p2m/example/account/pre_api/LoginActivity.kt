@@ -13,8 +13,8 @@ import com.p2m.annotation.module.api.ApiLauncher
 import com.p2m.example.account.UserDiskCache
 import com.p2m.example.account.R
 import com.p2m.example.http.Http
-import com.p2m.module.api.Account
-import com.p2m.module.impl.mutable
+import com.p2m.example.account.p2m.api.Account
+import com.p2m.example.account.p2m.impl.mutable
 
 import java.util.*
 

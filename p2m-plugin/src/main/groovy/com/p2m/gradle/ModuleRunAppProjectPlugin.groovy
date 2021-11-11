@@ -1,9 +1,10 @@
 package com.p2m.gradle
 
-import com.p2m.gradle.bean.LocalModuleProject
-import com.p2m.gradle.bytecode.P2MTransform
+import com.p2m.gradle.bean.LocalModuleProjectUnit
+import com.p2m.gradle.bean.ModuleProjectUnit
+import com.p2m.gradle.bean.RemoteModuleProjectUnit
 import com.p2m.gradle.utils.GenerateModuleAutoCollectorJavaTaskRegister
-import com.p2m.gradle.utils.ModuleProjectUtils
+import com.p2m.gradle.utils.LastProcessManifestRegister
 import com.p2m.gradle.utils.RunAppConfigUtils
 import org.gradle.api.Project
 import org.gradle.api.artifacts.dsl.DependencyHandler
@@ -12,7 +13,7 @@ import org.gradle.api.artifacts.dsl.DependencyHandler
  * 当Module可以单独运行app时，apply这个插件
  */
 class ModuleRunAppProjectPlugin extends BaseSupportDependencyModulePlugin {
-    LocalModuleProject moduleProject
+    LocalModuleProjectUnit moduleProject
 
     @Override
     void doAction(Project project) {
@@ -28,11 +29,50 @@ class ModuleRunAppProjectPlugin extends BaseSupportDependencyModulePlugin {
             }
             RunAppConfigUtils.modifyMergedManifestXmlForRunApp(moduleProject, runAppConfig)
         }
+        project.dependencies { DependencyHandler dependencyHandler ->
+            project._moduleProjectUnitTable.values().forEach { ModuleProjectUnit moduleProject ->
+                if (moduleProject.project != project) {
+                    if (moduleProject instanceof RemoteModuleProjectUnit) {
+                        remoteDependsOn(dependencyHandler, moduleProject)
+                    }
 
+                    if (moduleProject instanceof LocalModuleProjectUnit) {
+                        if (moduleProject.project.state.executed) {
+                            localDependsOn(project, dependencyHandler, moduleProject)
+                        } else {
+                            moduleProject.project.afterEvaluate {
+                                localDependsOn(project, dependencyHandler, moduleProject)
+                            }
+                        }
+                    }
+                }
+            }
+        }
         project.dependencies { DependencyHandler handler ->
             handler.add("implementation", project._p2mApi())
             handler.add("implementation", project._p2mAnnotation())
             handler.add("kapt", project._p2mCompiler())
+        }
+
+        def lastProcessManifestRegister = new LastProcessManifestRegister(moduleProject)
+        lastProcessManifestRegister.register { Node topNode->
+            //noinspection GroovyAccessibility
+            Node application = topNode.getByName("application")[0]
+            def applicationId = topNode.attribute("package")
+            Map<String, String> attributes = new HashMap()
+            attributes.put("xmlns:android", "http://schemas.android.com/apk/res/android")
+            attributes.put(
+                    "android:name",
+                    "p2m:module=${moduleProject.moduleName}"
+            )
+            attributes.put(
+                    "android:value",
+                    "" +
+                            "publicModuleClass=${applicationId}.p2m.api.${moduleProject.moduleName}" +
+                            "," +
+                            "implModuleClass=${applicationId}.p2m.impl._${moduleProject.moduleName}"
+            )
+            application.appendNode('meta-data', attributes)
         }
 
         GenerateModuleAutoCollectorJavaTaskRegister.register(moduleProject, true)

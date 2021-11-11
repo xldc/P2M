@@ -9,7 +9,7 @@ import androidx.lifecycle.Observer
 import com.p2m.core.P2M
 import com.p2m.annotation.module.api.ApiLauncher
 import com.p2m.example.main.R
-import com.p2m.module.api.Account
+import com.p2m.example.account.p2m.api.Account
 
 @ApiLauncher("Main")
 class MainActivity : AppCompatActivity() {

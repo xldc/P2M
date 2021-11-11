@@ -17,15 +17,15 @@ abstract class Module<MODULE_API : ModuleApi<*, *, *>> {
     protected abstract val init: ModuleInit
     @Suppress("UNCHECKED_CAST")
     protected open val publicClass: Class<out Module<*>> = this.javaClass.superclass as Class<out Module<*>>
+    internal val dependencies = hashSetOf<String>()
     internal val internalInit: ModuleInit
         get() = init
-    @Suppress("LeakingThis")
     internal val internalModuleUnit by lazy(LazyThreadSafetyMode.NONE) {
         ModuleUnitImpl(this, this.javaClass, publicClass)
     }
 
-    protected fun dependOn(moduleClass: Class<out Module<*>>, implClassName: String) {
-        internalModuleUnit.dependOn(moduleClass, implClassName)
+    protected fun dependOn(moduleName: String) {
+        dependencies.add(moduleName)
     }
 
     internal fun accept(visitor: ModuleVisitor){

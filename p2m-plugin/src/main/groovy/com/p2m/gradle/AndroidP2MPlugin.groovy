@@ -1,13 +1,12 @@
 package com.p2m.gradle
 
-
-import com.p2m.gradle.bean.BaseProject
-import com.p2m.gradle.bean.ModuleProject
-import com.p2m.gradle.bean.RemoteModuleProject
+import com.p2m.gradle.bean.BaseProjectUnit
+import com.p2m.gradle.bean.ModuleProjectUnit
+import com.p2m.gradle.bean.RemoteModuleProjectUnit
 import com.p2m.gradle.exception.P2MSettingsException
 import com.p2m.gradle.bean.settings.BaseProjectConfig
 import com.p2m.gradle.extension.settings.P2MConfig
-import com.p2m.gradle.bean.LocalModuleProject
+import com.p2m.gradle.bean.LocalModuleProjectUnit
 import com.p2m.gradle.bean.ModuleNamed
 import com.p2m.gradle.bean.settings.ModuleProjectConfig
 import com.p2m.gradle.bean.Named
@@ -28,9 +27,9 @@ class AndroidP2MPlugin implements Plugin<Settings> {
     private boolean existRunAppModule = false
     private ModuleProjectConfig supportRunAppModuleProjectConfig
 
-    private Map<ModuleNamed, ModuleProject> moduleProjectTable = new HashMap()
-    private Map<ModuleNamed, LocalModuleProject> localModuleProjectTable = new HashMap<>()
-    private Map<ModuleNamed, RemoteModuleProject> remoteModuleProjectTable = new HashMap<>()
+    private Map<ModuleNamed, ModuleProjectUnit> moduleProjectUnitTable = new HashMap()
+    private Map<ModuleNamed, LocalModuleProjectUnit> localModuleProjectTable = new HashMap<>()
+    private Map<ModuleNamed, RemoteModuleProjectUnit> remoteModuleProjectTable = new HashMap<>()
 
     @Override
     void apply(final Settings settings) {
@@ -62,6 +61,8 @@ class AndroidP2MPlugin implements Plugin<Settings> {
 
                 genModuleProjectTable(rootProject)
 
+                rootProject.ext._moduleProjectUnitTable = moduleProjectUnitTable
+
                 configLocalModuleProject()
 
                 configRemoteModuleProject()
@@ -82,7 +83,7 @@ class AndroidP2MPlugin implements Plugin<Settings> {
         })
     }
 
-    private static def checkAppConfig(BaseProject project) {
+    private static def checkAppConfig(BaseProjectUnit project) {
         def applicationId = project.project.android.defaultConfig.applicationId
         if (applicationId == null) {
             project.error(
@@ -115,27 +116,27 @@ class AndroidP2MPlugin implements Plugin<Settings> {
     }
 
     private def configRemoteModuleProject() {
-        remoteModuleProjectTable.values().forEach { RemoteModuleProject moduleProject -> }
+        remoteModuleProjectTable.values().forEach { RemoteModuleProjectUnit moduleProject -> }
     }
 
     private def configLocalModuleProject() {
-        localModuleProjectTable.values().forEach { LocalModuleProject moduleProject ->
+        localModuleProjectTable.values().forEach { LocalModuleProjectUnit moduleProject ->
             moduleProject.project.ext.runApp = moduleProject.runApp
             moduleProject.project.ext.p2mProject = moduleProject
             moduleProject.project.ext._p2mMavenRepositoryClosure = p2mConfig._p2mMavenRepositoryClosure
         }
 
-        localModuleProjectTable.values().forEach { LocalModuleProject moduleProject ->
+        localModuleProjectTable.values().forEach { LocalModuleProjectUnit moduleProject ->
             moduleProject.project.beforeEvaluate {
                 moduleProject.project.plugins.apply(moduleProject.isApp() ? Constant.PLUGIN_ID_ANDROID_APP : Constant.PLUGIN_ID_ANDROID_LIBRARY)
                 moduleProject.project.plugins.apply(Constant.PLUGIN_ID_KOTLIN_ANDROID)
                 moduleProject.project.plugins.apply(Constant.PLUGIN_ID_KOTLIN_KAPT)
                 moduleProject.project.plugins.apply(ModuleWhenRunAppConfigPlugin)
-                moduleProject.project.plugins.apply(ProductModuleApiPlugin)
+                moduleProject.project.plugins.apply(ProductModulePlugin)
             }
         }
 
-        localModuleProjectTable.values().forEach { LocalModuleProject moduleProject ->
+        localModuleProjectTable.values().forEach { LocalModuleProjectUnit moduleProject ->
             moduleProject.project.beforeEvaluate {
                 if (moduleProject.isApp()) {
                     moduleProject.project.plugins.apply(ModuleRunAppProjectPlugin)
@@ -158,7 +159,7 @@ class AndroidP2MPlugin implements Plugin<Settings> {
 
     private def configAppProject(Project rootProject) {
         p2mConfig.appProjectConfigs.forEach { appProjectConfig ->
-            def appProject = createMainAppProject(rootProject, appProjectConfig, moduleProjectTable)
+            def appProject = createMainAppProject(rootProject, appProjectConfig, moduleProjectUnitTable)
             appProject.project.ext.p2mProject = appProject
             appProject.project.ext._p2mMavenRepositoryClosure = p2mConfig._p2mMavenRepositoryClosure
 
@@ -204,10 +205,10 @@ class AndroidP2MPlugin implements Plugin<Settings> {
     }
 
     private def genModuleProjectTable(Project rootProject) {
-        moduleProjectTable.clear()
+        moduleProjectUnitTable.clear()
         localModuleProjectTable.clear()
         remoteModuleProjectTable.clear()
-        Map<ModuleProject, Set<ModuleNamed>> moduleProjectConfigDependencies = new HashMap()
+        Map<ModuleProjectUnit, Set<ModuleNamed>> moduleProjectConfigDependencies = new HashMap()
 
         def projects = new HashSet<Project>()
         projects.addAll(rootProject.subprojects)
@@ -221,7 +222,7 @@ class AndroidP2MPlugin implements Plugin<Settings> {
                 def moduleProject = ProjectFactory.createRemoteModuleProject(moduleConfig)
                 moduleProjectConfigDependencies.put(moduleProject, moduleConfig._dependencyContainer._dependencies)
                 remoteModuleProjectTable[moduleConfig._moduleNamed] = moduleProject
-                moduleProjectTable.put(moduleConfig._moduleNamed, moduleProject)
+                moduleProjectUnitTable.put(moduleConfig._moduleNamed, moduleProject)
                 moduleProject.project = rootProject
                 iterator.remove()
             }
@@ -237,7 +238,7 @@ class AndroidP2MPlugin implements Plugin<Settings> {
                     moduleProject.project = rootProject.project(moduleConfig._projectNamed.include)
                     moduleProjectConfigDependencies.put(moduleProject, moduleConfig._dependencyContainer._dependencies)
                     localModuleProjectTable[moduleConfig._moduleNamed] = moduleProject
-                    moduleProjectTable.put(moduleConfig._moduleNamed, moduleProject)
+                    moduleProjectUnitTable.put(moduleConfig._moduleNamed, moduleProject)
                     iterator.remove()
                 }
             }
@@ -249,12 +250,12 @@ class AndroidP2MPlugin implements Plugin<Settings> {
         }
 
         // 建立module依赖关系
-        moduleProjectConfigDependencies.forEach { ModuleProject moduleProject, Set<ModuleNamed> dependencies ->
-            configDependenciesToProjectDependencies(moduleProject, dependencies, moduleProjectTable)
+        moduleProjectConfigDependencies.forEach { ModuleProjectUnit moduleProject, Set<ModuleNamed> dependencies ->
+            configDependenciesToProjectDependencies(moduleProject, dependencies, moduleProjectUnitTable)
         }
     }
 
-    private def createMainAppProject(Project rootProject, appProjectConfig, Map<ModuleNamed, ModuleProject> moduleProjectTable) {
+    private def createMainAppProject(Project rootProject, appProjectConfig, Map<ModuleNamed, ModuleProjectUnit> moduleProjectTable) {
         def iterator = rootProject.subprojects.iterator()
         while (iterator.hasNext()) {
             def project = iterator.next()
@@ -270,7 +271,7 @@ class AndroidP2MPlugin implements Plugin<Settings> {
     }
 
 
-    private def configDependenciesToProjectDependencies = { BaseProject ownerProject, ownerConfigDependencies, Map<ModuleNamed, ModuleProject> moduleTable ->
+    private def configDependenciesToProjectDependencies = { BaseProjectUnit ownerProject, ownerConfigDependencies, Map<ModuleNamed, ModuleProjectUnit> moduleTable ->
         if (ownerConfigDependencies == null) return
         ownerConfigDependencies.forEach { ModuleNamed dependencyModuleNamed ->
             if (moduleTable[dependencyModuleNamed] == null) {

@@ -2,17 +2,17 @@ package com.p2m.gradle.bean
 
 import org.gradle.api.Project
 
-abstract class BaseProject {
+abstract class BaseProjectUnit {
     Named moduleNamed
-    Project project                                     // 项目
-    Set<ModuleProject> dependencies = new HashSet()     // 依赖的模块
+    Project project                                         // 项目
+    Set<ModuleProjectUnit> dependencies = new HashSet()     // 依赖的模块
     RunAppConfig runAppConfig
 
     boolean isApp(){
-        if (this instanceof AppProject) return true
-        if (this instanceof RemoteModuleProject) return false
-        if (this instanceof LocalModuleProject) {
-            return ((LocalModuleProject)this).runApp
+        if (this instanceof AppProjectUnit) return true
+        if (this instanceof RemoteModuleProjectUnit) return false
+        if (this instanceof LocalModuleProjectUnit) {
+            return ((LocalModuleProjectUnit)this).runApp
         }
         return false
     }
@@ -33,6 +33,13 @@ abstract class BaseProject {
         throw P2MSettingsException(message)
     }
 
+    void info(String message) {
+        message = "P2M: $message"
+        if (project != null) {
+            project.logger.info(message)
+        }
+    }
+
 
     @Override
     int hashCode() {
@@ -41,9 +48,9 @@ abstract class BaseProject {
 
     @Override
     boolean equals(Object o) {
-        if (!o instanceof BaseProject) {
+        if (!o instanceof BaseProjectUnit) {
             return false
         }
-        return moduleNamed.equals((o as BaseProject).moduleNamed)
+        return moduleNamed.equals((o as BaseProjectUnit).moduleNamed)
     }
 }

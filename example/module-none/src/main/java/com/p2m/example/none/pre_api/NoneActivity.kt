@@ -6,8 +6,7 @@ import android.os.Bundle
 import android.view.View
 import com.p2m.annotation.module.api.ApiLauncher
 import com.p2m.core.P2M
-import com.p2m.core.moduleApi
-import com.p2m.module.api.None
+import com.p2m.example.none.p2m.api.None
 
 @ApiLauncher
 class NoneActivity : AppCompatActivity() {
@@ -23,8 +22,6 @@ class NoneActivity : AppCompatActivity() {
             .launcher
             .fragmentOfTest
             .create()
-
-
     }
 
 }

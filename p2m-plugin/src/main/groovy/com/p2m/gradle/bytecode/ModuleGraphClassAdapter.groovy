@@ -1,14 +1,14 @@
 package com.p2m.gradle.bytecode
 
-import com.p2m.gradle.bean.BaseProject
+import com.p2m.gradle.bean.BaseProjectUnit
 import org.objectweb.asm.ClassVisitor
 import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes
 
 @Deprecated
 class ModuleGraphClassAdapter extends ClassVisitor {
-    HashMap<String, BaseProject> p2mProject
-    ModuleGraphClassAdapter(ClassVisitor classVisitor, HashMap<String, BaseProject> p2mProject) {
+    HashMap<String, BaseProjectUnit> p2mProject
+    ModuleGraphClassAdapter(ClassVisitor classVisitor, HashMap<String, BaseProjectUnit> p2mProject) {
         super(Opcodes.ASM7, classVisitor)
         this.p2mProject = p2mProject
     }

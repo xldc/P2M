@@ -7,8 +7,8 @@ import com.p2m.core.P2M
 import com.p2m.core.event.BackgroundObserver
 import com.p2m.core.event.ObserveOn
 import com.p2m.core.module.*
-import com.p2m.module.api.Account
-import com.p2m.module.api.Main
+import com.p2m.example.account.p2m.api.Account
+import com.p2m.example.main.p2m.api.Main
 import com.p2m.core.module.task.TaskOutputProvider
 import com.p2m.core.module.task.TaskRegister
 import com.p2m.core.module.task.TaskUnit

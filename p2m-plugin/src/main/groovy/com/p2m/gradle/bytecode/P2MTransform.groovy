@@ -10,8 +10,8 @@ import com.android.build.api.transform.TransformInput
 import com.android.build.api.transform.TransformInvocation
 import com.android.build.api.transform.TransformOutputProvider
 import com.android.build.gradle.internal.pipeline.TransformManager
-import com.p2m.gradle.bean.BaseProject
-import com.p2m.gradle.bean.ModuleProject
+import com.p2m.gradle.bean.BaseProjectUnit
+import com.p2m.gradle.bean.ModuleProjectUnit
 
 import org.apache.commons.codec.digest.DigestUtils
 import org.apache.commons.io.FileUtils
@@ -27,10 +27,10 @@ import java.util.jar.JarOutputStream
 public class P2MTransform extends Transform {
 
     private final static String CLASS_FILE_PATH_MODULE_AUTO_REGISTER = "com/p2m/core/internal/module/ModuleAutoRegister.class"
-    HashMap<String, BaseProject> p2mProject
+    HashMap<String, BaseProjectUnit> p2mProject
     boolean transformClassesDir
 
-    P2MTransform(HashMap<String, BaseProject> p2mProject, boolean transformClassesDir){
+    P2MTransform(HashMap<String, BaseProjectUnit> p2mProject, boolean transformClassesDir){
         this.p2mProject = p2mProject
         this.transformClassesDir = transformClassesDir
     }
@@ -68,7 +68,7 @@ public class P2MTransform extends Transform {
         File injectJarOrigin = null
         File injectJarDest = null
         for (TransformInput input : inputs) {
-            Collection<BaseProject> moduleProjects = includeModuleProjects()
+            Collection<BaseProjectUnit> moduleProjects = includeModuleProjects()
             for (JarInput jarInput : input.getJarInputs()) {
                 String destName = jarInput.getName()
                 // rename jar files
@@ -115,7 +115,7 @@ public class P2MTransform extends Transform {
 
                 File classesDir = directoryInput.getFile()
                 if (transformClassesDir) {
-                    ModuleProject findModuleProject = findModuleProjectIfClassesDirOfModule(moduleProjects, classesDir.getAbsolutePath())
+                    ModuleProjectUnit findModuleProject = findModuleProjectIfClassesDirOfModule(moduleProjects, classesDir.getAbsolutePath())
                     if (findModuleProject != null) {
                         findModuleProject.getProject().fileTree(classesDir, { files ->
                             // println(this, "transform classes dir of " + findModuleProject.getModuleNamed().get() + " as App")
@@ -140,37 +140,37 @@ public class P2MTransform extends Transform {
         }
     }
 
-    private void markIfFindModuleClass(String classFilePath, Collection<BaseProject> moduleProjects) {
+    private void markIfFindModuleClass(String classFilePath, Collection<BaseProjectUnit> moduleProjects) {
         String moduleName = classFilePath.replace("com/p2m/module/api/", "").replace(".class", "")
-        for (BaseProject moduleProject : moduleProjects) {
-            ModuleProject baseProject = (ModuleProject) moduleProject
+        for (BaseProjectUnit moduleProject : moduleProjects) {
+            ModuleProjectUnit projectUnit = (ModuleProjectUnit) moduleProject
             boolean existModuleClass = !moduleName.startsWith("com/") &&
                     !moduleName.endsWith("class") &&
-                    baseProject.getModuleName() == moduleName
+                    projectUnit.getModuleName() == moduleName
             if (existModuleClass) {
                 // println(this,  "classFilePath：" + classFilePath)
                 // println(this,  "moduleName：" + moduleName)
-                baseProject.existModuleClass = true
+                projectUnit.existModuleClass = true
                 return
             }
         }
 
     }
 
-    private Collection<BaseProject> includeModuleProjects() {
-        Collection<BaseProject> moduleProjects= new ArrayList<>()
-        for (Map.Entry<String, BaseProject> entry : this.p2mProject.entrySet()) {
+    private Collection<BaseProjectUnit> includeModuleProjects() {
+        Collection<BaseProjectUnit> moduleProjects= new ArrayList<>()
+        for (Map.Entry<String, BaseProjectUnit> entry : this.p2mProject.entrySet()) {
             // 过滤非ModuleProject
-            if (!(entry.getValue() instanceof ModuleProject)) continue
+            if (!(entry.getValue() instanceof ModuleProjectUnit)) continue
             moduleProjects.add(entry.getValue())
         }
         return moduleProjects
     }
 
-    private ModuleProject findModuleProjectIfClassesDirOfModule(Collection<BaseProject> moduleProjects, String path) {
-        Iterator<BaseProject> moduleIterator = moduleProjects.iterator()
+    private ModuleProjectUnit findModuleProjectIfClassesDirOfModule(Collection<BaseProjectUnit> moduleProjects, String path) {
+        Iterator<BaseProjectUnit> moduleIterator = moduleProjects.iterator()
         while (moduleIterator.hasNext()) {
-            ModuleProject moduleProject = (ModuleProject) moduleIterator.next()
+            ModuleProjectUnit moduleProject = (ModuleProjectUnit) moduleIterator.next()
             boolean moduleOwner = path.startsWith(moduleProject.getProject().getBuildDir().getAbsolutePath())
             if (moduleOwner) {
                 return moduleProject

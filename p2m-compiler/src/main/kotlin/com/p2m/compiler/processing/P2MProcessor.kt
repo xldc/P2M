@@ -6,6 +6,7 @@ import com.p2m.annotation.module.api.*
 import com.p2m.compiler.processing.BaseProcessor.Companion.OPTION_MODULE_NAME
 import com.p2m.compiler.*
 import com.p2m.compiler.bean.*
+import com.p2m.compiler.processing.BaseProcessor.Companion.OPTION_APPLICATION_ID
 import com.p2m.compiler.processing.BaseProcessor.Companion.OPTION_DEPENDENCIES
 import com.p2m.compiler.utils.*
 import com.squareup.kotlinpoet.*
@@ -37,6 +38,7 @@ import javax.tools.StandardLocation
 @SupportedOptions(
     OPTION_DEPENDENCIES,
     OPTION_MODULE_NAME,
+    OPTION_APPLICATION_ID,
     "org.gradle.annotation.processing.aggregating"
 )
 class P2MProcessor : BaseProcessor() {
@@ -209,9 +211,8 @@ class P2MProcessor : BaseProcessor() {
                 dependencies.forEach{
                     addInitializerBlock(
                         CodeBlock.of(
-                            "dependOn(%T::class.java, \"%L\")",
-                            ClassName.bestGuess(it.key),
-                            it.value
+                            "dependOn(\"%L\")",
+                            it
                         )
                     )
                 }

@@ -6,8 +6,8 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import com.p2m.core.P2M
-import com.p2m.module.api.Account
-import com.p2m.module.api.Main
+import com.p2m.example.account.p2m.api.Account
+import com.p2m.example.main.p2m.api.Main
 
 
 class SplashActivity : AppCompatActivity() {

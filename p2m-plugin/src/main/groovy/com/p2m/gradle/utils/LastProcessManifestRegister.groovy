@@ -1,59 +1,82 @@
 package com.p2m.gradle.utils
 
-import com.android.build.gradle.internal.api.ApkVariantImpl
+
+import com.android.build.gradle.api.BaseVariant
 import com.android.build.gradle.tasks.ManifestProcessorTask
 import com.android.build.gradle.tasks.ProcessApplicationManifest
+import com.android.build.gradle.tasks.ProcessLibraryManifest
 import com.p2m.gradle.bean.BaseProjectUnit
 import com.p2m.gradle.bean.RunAppConfig
 import groovy.util.slurpersupport.GPathResult
 import groovy.xml.XmlUtil
-import org.codehaus.groovy.runtime.InvokerHelper
+import org.gradle.api.tasks.TaskProvider
+import org.gradle.util.ConfigureUtil
 
-class RunAppConfigUtils {
-    static def modifyMergedManifestXmlForRunApp = { BaseProjectUnit projectUnit, RunAppConfig runAppConfig->
+class LastProcessManifestRegister {
+
+    BaseProjectUnit projectUnit
+    ArrayList<Closure<Node>> callbacks = new ArrayList()
+    boolean immutable = false
+
+    LastProcessManifestRegister(BaseProjectUnit projectUnit){
+        this.projectUnit = projectUnit
+        hookTask(projectUnit)
+    }
+
+    void register(Closure<Node> closure){
+        if (immutable) {
+            projectUnit.error("Cannot register at this stage.")
+            return
+        }
+        callbacks.add(closure)
+    }
+
+    private def hookTask = { BaseProjectUnit projectUnit ->
         def project = projectUnit.project
-        AndroidUtils.forAppEachVariant(project) {  variant->
-            variant.getPreBuildProvider().get().doFirst {
-                if ("debug" != variant.buildType.name) {
-                    projectUnit.error(" Property runApp=true only support debug mode. Please check that in settings.gradle.")
-                }
-            }
-            variant.outputs.each {output ->
-                ManifestProcessorTask manifestProcessorTask = output.processManifestProvider.get()
-                // ProcessApplicationManifest
-                if (manifestProcessorTask instanceof ProcessApplicationManifest) {
+        def action = { BaseVariant variant ->
+            variant.outputs.each { output ->
+                TaskProvider processManifestProvider = output.processManifestProvider
+                processManifestProvider.configure { ManifestProcessorTask manifestProcessorTask ->
                     manifestProcessorTask.doLast {
-                        def manifestOutputDirectory = manifestProcessorTask.manifestOutputDirectory
-                        manifestOutputDirectory.asFileTree.each { File file->
-                            // 清单文件
-                            if (file.name == Constant.FILE_NAME_ANDROID_MANIFEST_XML){
-                                println("${manifestProcessorTask.path} -> ${file.absolutePath}")
-                                // 属于本项目的build文件夹
-                                if (file.absolutePath.startsWith(project.buildDir.absolutePath)) {
-                                    def manifestFile = file
-                                    def newManifestFile = new File(file.absolutePath)
-                                    def manifestXmlParser = new XmlSlurper().parse(manifestFile)
-
-                                    RunAppConfigUtils.applyMainActivity(manifestXmlParser, runAppConfig)
-                                    RunAppConfigUtils.applyAutoInitializer(manifestXmlParser)
-
-                                    Object builder = Class.forName("groovy.xml.StreamingMarkupBuilder").getDeclaredConstructor().newInstance();
-                                    InvokerHelper.setProperty(builder, "encoding", "UTF-8");
-                                    // Writable w = (Writable)InvokerHelper.invokeMethod(builder, "bindNode", manifestXmlParser);
-                                    // println("${w.toString()}")
-                                    newManifestFile.withWriter {out->
-                                        XmlUtil.serialize(manifestXmlParser, out)
-                                    }
-
+                        immutable = true
+                        if (callbacks.isEmpty()) {
+                            return
+                        }
+                        File file = null
+                        if (manifestProcessorTask instanceof ProcessApplicationManifest) {
+                            def manifestOutputDirectory = manifestProcessorTask.manifestOutputDirectory
+                            manifestOutputDirectory.asFileTree.each {
+                                if (it.name == Constant.FILE_NAME_ANDROID_MANIFEST_XML) {
+                                    file = it
                                 }
+                            }
+                        } else if (manifestProcessorTask instanceof ProcessLibraryManifest) {
+                            file = manifestProcessorTask.manifestOutputFile.asFile.get()
+                        }
+                        // print("hook file: ${file.absolutePath}")
+                        if (file != null) {
+                            if (file.absolutePath.startsWith(project.buildDir.absolutePath)) {
+                                def manifestFile = file
+                                def newManifestFile = new File(file.absolutePath)
+                                def topNode = new XmlParser().parse(manifestFile)
+                                callbacks.each {
+                                    ConfigureUtil.configure(it, topNode)
+                                }
+
+                                newManifestFile.withWriter { out ->
+                                    XmlUtil.serialize(topNode, out)
+                                }
+
                             }
                         }
                     }
                 }
             }
-            if (variant instanceof ApkVariantImpl) {
-                variant.processJavaResources
-            }
+        }
+        if (project.plugins.findPlugin(Constant.PLUGIN_ID_ANDROID_APP)) {
+            AndroidUtils.forAppEachVariant(project, action)
+        } else {
+            AndroidUtils.forLibraryEachVariant(project, action)
         }
     }
 
@@ -140,13 +163,26 @@ class RunAppConfigUtils {
     static def applyAutoInitializer = { GPathResult manifestXmlParser ->
         def application = manifestXmlParser.application[0]
         def applicationId= manifestXmlParser.@"package"
+//        def applicationName = application.@"android:name"
+//        String applicationNameValue = "${applicationName}"
+//        if (applicationNameValue.isEmpty()) {
             println("P2M open auto initialization")
+            def providerIndex = application.children().size()
+            // println("providerIndex = ${providerIndex}")
             application.appendNode{
                 provider(
                         "android:authorities": "${applicationId}.auto-initialize",
-                        "android:name": "com.p2m.core.internal.module.alone.run.AutoInitializerForDebug",
+                        "android:name": "com.p2m.core.internal.module.alone.run.AutoInitializerForDebugModule",
                         "android:exported": "false",
                 )
+                //"provider".@"android:authorities"="com.p2m.core.auto-initialize"()
             }
+            // application.children().getAt(providerIndex).attributes().put()
+//            def providerNodeChild = application.children().getAt(providerIndex).getAt(0)
+//            println("providerNodeChild = ${providerNodeChild}")
+//            providerNodeChild.@"android:authorities" = "com.p2m.core.auto-initializer"
+//            providerNodeChild.@"android:name" = "com.p2m.core.internal.module.alone.run.AutoInitializer"
+//            providerNodeChild.@"android:exported" = "false"
+//        }
     }
 }

@@ -7,7 +7,7 @@ import com.p2m.core.module.task.Task
 import com.p2m.core.module.task.TaskOutputProvider
 import com.p2m.example.account.pre_api.LoginUserInfo
 import com.p2m.example.account.UserDiskCache
-import com.p2m.module.api.Account
+import com.p2m.example.account.p2m.api.Account
 import kotlin.concurrent.thread
 
 // 读取登录用户信息的任务，input:UserDiskCache output:LoginUserInfo

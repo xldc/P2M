@@ -12,7 +12,7 @@ buildscript {
 
     dependencies {
         classpath 'com.android.tools.build:gradle:4.0.2'        // 支持3.4.0以上
-        classpath 'com.github.wangdaqi77.P2M:p2m-plugin:0.0.9'  // P2M插件
+        classpath 'com.github.wangdaqi77.P2M:p2m-plugin:0.0.10'  // P2M插件
     }
 }
 
@@ -43,6 +43,7 @@ p2m {                                       // 声明组件化
         include(":module-main")             // 声明project描述
         dependencies {                      // 依赖的模块
             module("Account")
+            module("None")
         }
         runApp = false                      // 运行app开关, applicationId等配置在module-main/build.gradle中的whenRunApp{}
 

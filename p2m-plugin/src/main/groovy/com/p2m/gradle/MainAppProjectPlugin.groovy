@@ -1,6 +1,9 @@
 package com.p2m.gradle
 
-import com.p2m.gradle.bean.AppProject
+import com.p2m.gradle.bean.AppProjectUnit
+import com.p2m.gradle.bean.LocalModuleProjectUnit
+import com.p2m.gradle.bean.ModuleProjectUnit
+import com.p2m.gradle.bean.RemoteModuleProjectUnit
 import com.p2m.gradle.utils.GenerateModuleAutoCollectorJavaTaskRegister
 import com.p2m.gradle.utils.RunAppConfigUtils
 import org.gradle.api.Project
@@ -10,12 +13,12 @@ import org.gradle.api.artifacts.dsl.DependencyHandler
  * App壳工程插件
  */
 class MainAppProjectPlugin extends BaseSupportDependencyModulePlugin {
-    AppProject appProject
+    AppProjectUnit appProject
 
     @Override
     void doAction(Project project) {
         super.doAction(project)
-        appProject = baseProject as AppProject
+        appProject = projectUnit as AppProjectUnit
         project.android {
             if (runAppConfig.enabled) {
                 defaultConfig {
@@ -28,9 +31,27 @@ class MainAppProjectPlugin extends BaseSupportDependencyModulePlugin {
             }
         }
 
-        project.dependencies { DependencyHandler handler ->
-            handler.add("implementation", project._p2mApi())
-            handler.add("implementation", project._p2mAnnotation())
+        project.dependencies { DependencyHandler dependencyHandler ->
+            dependencyHandler.add("implementation", project._p2mApi())
+            dependencyHandler.add("implementation", project._p2mAnnotation())
+
+            project._moduleProjectUnitTable.values().forEach { ModuleProjectUnit moduleProject ->
+                if (moduleProject.project != project) {
+                    if (moduleProject instanceof RemoteModuleProjectUnit) {
+                        remoteDependsOn(dependencyHandler, moduleProject)
+                    }
+
+                    if (moduleProject instanceof LocalModuleProjectUnit) {
+                        if (moduleProject.project.state.executed) {
+                            localDependsOn(project, dependencyHandler, moduleProject)
+                        } else {
+                            moduleProject.project.afterEvaluate {
+                                localDependsOn(project, dependencyHandler, moduleProject)
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         GenerateModuleAutoCollectorJavaTaskRegister.register(appProject, false)

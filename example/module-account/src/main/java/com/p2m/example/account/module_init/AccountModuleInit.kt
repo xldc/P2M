@@ -4,12 +4,12 @@ import android.content.Context
 import com.p2m.annotation.module.ModuleInitializer
 import com.p2m.core.P2M
 import com.p2m.core.module.*
-import com.p2m.module.api.Account
+import com.p2m.example.account.p2m.api.Account
 import com.p2m.core.module.task.TaskOutputProvider
 import com.p2m.core.module.task.TaskRegister
 import com.p2m.core.module.task.TaskUnit
 import com.p2m.example.account.UserDiskCache
-import com.p2m.module.impl.mutable
+import com.p2m.example.account.p2m.impl.mutable
 
 @ModuleInitializer
 class AccountModuleInit : ModuleInit {

@@ -1,15 +1,15 @@
 package com.p2m.gradle.utils
 
-import com.p2m.gradle.bean.AppProject
-import com.p2m.gradle.bean.LocalModuleProject
-import com.p2m.gradle.bean.RemoteModuleProject
+import com.p2m.gradle.bean.AppProjectUnit
+import com.p2m.gradle.bean.LocalModuleProjectUnit
+import com.p2m.gradle.bean.RemoteModuleProjectUnit
 import com.p2m.gradle.bean.settings.AppProjectConfig
 import com.p2m.gradle.bean.settings.ModuleProjectConfig
 
 class ProjectFactory {
 
-    static LocalModuleProject createLocalModuleProject(ModuleProjectConfig moduleConfig) {
-        def moduleProject = new LocalModuleProject()
+    static LocalModuleProjectUnit createLocalModuleProject(ModuleProjectConfig moduleConfig) {
+        def moduleProject = new LocalModuleProjectUnit()
         moduleProject.moduleNamed = moduleConfig._moduleNamed
         moduleProject.groupId = moduleConfig.groupId ?: moduleProject.moduleName
         moduleProject.versionName = moduleConfig.versionName ?: "unspecified"
@@ -18,16 +18,16 @@ class ProjectFactory {
         return moduleProject
     }
 
-    static RemoteModuleProject createRemoteModuleProject(ModuleProjectConfig moduleConfig) {
-        def moduleProject = new RemoteModuleProject()
+    static RemoteModuleProjectUnit createRemoteModuleProject(ModuleProjectConfig moduleConfig) {
+        def moduleProject = new RemoteModuleProjectUnit()
         moduleProject.moduleNamed = moduleConfig._moduleNamed
         moduleProject.groupId = moduleConfig.groupId ?: moduleProject.moduleName
         moduleProject.versionName = moduleConfig.versionName ?: "unspecified"
         return moduleProject
     }
     
-    static AppProject createMainAppProject(AppProjectConfig config) {
-        def appProject = new AppProject()
+    static AppProjectUnit createMainAppProject(AppProjectConfig config) {
+        def appProject = new AppProjectUnit()
         appProject.moduleNamed = config._moduleNamed
         appProject.runAppConfig = config.runAppConfig
         return appProject

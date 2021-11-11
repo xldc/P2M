@@ -12,6 +12,7 @@ import com.p2m.core.internal.module.deriver.InternalDriver
 import com.p2m.core.internal.module.DefaultModuleCollectorFactory
 import com.p2m.core.internal.module.DefaultModuleFactory
 import com.p2m.core.internal.module.ModuleContainerImpl
+import com.p2m.core.internal.module.ModuleFinder
 import com.p2m.core.module.*
 
 @SuppressLint("StaticFieldLeak")
@@ -19,6 +20,7 @@ object P2M : ModuleApiProvider{
     private lateinit var context : Context
     private lateinit var moduleCollector : ModuleCollector
     private lateinit var driver: InternalDriver
+    private lateinit var moduleFinder : ModuleFinder
     private val moduleFactory: ModuleFactory = DefaultModuleFactory()
     private val moduleContainer = ModuleContainerImpl()
     internal val configManager: P2MConfigManager = InternalP2MConfigManager()
@@ -34,23 +36,19 @@ object P2M : ModuleApiProvider{
      * Initialization.
      */
     @MainThread
-    fun init(context: Context, vararg implClazz: String) {
+    fun init(context: Context, vararg externalModuleName: String) {
         check(!this::context.isInitialized) { "`P2M.init()` can only be called once." }
         check(Looper.getMainLooper() === Looper.myLooper()) { "`P2M.init()` must be called on the main thread." }
         val app = App()
         val applicationContext = context.applicationContext
         this.context = applicationContext
+        this.moduleFinder = ModuleFinder(applicationContext)
         this.moduleCollector = DefaultModuleCollectorFactory()
             .newInstance("${applicationContext.packageName}.ModuleAutoCollector")
             .apply {
-                collectExternal(*implClazz)
+                collectExternal(*externalModuleName)
                 injectForCreatedModule(app, moduleContainer)
-                injectForAllUncreatedModule(moduleFactory, moduleContainer) {
-                    app.internalModuleUnit.dependOn(
-                        it.internalModuleUnit.modulePublicClass,
-                        it.internalModuleUnit.moduleImplClass
-                    )
-                }
+                injectForAllFromTop(app, moduleFinder, moduleFactory, moduleContainer)
             }
         this.driver = InternalDriver(applicationContext, app, this.moduleContainer)
         this.driver.considerOpenAwait()

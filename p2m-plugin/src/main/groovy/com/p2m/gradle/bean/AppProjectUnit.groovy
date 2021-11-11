@@ -1,6 +1,6 @@
 package com.p2m.gradle.bean
 
-class AppProject extends BaseProject {
+class AppProjectUnit extends BaseProjectUnit {
     @Override
     String toString() {
         return "${getModuleName()}[${project.path}]"

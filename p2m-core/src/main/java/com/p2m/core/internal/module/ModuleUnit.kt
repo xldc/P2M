@@ -10,13 +10,7 @@ internal class ModuleUnitImpl(
 ) : ModuleUnit {
     private val dependencies = hashSetOf<Class<out Module<*>>>()
 
-    override fun dependOn(publicClass: Class<out Module<*>>, implClassName: String) {
-        @Suppress("UNCHECKED_CAST")
-        val implClass = Class.forName(implClassName) as Class<out Module<*>>
-        dependOn(publicClass, implClass)
-    }
-
-    override fun dependOn(publicClass: Class<out Module<*>>, implClass: Class<out Module<*>>) {
+    override fun dependOn(implClass: Class<out Module<*>>) {
         dependencies.add(implClass)
     }
 

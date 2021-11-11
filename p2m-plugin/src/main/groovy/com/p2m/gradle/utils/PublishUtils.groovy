@@ -1,7 +1,7 @@
 package com.p2m.gradle.utils
 
 import com.android.build.gradle.api.BaseVariant
-import com.p2m.gradle.bean.LocalModuleProject
+import com.p2m.gradle.bean.LocalModuleProjectUnit
 import org.gradle.api.Task
 import org.gradle.api.UnknownTaskException
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository
@@ -14,7 +14,7 @@ import org.jetbrains.kotlin.gradle.internal.KaptTask
 
 class PublishUtils {
 
-    static def createPublish = { LocalModuleProject moduleProject->
+    static def createPublish = { LocalModuleProjectUnit moduleProject->
         def project = moduleProject.project
 
         project.publishing.repositories.maven{ MavenArtifactRepository repository->

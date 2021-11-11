@@ -5,8 +5,8 @@ import android.content.Intent
 import com.p2m.core.P2M
 import com.p2m.annotation.module.api.*
 import com.p2m.example.account.UserDiskCache
-import com.p2m.module.api.Account
-import com.p2m.module.impl.mutable
+import com.p2m.example.account.p2m.api.Account
+import com.p2m.example.account.p2m.impl.mutable
 
 @ApiService
 class AccountService{

@@ -17,11 +17,10 @@ import javax.lang.model.element.Modifier
 
 @CacheableTask
 class GenerateModuleAutoCollector extends DefaultTask {
-    public static final String MODULE_IMPL_PACKAGE = "com.p2m.module.impl"
     public static final String MODULE_AUTO_COLLECTOR = "ModuleAutoCollector"
     public static final String MODULE_AUTO_COLLECTOR_NAME = MODULE_AUTO_COLLECTOR + ".java"
     public static final String MODULE_AUTO_COLLECTOR_SUPER = "com.p2m.core.module.ModuleCollector"
-    private ListProperty<List<String>> modules = project.objects.listProperty(String.class)
+    private ListProperty<List<String>> validDependenciesName = project.objects.listProperty(String.class)
     private Property<String> packageName = project.objects.property(String.class)
 
     private DirectoryProperty sourceOutputDir = project.objects.directoryProperty()
@@ -32,8 +31,8 @@ class GenerateModuleAutoCollector extends DefaultTask {
     }
 
     @Input
-    ListProperty<String> getModules() {
-        return modules
+    ListProperty<String> getValidDependenciesName() {
+        return validDependenciesName
     }
 
     @Input
@@ -67,8 +66,8 @@ class GenerateModuleAutoCollector extends DefaultTask {
             Set constructorModifiers = new HashSet()
             constructorModifiers.add(Modifier.PUBLIC)
             writer.beginConstructor(constructorModifiers)
-            modules.get().forEach {
-                writer.emitStatement("collect(\"%s\")",MODULE_IMPL_PACKAGE + "._" + it)
+            validDependenciesName.get().forEach { moduleName ->
+                writer.emitStatement("collect(\"%s\")", moduleName)
             }
             writer.endConstructor()
             writer.endType();

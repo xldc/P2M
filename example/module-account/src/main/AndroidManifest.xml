@@ -12,6 +12,9 @@
         <activity
             android:name=".pre_api.LoginActivity">
         </activity>
+        <activity
+            android:name=".pre_api.ModifyAccountNameActivity">
+        </activity>
     </application>
 
 </manifest>

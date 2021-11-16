@@ -1,5 +1,5 @@
 group = 'com.github.wangdaqi77.P2M'
-version = '0.0.10'
+version = '0.0.11'
 afterEvaluate {
     if (plugins.hasPlugin('com.android.library')) {
         apply plugin: 'maven-publish'

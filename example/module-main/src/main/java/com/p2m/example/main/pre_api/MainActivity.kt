@@ -5,6 +5,7 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.widget.Button
 import android.widget.TextView
+import android.widget.Toast
 import androidx.lifecycle.Observer
 import com.p2m.core.P2M
 import com.p2m.annotation.module.api.ApiLauncher
@@ -13,6 +14,16 @@ import com.p2m.example.account.p2m.api.Account
 
 @ApiLauncher("Main")
 class MainActivity : AppCompatActivity() {
+
+    private val modifyAccountNameLauncherForActivityResult = P2M.apiOf(Account::class.java)
+        .launcher
+        .activityOfModifyAccountName
+        .registerForActivityResult(this) { resultCode, output ->
+            when(resultCode) {
+                RESULT_OK -> Toast.makeText(this,"修改成功。 output: $output", Toast.LENGTH_SHORT).show()
+                else-> Toast.makeText(this,"修改失败。 output: $output", Toast.LENGTH_SHORT).show()
+            }
+        }
 
     @SuppressLint("SetTextI18n")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -32,7 +43,10 @@ class MainActivity : AppCompatActivity() {
                 }
             })
 
-
+        // 修改用户名
+        findViewById<Button>(R.id.main_btn_modify).setOnClickListener {
+            modifyAccountNameLauncherForActivityResult.launch(Unit)
+        }
 
         // 退出登录
         findViewById<Button>(R.id.main_btn_logout).setOnClickListener {

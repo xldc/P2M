@@ -20,23 +20,17 @@ interface LiveEvent<T>{
         private val real by lazy { InternalLiveEvent<T>() }
 
         operator fun getValue(thisRef: Any?, property: KProperty<*>): LiveEvent<T> = real
-
-        operator fun setValue(thisRef: Any?, property: KProperty<*>, value: LiveEvent<T>) = Unit
     }
 
     class MutableDelegate<T> {
         private val real by lazy { InternalLiveEvent<T>() }
 
         operator fun getValue(thisRef: Any?, property: KProperty<*>): MutableLiveEvent<T> = real
-
-        operator fun setValue(thisRef: Any?, property: KProperty<*>, value: MutableLiveEvent<T>) = Unit
     }
 
     class InternalMutableDelegate<T>(private val real: LiveEvent<T>) {
 
         operator fun getValue(thisRef: Any?, property: KProperty<*>): MutableLiveEvent<T> = real as MutableLiveEvent
-
-        operator fun setValue(thisRef: Any?, property: KProperty<*>, value: MutableLiveEvent<T>) = Unit
     }
 
     fun observe(owner: LifecycleOwner, observer: Observer<in T>)

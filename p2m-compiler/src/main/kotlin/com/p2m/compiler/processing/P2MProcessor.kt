@@ -14,6 +14,7 @@ import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.metadata.KotlinPoetMetadataPreview
 import com.squareup.kotlinpoet.metadata.specs.toTypeSpec
 import com.sun.tools.javac.code.Symbol
+import com.sun.tools.javac.code.Type
 import java.io.File
 import java.io.Writer
 import javax.annotation.processing.Processor
@@ -388,94 +389,6 @@ class P2MProcessor : BaseProcessor() {
         }
     }
 
-    private fun genRealLauncherClassForKotlin(
-        roundEnv: RoundEnvironment,
-        launcherPackageName: String,
-        realLauncherClassSimpleName: String
-    ): Pair<TypeSpec?, MutableMap<String, Element>> {
-
-        val elements = roundEnv.getElementsAnnotatedWith(ApiLauncher::class.java)
-        if (elements.isEmpty()) return null to mutableMapOf()
-
-        val activityTm = elementUtils.getTypeElement(CLASS_ACTIVITY).asType()
-        val serviceTm = elementUtils.getTypeElement(CLASS_SERVICE).asType()
-        val fragmentTm = elementUtils.getTypeElement(CLASS_FRAGMENT).asType()
-        val fragmentTmV4 = elementUtils.getTypeElement(CLASS_FRAGMENT_V4).asType()
-        val fragmentTmAndroidX = elementUtils.getTypeElement(CLASS_FRAGMENT_ANDROID_X).asType()
-
-        val ActivityLauncher = ClassName(PACKAGE_NAME_LAUNCHER, CLASS_ActivityLauncher)
-        val ServiceLauncher = ClassName(PACKAGE_NAME_LAUNCHER, CLASS_ServiceLauncher)
-        val FragmentLauncher = ClassName(PACKAGE_NAME_LAUNCHER, CLASS_FragmentLauncher)
-        val ActivityLauncherDelegate = ClassName.bestGuess("$ActivityLauncher.$CLASS_LAUNCHER_DELEGATE")
-        val ServiceLauncherDelegate = ClassName.bestGuess("$ServiceLauncher.$CLASS_LAUNCHER_DELEGATE")
-        val FragmentLauncherDelegate = ClassName.bestGuess("$FragmentLauncher.$CLASS_LAUNCHER_DELEGATE")
-        val launcherFileSpecBuilder = FileSpec
-            .builder(launcherPackageName, realLauncherClassSimpleName)
-            .addFileComment()
-
-        val launcherTypeBuilder = TypeSpec
-            .classBuilder(realLauncherClassSimpleName)
-        val elementMap = mutableMapOf<String, Element>()
-        for (element in elements) {
-            val launcherAnnotation = element.getAnnotation(ApiLauncher::class.java)
-            val className = element.className()
-            val classSimpleName = className.simpleName
-            ApiLauncher.checkName(launcherAnnotation, className.canonicalName)
-            val propertyName : String= launcherAnnotation.name.takeIf { it !== ApiLauncher.NAME_NULL }
-                ?: classSimpleName
-            val propertySpec : PropertySpec= when {
-                typeUtils.isSubtype(element.asType(), activityTm) -> { // Activity
-                    /*
-                     * val $propertyName: ActivityLauncher by lazy(ActivityLauncher.Delegate(XX::class.java))
-                     */
-                    PropertySpec.builder(name = propertyName, type = ActivityLauncher)
-                        .mutable(false)
-                        .delegate("lazy(%T(%T::class.java))", ActivityLauncherDelegate, className)
-                        .build()
-                }
-                typeUtils.isSubtype(element.asType(), fragmentTm)
-                        || typeUtils.isSubtype(element.asType(), fragmentTmV4)
-                        || typeUtils.isSubtype(element.asType(), fragmentTmAndroidX) -> {
-                    val fragmentClassName = ClassName.bestGuess(
-                        when {
-                            typeUtils.isSubtype(element.asType(), fragmentTmV4) -> CLASS_FRAGMENT_V4
-                            typeUtils.isSubtype(element.asType(), fragmentTmAndroidX) -> CLASS_FRAGMENT_ANDROID_X
-                            typeUtils.isSubtype(element.asType(), fragmentTm) -> CLASS_FRAGMENT
-                            else -> CLASS_FRAGMENT
-                        }
-                    )
-
-                    /*
-                    * val $propertyName: FragmentLauncher<Fragment> by lazy(FragmentLauncher.Delegate{ XX() }})
-                    */
-                    PropertySpec.builder(name = propertyName, type = FragmentLauncher.parameterizedBy(fragmentClassName))
-                        .mutable(false)
-                        .delegate("lazy(%T{ %T() })", FragmentLauncherDelegate, className)
-                        .build()
-                }
-                typeUtils.isSubtype(element.asType(), serviceTm) -> { // Service
-                    /*
-                    * val $propertyName: ServiceLauncher by lazy(ServiceLauncher.Delegate(XX::class.java))
-                    */
-                    PropertySpec.builder(name = propertyName, type = ServiceLauncher)
-                        .mutable(false)
-                        .delegate("lazy(%T(%T::class.java))", ServiceLauncherDelegate, className)
-                        .build()
-                }
-                else -> throw IllegalArgumentException("@ApiLauncher not support in ${className.canonicalName}.")
-            }
-            launcherTypeBuilder.addProperty(propertySpec)
-            elementMap[propertySpec.name] = element
-        }
-
-        val launcherType = launcherTypeBuilder.build()
-        launcherFileSpecBuilder
-            .addType(launcherType)
-            .build()
-//            .writeTo(mFiler)
-        return launcherType to elementMap
-    }
-
     private fun genModuleInitClassForKotlin(
         moduleInitElement: TypeElement,
         apiPackageName: String,
@@ -612,6 +525,7 @@ class P2MProcessor : BaseProcessor() {
             )
         } else {
             genLauncherClassForKotlin(
+                roundEnv,
                 elements,
                 ModuleLauncherClassName,
                 apiName,
@@ -627,6 +541,7 @@ class P2MProcessor : BaseProcessor() {
     }
 
     private fun genLauncherClassForKotlin(
+        roundEnv: RoundEnvironment,
         elements: Set<Element>,
         ModuleLauncherClassName: ClassName,
         apiName: String,
@@ -647,31 +562,80 @@ class P2MProcessor : BaseProcessor() {
         val ActivityLauncherDelegate = ClassName.bestGuess("$ActivityLauncher.$CLASS_LAUNCHER_DELEGATE")
         val ServiceLauncherDelegate = ClassName.bestGuess("$ServiceLauncher.$CLASS_LAUNCHER_DELEGATE")
         val FragmentLauncherDelegate = ClassName.bestGuess("$FragmentLauncher.$CLASS_LAUNCHER_DELEGATE")
+        val DefaultActivityResultContractP2MCompact = ClassName(PACKAGE_NAME_LAUNCHER, CLASS_DefaultActivityResultContractP2MCompact)
+        val ActivityResultContractP2MCompact = ClassName(PACKAGE_NAME_LAUNCHER, CLASS_ActivityResultContractP2MCompact)
+
+        // 收集ActivityResultContract - 支持ResultApi
+        val activityResultContractMap = mutableMapOf<String, TypeElement>()
+        val typeArgumentsMap = mutableMapOf<String, List<TypeName>>()
+        roundEnv.getElementsAnnotatedWith(ApiLauncherActivityResultContractFor::class.java).forEach{ element ->
+            element as TypeElement
+            element.checkKotlinClass()
+            val typeSpec = element.toTypeSpec()
+            check(typeSpec.superclass.toString().startsWith(ActivityResultContractP2MCompact.canonicalName)) {
+                "The super class of ${element.qualifiedName.toString()} must is ${ActivityResultContractP2MCompact.canonicalName}, current: ${typeSpec.superclass}."
+            }
+            val annotation = element.getAnnotation(ApiLauncherActivityResultContractFor::class.java)
+            annotation.launcherName.forEach { launcherName->
+                check(!activityResultContractMap.containsKey(launcherName)) {
+                    "Not allow definite multiple `ActivityResultContract` for $launcherName."
+                }
+                activityResultContractMap[launcherName] = element as TypeElement
+            }
+        }
+
+        val defaultTypeArguments = listOf<TypeName>(ClassName.bestGuess(CLASS_INTENT), ClassName.bestGuess(CLASS_INTENT))
+        elements.forEach { element ->
+            val tm = element.asType()
+            var typeArguments = defaultTypeArguments
+            if (typeUtils.isSubtype(tm, activityTm)) {
+                val launcherAnnotation = element.getAnnotation(ApiLauncher::class.java)
+                val launcherName = launcherAnnotation.launcherName
+                activityResultContractMap[launcherName]?.let {
+                    val activityResultContractElement = it as TypeElement
+                    val parameterizedTypeName = activityResultContractElement.toTypeSpec().superclass as ParameterizedTypeName
+                    typeArguments = parameterizedTypeName.typeArguments
+                }
+                typeArgumentsMap[launcherName] = typeArguments
+            }
+        }
 
         // 接口
         val apiPropertySpecs = elements.map { element ->
+            element as TypeElement
+            val tm = element.asType()
             val launcherAnnotation = element.getAnnotation(ApiLauncher::class.java)
             val className = element.className()
+
             val classSimpleName = className.simpleName
+            val launcherName = launcherAnnotation.launcherName
             ApiLauncher.checkName(launcherAnnotation, className.canonicalName)
-            val propertyNameSuffix : String= launcherAnnotation.name.takeIf { it != ApiLauncher.NAME_NULL }
+            val propertyNameSuffix : String= launcherName.takeIf { it != ApiLauncher.NAME_NO_SET }
                 ?: classSimpleName
             val builder =  when {
                 typeUtils.isSubtype(element.asType(), activityTm) -> { // Activity
                     /*
-                     * val activityOf$propertyNameSuffix: ActivityLauncher
+                     * val activityOf$propertyNameSuffix: ActivityLauncher<I, O>
                      */
-                    PropertySpec.builder(name = "activityOf$propertyNameSuffix", type = ActivityLauncher)
+                    PropertySpec.builder(
+                        name = "activityOf$propertyNameSuffix",
+                        type = ActivityLauncher.parameterizedBy(typeArgumentsMap[launcherName]!!)
+                    )
                         .mutable(false)
+                        .apply {
+                            elementUtils.getKDoc(element)?.apply { addKdoc(this) }
+                            addKdoc("@see %T - origin.", className)
+                            addKdoc("@see %T - activity result contract.", activityResultContractMap[launcherName]?.className() ?: DefaultActivityResultContractP2MCompact)
+                        }
                 }
-                typeUtils.isSubtype(element.asType(), fragmentTm)
-                        || typeUtils.isSubtype(element.asType(), fragmentTmV4)
-                        || typeUtils.isSubtype(element.asType(), fragmentTmAndroidX) -> {
+                typeUtils.isSubtype(tm, fragmentTm)
+                        || typeUtils.isSubtype(tm, fragmentTmV4)
+                        || typeUtils.isSubtype(tm, fragmentTmAndroidX) -> {
                     val fragmentClassName = ClassName.bestGuess(
                         when {
-                            typeUtils.isSubtype(element.asType(), fragmentTmV4) -> CLASS_FRAGMENT_V4
-                            typeUtils.isSubtype(element.asType(), fragmentTmAndroidX) -> CLASS_FRAGMENT_ANDROID_X
-                            typeUtils.isSubtype(element.asType(), fragmentTm) -> CLASS_FRAGMENT
+                            typeUtils.isSubtype(tm, fragmentTmV4) -> CLASS_FRAGMENT_V4
+                            typeUtils.isSubtype(tm, fragmentTmAndroidX) -> CLASS_FRAGMENT_ANDROID_X
+                            typeUtils.isSubtype(tm, fragmentTm) -> CLASS_FRAGMENT
                             else -> CLASS_FRAGMENT
                         }
                     )
@@ -681,21 +645,25 @@ class P2MProcessor : BaseProcessor() {
                     */
                     PropertySpec.builder(name = "fragmentOf$propertyNameSuffix", type = FragmentLauncher.parameterizedBy(fragmentClassName))
                         .mutable(false)
+                        .apply {
+                            elementUtils.getKDoc(element)?.apply { addKdoc(this) }
+                            addKdoc("@see %T - origin.", className)
+                        }
                 }
-                typeUtils.isSubtype(element.asType(), serviceTm) -> { // Service
+                typeUtils.isSubtype(tm, serviceTm) -> { // Service
                     /*
                     * val serviceOf$propertyNameSuffix: ServiceLauncher
                     */
                     PropertySpec.builder(name = "serviceOf$propertyNameSuffix", type = ServiceLauncher)
                         .mutable(false)
+                        .apply {
+                            elementUtils.getKDoc(element)?.apply { addKdoc(this) }
+                            addKdoc("@see %T - origin.", className)
+                        }
                 }
                 else -> throw IllegalArgumentException("@ApiLauncher not support in ${className.canonicalName}.")
             }
-            builder.run {
-                elementUtils.getKDoc(element)?.apply { addKdoc(this) }
-                addKdoc("@see %T - origin.", className)
-                build()
-            }
+            builder.build()
         }
         val apiClassName = ClassName(apiPackageName, apiName)
         val apiTypeSpec = TypeSpec.interfaceBuilder(apiClassName).run {
@@ -707,30 +675,40 @@ class P2MProcessor : BaseProcessor() {
         // 启动器实现类
         val implClassName = ClassName(implPackageName, "_${apiName}")
         val implPropertySpecs = elements.map { element ->
+            val tm = element.asType()
             val launcherAnnotation = element.getAnnotation(ApiLauncher::class.java)
             val className = element.className()
             val classSimpleName = className.simpleName
+            val launcherName = launcherAnnotation.launcherName
             ApiLauncher.checkName(launcherAnnotation, className.canonicalName)
-            val propertyNameSuffix : String= launcherAnnotation.name.takeIf { it != ApiLauncher.NAME_NULL }
+            val propertyNameSuffix : String= launcherAnnotation.launcherName.takeIf { it != ApiLauncher.NAME_NO_SET }
                 ?: classSimpleName
             val builder =  when {
-                typeUtils.isSubtype(element.asType(), activityTm) -> { // Activity
+                typeUtils.isSubtype(tm, activityTm) -> { // Activity
                     /*
-                     * val activityOf$propertyNameSuffix: ActivityLauncher by lazy(ActivityLauncher.Delegate(XX::class.java))
+                     * val activityOf$propertyNameSuffix: ActivityLauncher<I, O> by lazy(ActivityLauncher.Delegate(XX::class.java, XX::class.java))
                      */
-                    PropertySpec.builder(name = "activityOf$propertyNameSuffix", type = ActivityLauncher)
+                    PropertySpec.builder(
+                        name = "activityOf$propertyNameSuffix",
+                        type = ActivityLauncher.parameterizedBy(typeArgumentsMap[launcherName]!!)
+                    )
                         .addModifiers(KModifier.OVERRIDE)
                         .mutable(false)
-                        .delegate("%T(%T::class.java)", ActivityLauncherDelegate, className)
+                        .delegate(
+                            "%T(%T::class.java) { %T() }",
+                            ActivityLauncherDelegate,
+                            className,
+                            activityResultContractMap[launcherName]?.className() ?: DefaultActivityResultContractP2MCompact
+                        )
                 }
-                typeUtils.isSubtype(element.asType(), fragmentTm)
-                        || typeUtils.isSubtype(element.asType(), fragmentTmV4)
-                        || typeUtils.isSubtype(element.asType(), fragmentTmAndroidX) -> {
+                typeUtils.isSubtype(tm, fragmentTm)
+                        || typeUtils.isSubtype(tm, fragmentTmV4)
+                        || typeUtils.isSubtype(tm, fragmentTmAndroidX) -> {
                     val fragmentClassName = ClassName.bestGuess(
                         when {
-                            typeUtils.isSubtype(element.asType(), fragmentTmV4) -> CLASS_FRAGMENT_V4
-                            typeUtils.isSubtype(element.asType(), fragmentTmAndroidX) -> CLASS_FRAGMENT_ANDROID_X
-                            typeUtils.isSubtype(element.asType(), fragmentTm) -> CLASS_FRAGMENT
+                            typeUtils.isSubtype(tm, fragmentTmV4) -> CLASS_FRAGMENT_V4
+                            typeUtils.isSubtype(tm, fragmentTmAndroidX) -> CLASS_FRAGMENT_ANDROID_X
+                            typeUtils.isSubtype(tm, fragmentTm) -> CLASS_FRAGMENT
                             else -> CLASS_FRAGMENT
                         }
                     )
@@ -743,7 +721,7 @@ class P2MProcessor : BaseProcessor() {
                         .mutable(false)
                         .delegate("%T{ %T() }", FragmentLauncherDelegate, className)
                 }
-                typeUtils.isSubtype(element.asType(), serviceTm) -> { // Service
+                typeUtils.isSubtype(tm, serviceTm) -> { // Service
                     /*
                     * val serviceOf$propertyNameSuffix: ServiceLauncher by lazy(ServiceLauncher.Delegate(XX::class.java))
                     */

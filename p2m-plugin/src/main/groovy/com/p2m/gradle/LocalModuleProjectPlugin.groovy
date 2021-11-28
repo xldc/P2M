@@ -2,12 +2,11 @@ package com.p2m.gradle
 
 import com.p2m.gradle.bean.LocalModuleProjectUnit
 import com.p2m.gradle.utils.LastProcessManifestRegister
-import groovy.util.slurpersupport.GPathResult
 import org.gradle.api.Project
 import org.gradle.api.artifacts.dsl.DependencyHandler
 
 /**
- * 当Module提供给其他模块和App使用时，apply这个插件
+ * For local module
  */
 class LocalModuleProjectPlugin extends BaseSupportDependencyModulePlugin {
     private LocalModuleProjectUnit moduleProject

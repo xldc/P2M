@@ -15,15 +15,17 @@ import com.p2m.example.account.p2m.api.Account
 @ApiLauncher("Main")
 class MainActivity : AppCompatActivity() {
 
-    private val modifyAccountNameLauncherForActivityResult = P2M.apiOf(Account::class.java)
-        .launcher
-        .activityOfModifyAccountName
-        .registerForActivityResult(this) { resultCode, output ->
-            when(resultCode) {
-                RESULT_OK -> Toast.makeText(this,"修改成功。 output: $output", Toast.LENGTH_SHORT).show()
-                else-> Toast.makeText(this,"修改失败。 output: $output", Toast.LENGTH_SHORT).show()
+    private val modifyAccountNameLauncherForActivityResult =
+        P2M.apiOf(Account::class.java)
+            .launcher
+            .activityOfModifyAccountName
+            .registerForActivityResult(this) { resultCode, output ->
+                when (resultCode) {
+                    RESULT_OK -> Toast.makeText(this, "修改成功", Toast.LENGTH_SHORT).show()
+                    else -> {
+                    }
+                }
             }
-        }
 
     @SuppressLint("SetTextI18n")
     override fun onCreate(savedInstanceState: Bundle?) {

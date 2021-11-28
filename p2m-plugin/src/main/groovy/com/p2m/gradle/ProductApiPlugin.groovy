@@ -19,7 +19,7 @@ import org.jetbrains.kotlin.gradle.internal.KaptTask
 
 import java.nio.charset.StandardCharsets
 
-class ProductModulePlugin implements Plugin<Project> {
+class ProductApiPlugin implements Plugin<Project> {
     private LocalModuleProjectUnit moduleProject
 
     @Override
@@ -96,7 +96,7 @@ class ProductModulePlugin implements Plugin<Project> {
 
             compileApiProvider.configure {
                 group = Constant.P2M_MODULE_TASK_GROUP
-                description = "compile ${moduleProject.getModuleName()} module api class for ${variantName}"
+                description = "compile api classes of ${moduleProject.getModuleName()} for ${variantName}"
                 dependsOn(kaptKotlin)
                 dependsOn(checkModuleProvider)
                 dependsOn(compileKotlin)

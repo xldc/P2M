@@ -7,7 +7,7 @@ import androidx.annotation.MainThread
 import com.p2m.core.app.App
 import com.p2m.core.config.P2MConfigManager
 import com.p2m.core.internal.config.InternalP2MConfigManager
-import com.p2m.core.internal.log.moduleName
+import com.p2m.core.internal.moduleName
 import com.p2m.core.internal.module.deriver.InternalDriver
 import com.p2m.core.internal.module.DefaultModuleCollectorFactory
 import com.p2m.core.internal.module.DefaultModuleFactory
@@ -55,9 +55,12 @@ object P2M : ModuleApiProvider{
     }
 
     /**
-     * Get a module api by [clazz] of module.
+     * Get instance of `api` by [clazz] of module.
      *
      * @param clazz its class name is defined module name in settings.gradle.
+     *
+     * @see Module
+     * @see ModuleApi
      */
     override fun <MODULE_API : ModuleApi<*, *, *>> apiOf(
         clazz: Class<out Module<MODULE_API>>

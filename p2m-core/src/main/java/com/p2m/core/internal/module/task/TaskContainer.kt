@@ -5,7 +5,7 @@ import com.p2m.core.module.task.TaskFactory
 import com.p2m.core.module.task.TaskUnit
 import com.p2m.core.module.task.TaskRegister
 
-internal interface TaskContainer<UNIT: TaskUnit>{
+internal interface TaskContainer<out UNIT: TaskUnit>{
     /**
      * Found a task in the container.
      */
@@ -18,7 +18,7 @@ internal interface TaskContainer<UNIT: TaskUnit>{
 internal class TaskContainerImpl(
     val topTaskClass: Class<out Task<*, *>>,
     private val taskFactory: TaskFactory
-) : TaskRegister<TaskUnitImpl>, TaskContainer<TaskUnitImpl> {
+) : TaskRegister, TaskContainer<TaskUnitImpl> {
     private val container = HashMap<Class<out Task<*, *>>, TaskUnitImpl>()
 
     val onlyHasTop: Boolean

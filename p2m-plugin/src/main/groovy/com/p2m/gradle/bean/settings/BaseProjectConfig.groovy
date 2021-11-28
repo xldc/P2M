@@ -3,7 +3,6 @@ package com.p2m.gradle.bean.settings
 
 import com.p2m.gradle.bean.ModuleNamed
 import com.p2m.gradle.bean.ProjectNamed
-import com.p2m.gradle.utils.NamedUtils
 import org.gradle.api.initialization.ProjectDescriptor
 import org.gradle.api.initialization.Settings
 import org.gradle.util.ConfigureUtil
@@ -13,6 +12,7 @@ abstract class BaseProjectConfig extends BaseSupportRunAppConfig {
 
     ModuleNamed _moduleNamed
     String _projectPath
+    String _projectDirPath
     Closure<ProjectDescriptor> _projectDescriptorClosure
     ProjectNamed _projectNamed                     // 项目名称
     DependencyContainer _dependencyContainer = new DependencyContainer()        // 依赖的模块
@@ -27,17 +27,11 @@ abstract class BaseProjectConfig extends BaseSupportRunAppConfig {
     }
 
     void include(String path){
-        if (_projectNamed !=null ) throw P2MSettingsException("Not use include repeatedly")
-        _projectNamed = NamedUtils.project(path)
-        this._projectPath = path
+        if (_projectNamed != null ) throw P2MSettingsException("Not use include repeatedly")
+        include(path) { }
     }
 
-    void include(String path, Closure<ProjectDescriptor> c){
-        if (_projectNamed !=null ) throw P2MSettingsException("Not use include repeatedly")
-        _projectNamed = NamedUtils.project(path)
-        this._projectPath = path
-        this._projectDescriptorClosure = c
-    }
+    abstract void include(String path, Closure<ProjectDescriptor> c)
 
     @Override
     int hashCode() {

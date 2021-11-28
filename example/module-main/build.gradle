@@ -1,3 +1,8 @@
+//移除这几个插件声明
+//apply plugin: 'com.android.library'
+//apply plugin: 'kotlin-android'
+//apply plugin: 'kotlin-kapt'
+
 android {
     compileSdkVersion 30
 
@@ -13,6 +18,14 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_1_8
     }
 }
 
@@ -32,7 +45,7 @@ dependencies {
 }
 
 
-// 当该module设置runApp=true时才会配置这里，必须放置文件的底部，以便覆盖以上已配置的值。
+// 当runApp=true时才会配置这里，必须放置文件的底部，以便覆盖以上已配置的值。
 p2mRunAppBuildGradle {
     android {
 
@@ -41,7 +54,7 @@ p2mRunAppBuildGradle {
         }
 
         sourceSets {
-            main {
+            debug {
                 java.srcDirs += 'src/app/java'
                 manifest.srcFile 'src/app/AndroidManifest.xml'
             }

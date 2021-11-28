@@ -13,6 +13,7 @@ import com.squareup.kotlinpoet.*
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.metadata.KotlinPoetMetadataPreview
 import com.squareup.kotlinpoet.metadata.specs.toTypeSpec
+import com.squareup.kotlinpoet.metadata.toImmutableKmClass
 import com.sun.tools.javac.code.Symbol
 import com.sun.tools.javac.code.Type
 import java.io.File
@@ -57,7 +58,7 @@ class P2MProcessor : BaseProcessor() {
     override fun process(annotations: MutableSet<out TypeElement>?, roundEnv: RoundEnvironment): Boolean {
         if (roundEnv.processingOver()){
             // collect classes of the module api scope, final they be compile
-            // into jar provide to dependant module.
+            // into jar provide to external module.
             collectModuleApiClassesToPropertiesFile()
             return true
         }
@@ -79,7 +80,7 @@ class P2MProcessor : BaseProcessor() {
                 exportApiClassPath.add(it.apiClassName)
             }
 
-            // collect and provide annotated ApiUse classes for dependant module
+            // collect and provide annotated ApiUse classes for external module
             collectClassesForAnnotatedApiUse(roundEnv)
 
         }.apply {
@@ -244,17 +245,17 @@ class P2MProcessor : BaseProcessor() {
                 @ModuleInitializer
                 class ${optionModuleName}ModuleInit : ModuleInit{
 
-                    override fun onEvaluate(context: Context, taskRegister: TaskRegister<out TaskUnit>) {
+                    override fun onEvaluate(context: Context, taskRegister: TaskRegister) {
                         // Evaluate stage of itself.
-                        // Here, You can use [taskRegister] to register some task for help initialize module fast,
-                        // and then these tasks will be executed order.
+                        // Here, You can use [taskRegister] to register tasks for help initialize module fast,
+                        // and they will be executed order.
                     }
 
                     override fun onExecuted(context: Context, taskOutputProvider: TaskOutputProvider) {
                         // Executed stage of itself, indicates will completed initialized of the module.
                         // Called when its all tasks be completed and all dependencies completed initialized.
-                        // Here, You can use [taskOutputProvider] to get some output of itself tasks,
-                        // also use [moduleApiProvider] to get some dependency module.
+                        // Here, You can use [taskOutputProvider] to get some output of itself tasks.
+                        // More important to ensure its `Api` area safely.
                     }
                 }
                 
@@ -364,7 +365,7 @@ class P2MProcessor : BaseProcessor() {
             apiFileSpecBuilder.build().writeTo(mFiler)
             implFileSpecBuilder.build().writeTo(mFiler)
 
-            // copy source to provide for dependant
+            // copy source to provide for external module
             // mLogger.info("apiSrcDir:$apiSrcDir")
             // if (!apiSrcDir.exists()) apiSrcDir.mkdirs()
             // apiFileSpecBuilder.build().writeTo(apiSrcDir)
@@ -580,7 +581,7 @@ class P2MProcessor : BaseProcessor() {
                 check(!activityResultContractMap.containsKey(launcherName)) {
                     "Not allow definite multiple `ActivityResultContract` for $launcherName."
                 }
-                activityResultContractMap[launcherName] = element as TypeElement
+                activityResultContractMap[launcherName] = element
             }
         }
 
@@ -930,38 +931,45 @@ class P2MProcessor : BaseProcessor() {
             optionModuleName,
             ApiEvent::class.java
         ) as? TypeElement
-        val eventFieldElements = roundEnv.getElementsAnnotatedWith(ApiEventField::class.java)
-        val eventFieldMap = mutableMapOf(
-            *(eventFieldElements.map { eventFieldElement ->
-                //  @ApiEvent
-                //  public interface ClassName{
-                //      public static final class DefaultImpls {
-                //          @ApiEventField
-                //          public static void eventFieldName$annotations() {
-                //          }
-                //      }
-                //  }
-                val eventFieldName = eventFieldElement.simpleName.toString().split("$")[0]
-                val interfaceName =
-                    eventFieldElement.enclosingElement.enclosingElement.simpleName.toString()
-                check(eventFieldElement.enclosingElement?.enclosingElement?.hasAnnotation(ApiEvent::class.java) == true) {
-                    "${eventFieldElement.simpleName} not use ${ApiEventField::class.java.canonicalName} annotated, because owner $interfaceName interface no use ${ApiEvent::class.java.canonicalName} annotated."
-                }
-                val eventField = eventFieldElement.getAnnotation(ApiEventField::class.java)
-                val kdoc = elementUtils.getKDoc(eventFieldElement)
-                eventFieldName to (eventField to kdoc)
-            }.toTypedArray())
-        )
 
-        return if (eventElement == null) {
+        eventElement?.checkKotlinClass()
+
+        val eventFieldMap = eventElement?.run {
+            val syntheticMethodForAnnotationsMap = mutableMapOf<String, String>()
+            toImmutableKmClass().properties
+                .filter { it.syntheticMethodForAnnotations != null }
+                .forEach {
+                    syntheticMethodForAnnotationsMap[it.syntheticMethodForAnnotations!!.name] = it.name
+                }
+            val syntheticMethodForAnnotations = syntheticMethodForAnnotationsMap.keys
+
+            val eventFieldElements = roundEnv.getElementsAnnotatedWith(ApiEventField::class.java)
+            mutableMapOf(
+                *(eventFieldElements.filter { syntheticMethodForAnnotations.contains(it.simpleName.toString()) }.map { eventFieldElement ->
+                    //  @ApiEvent
+                    //  public interface ClassName{
+                    //      public static final class DefaultImpls {
+                    //          @ApiEventField
+                    //          public static void get${eventFieldName}$annotations() {
+                    //          }
+                    //      }
+                    //  }
+                    val eventFieldName = syntheticMethodForAnnotationsMap[eventFieldElement.simpleName.toString()]!!
+                    val eventField = eventFieldElement.getAnnotation(ApiEventField::class.java)
+                    val kdoc = elementUtils.getKDoc(eventFieldElement)
+                    eventFieldName to (eventField to kdoc)
+                }.toTypedArray())
+            )
+        }
+
+
+        return if (eventFieldMap == null || eventFieldMap.isEmpty()) {
             GenResult(
                 EmptyEventClassName,
                 EmptyEventClassName,
                 true
             )
         } else {
-
-            eventElement.checkKotlinClass()
 
             genEventClassForKotlin(
                 ModuleEventClassName,

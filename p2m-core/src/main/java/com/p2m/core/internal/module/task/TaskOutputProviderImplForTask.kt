@@ -13,6 +13,6 @@ internal class TaskOutputProviderImplForTask constructor(private val taskContain
             "${taskUnit.getOwner().canonicalName} must depend on ${clazz.canonicalName}"
         }
         
-        return ((taskContainer.find(clazz) as TaskUnitImpl).ownerInstance as Task<*, OUTPUT>).output
+        return (taskContainer.find(clazz)?.ownerInstance as? Task<*, OUTPUT>)?.output
     }
 }

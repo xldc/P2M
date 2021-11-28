@@ -5,9 +5,10 @@ import com.p2m.core.module.task.TaskOutputProvider
 import com.p2m.core.module.task.TaskRegister
 import com.p2m.core.module.task.Task
 import com.p2m.core.module.task.TaskUnit
+import com.p2m.annotation.module.ModuleInitializer
 
 /**
- * A [Module] has one [ModuleInit] only.
+ * A [Module] has one [ModuleInit] only, related to [ModuleInitializer].
  *
  * Module initialization has three stages, in the following order:
  *  * evaluate, corresponds to [onEvaluate].
@@ -26,13 +27,13 @@ import com.p2m.core.module.task.TaskUnit
  *
  * Begin initialization for all module by call `P2M.init()` in your custom application.
  *
- * see more at https://github.com/wangdaqi77/P2M
+ * see more at [doc](https://github.com/wangdaqi77/P2M)
  *
- * @see onEvaluate onEvaluate - evaluate stage.
- * @see onExecuted onExecuted - executed stage.
- * @see TaskRegister TaskRegister - register some task.
- * @see Task Task - is the smallest unit in a module to perform initialization.
- * @see TaskOutputProvider TaskOutputProvider - get some task output.
+ * @see onEvaluate - evaluate stage.
+ * @see onExecuted - executed stage.
+ * @see Task - the smallest unit in a module to perform initialization.
+ * @see TaskRegister - register some task.
+ * @see TaskOutputProvider - get some task output.
  *
  */
 interface ModuleInit : OnEvaluateListener, OnExecutedListener
@@ -54,7 +55,7 @@ interface OnEvaluateListener{
      * @see TaskRegister TaskRegister - register some task.
      * @see Task Task - is the smallest unit in a module to perform initialization.
      */
-    fun onEvaluate(context: Context, taskRegister: TaskRegister<out TaskUnit>)
+    fun onEvaluate(context: Context, taskRegister: TaskRegister)
 }
 
 interface OnExecutedListener{
@@ -67,8 +68,8 @@ interface OnExecutedListener{
      *
      * Note:
      *  * It running in main thread.
-     *  * The correct data must be entered in the Api area before the module been completed
-     *  initialized, that can the module be used safely by dependant modules.
+     *  * The correct data must be entered in the `Api` area before the module been completed
+     *  initialized, that can the module be used safely by external modules.
      *
      * @param taskOutputProvider task output provider.
      *
@@ -79,7 +80,7 @@ interface OnExecutedListener{
 
 class EmptyModuleInit : ModuleInit {
 
-    override fun onEvaluate(context: Context, taskRegister: TaskRegister<out TaskUnit>) { }
+    override fun onEvaluate(context: Context, taskRegister: TaskRegister) { }
 
     override fun onExecuted(context: Context, taskOutputProvider: TaskOutputProvider) { }
 }

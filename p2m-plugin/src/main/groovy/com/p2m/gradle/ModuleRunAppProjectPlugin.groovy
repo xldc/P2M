@@ -10,7 +10,7 @@ import org.gradle.api.Project
 import org.gradle.api.artifacts.dsl.DependencyHandler
 
 /**
- * 当Module可以单独运行app时，apply这个插件
+ * For run app of local module.
  */
 class ModuleRunAppProjectPlugin extends BaseSupportDependencyModulePlugin {
     LocalModuleProjectUnit moduleProject

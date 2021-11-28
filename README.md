@@ -5,359 +5,416 @@ P2M
 一个简单、高效、安全、完整的Android组件化框架库。
 
 支持环境:
+ * Kotlin：1.3.20+
  * AGP：3.4.0+
  * Gradle：6.1.1+
 
+阅读本文档时结合[示例工程][example]效果更佳。
+
 P2M是什么？
 ---------
-P2M是完整的组件化工具，它将Project态升级为Module态，支持Module态单独编译、单独运行、打包到仓库等主要功能。
+P2M是完整的组件化工具，它将Project态升级为[Module态](#Module态)。
 
-Project态与Module态简易对比：
-<div class="table-wrap">
-    <table class="confluenceTable">
-        <thead>
-        <tr>
-            <th class="confluenceTh">Project态</th>
-            <th class="confluenceTh">Module态</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr>
-            <td class="confluenceTd">include ':lib-login'</td>
-            <td class="confluenceTd">p2m {
-             <br>&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbspmodule('Login') {
-             <br>&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbspinclude(':lib-login')
-             <br>&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp}
-             <br>}
-            </td>
-        </tr>
-        <tr>
-            <td class="confluenceTd"><img src="https://github.com/wangdaqi77/P2M/blob/master/assets/gradle_project.png" width="260"  alt="image"/></td>
-            <td class="confluenceTd"><img src="https://github.com/wangdaqi77/P2M/blob/master/assets/p2m_module.png" width="260"  alt="image"/></td>
-        </tr>
-        </tbody>
-    </table>
-</div>
+|Project态|Module态|
+|---|---|
+|include ':projectPath'|p2m {<br>    module('YourModuleName') {<br>        include(':projectPath')<br>    }<br>}|
+|<img src="assets/gradle_project.png" width="260"  alt="image"/>|<img src="assets/p2m_module.png" width="260"  alt="image"/>|
 
-Module态
---------
-一个Module态对应是一个模块，一个模块包含[Api区](#Api区)和[Source code区](#Source-code区)。
-
-<img src="https://github.com/wangdaqi77/P2M/blob/master/assets/p2m_module_detail.png" width="450"  alt="image"/><br/>
-
-Api区是对外开放的，Source Code区是对外隐藏的。
-
-模块对外打开了一扇窗口，这扇窗口就是Api区，Source code区可以访问自身和其所依赖模块的Api区。
-
-<img src="https://github.com/wangdaqi77/P2M/blob/master/assets/p2m_module_depend_on_module.png" width="450"  alt="image"/><br/>
-
-我们在Source code区访问Api区：
-```kotlin
-val bApi = P2M.apiOf(B)     // 获取模块B的Api区
-
-val launcher = bApi.launcher     // Api区中的launcher
-val service = bApi.service       // Api区中的service
-val event = bApi.event           // Api区中的event
-```
-
-### Api区
-每个模块的Api区是对外开放的，它们全部由P2M注解处理器编译生成，包含：
- * `launcher` - 启动器，关联注解`@ApiLauncher`，同一模块内可注解多个类，P2M注解处理器会生成相应的接口函数放入`launcher`中，目前支持注解Activity将生成`val activityOf${ApiLauncher.name}() : ActivityLauncher`、注解Fragment将生成`val fragmentOf${ApiLauncher.name}() : FragmentLauncher`、注解Service将生成`val serviceOf${ApiLauncher.name}() : ServiceLauncher`；
- * `service`  - 服务，关联注解`@ApiService`，同一模块内只能注解一个类，P2M注解处理器会提取被注解类的所有公开成员函数放入`service`中，这样外部模块就可以间接调用到该模块的内部实现；
- * `event`    - 事件，关联注解`@ApiEvent`，同一模块内只能注解一个类，P2M注解处理器会提取被注解类中所有被`@ApiEventField`注解的成员变量放入`event`，并根据变量的类型生成[可订阅的事件持有对象][live-event]（概况一下就是类似LiveData，但是比LiveData适合事件场景），用于发送事件和订阅接收事件，`@ApiEventField`可以指定[可订阅的事件持有对象][live-event]发送事件和订阅接收事件是否占用主线程资源。
-
-当模块的Api区需要更新时，我们首先要进行[编译Api区](#如何编译Api区)，这是访问Api区的前提。
-
-### Source code区
-Source code区是指模块内部存放源码的区域，每个模块的Source code区是对外隐藏的，包含：
- * Module init      - 模块初始化，关联`@ModuleInitializer`注解，同一模块内只能注解一个类且必须实现`ModuleInit`接口，每个模块必须声明此类，由开发者编码完成；
- * Implementation   - Api区的具体实现区，由P2M注解处理器生成，该部分开发者无需感知；
- * Feature code     - 内部功能源码区，由开发者编码完成。
-
-模块需要开机后，其Api区才能被其他模块使用，开机是在Module init区，它主要负责完成模块必要的初始化工作。
-
-模块初始化工作有三个阶段：
- * `onEvaluate` - 评估自身阶段，主要用于注册完成自身初始化的任务，它运行在后台线程。
- * `onExecute`  - 执行阶段，其依赖的模块均已完成初始化，将执行本模块注册的任务，每个任务运行在单独的后台线程。
- * `onExecuted` - 完成执行阶段，本模块注册的任务已经执行完毕，这里意味着模块已经完成初始化，它运行在主线程。
-
-模块初始化工作有以下定式：
- * 在一个模块内部，执行顺序一定为`onEvaluate` > `onExecute` > `onExecuted`。
- * 在一个模块内部，如果任务A依赖任务B，执行顺序一定为任务B的`onExecute`> 任务A的`onExecute`。
- * 如果模块A依赖模块B，执行顺序一定为模块B的`onExecuted` > 模块A的`onExecute`。
- * 如果模块A依赖模块B，模块B依赖模块C，执行顺序一定为模块C的`onExecuted` > 模块A的`onExecute`。
-
-了解以上你肯定有一些疑问，如Api区如何设计和使用、初始化阶段应该做些什么的等等，接下来我们从一个示例开始。
-
-示例
-====
-一个App，有三个界面分别为启动界面、登录界面和主界面:
- * 当启动应用时打开启动界面，在启动界面判断如果未登录过跳转到登录界面，否则跳转到主界面显示用户信息。
- * 当在登录成功后跳转到主界面并显示用户信息。
- * 当在主界面点击退出登录跳转到登录界面。
-
-需求分析
+使用P2M
 -------
-经过分析需求，我们将整个应用拆分为2个模块+ 1个app壳：
-* 模块Account：
-    * Api区主要负责对外提供登录界面Intent（启动器）、退登（服务）、登录状态（可订阅的事件持有对象）、登录信息（可订阅的事件持有对象）、登录成功（可订阅的事件持有对象）；
-    * Source code区中的Module Init区负责声明该模块的初始化，模块初始化时负责从本地缓存读取登录状态和登录用户信息，并分别保存到本模块Api区中的事件持有类对象；
-    * Source code区中的Feature code区主要负责登录界面UI和登录逻辑、退登、读写登录相关缓存。
-
-* 模块Main：
-    * Api区主要负责对外提供主界面Intent（启动器）；
-    * Source code区中的Module Init区订阅模块Account的登录状态，每当登录成功时跳转主界面；
-    * Source code区中的Feature code区主要负责主界面UI和逻辑。
-
-* app壳：
-    * 负责调用`P2M.init()`开始初始化（将根据依赖关系安全的初始化所有模块）；
-    * Source code区中的Feature code区在启动界面订阅模块Account的登录状态，如果是登录成功则跳转模块Main的主界面，否则跳转模块Account的登录界面。
-
-整个项目的文件树大致如下：
+P2M支持Module态的[声明](#声明模块)、[声明依赖项](#声明模块的依赖项)、[安全初始化](#Module-init区)、[单独运行](#如何单独运行模块)、[打包到仓库](#如何发布模块到仓库)、[依赖仓库中的模块](#如何依赖仓库中的模块)等主要功能，它将所有的功能集成在`p2m-android`插件中，在`settings.gradle`文件中声明该插件：
 ```
-├── app                                     // app壳
-│   ├── src
-│   │   └── main/kotlin/package
-│   │       ├── MyApp.kt                    // 自定义Application
-│   │       └── SplashActivity.kt           // 启动界面
-│   └── build.gradle
-├── module-account                          // 模块Account
-│   ├── src
-│   │   ├── app/kotlin/package              // 模块作为app独立运行时的包
-│   │   └── main/kotlin/package
-│   │       ├── AccountModuleInit.kt        // 模块Account初始化类
-│   │       ├── AccountEvent.kt             // 模块Account定义事件类
-│   │       ├── AccountService.kt           // 模块Account服务类
-│   │       ├── LoginUserInfo.kt            // 登录用户信息数据类
-│   │       ├── UserDiskCache.kt            // 登录用户缓存管理类，负责读取缓存登录状态、登录信息
-│   │       └── LoginActivity.kt            // 登录界面
-│   └── build.gradle
-├── module-main                             // 模块Main
-│   ├── src
-│   │   ├── app/kotlin/package              // 模块作为app独立运行时的包
-│   │   └── main/kotlin/package
-│   │       ├── MainModuleInit.kt           // 模块Main初始化类
-│   │       └── MainActivity.kt             // 主界面
-│   └── build.gradle
-├── lib-http                                // http库
-│   └── src
-│       └── main/kotlin/package
-│           └── Http.kt                     // Http请求类
-├── build.gradle
-└── settings.gradle                         // P2M项目配置
-```
-
-P2M项目配置
-----------
-位于根项目下的settings.gradle：
-```groovy
-// 务必添加buildscript，否则找不到相关插件
 buildscript {
     repositories {
         google()
         mavenCentral()
-        mavenLocal()
         maven { url 'https://jitpack.io' }
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:4.0.2'            // AGP支持3.4.0+、Gradle 6.1.1+
-        classpath 'com.github.wangdaqi77.P2M:p2m-plugin:last version'
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.4.10'    // Kotlin支持1.3.20+
+        classpath 'com.android.tools.build:gradle:4.0.2'                // AGP支持3.4.0+
+        classpath 'com.github.wangdaqi77.P2M:p2m-plugin:$lastVersion'   // P2M插件
     }
 }
 
-apply plugin: "p2m-android"                     // P2M插件
+// 声明插件
+apply plugin: "p2m-android"
+```
+注意事项：
+ * P2M内部使用了Kotlin和APG，如上在`settings.gradle`文件中必须声明Kotlin依赖和APG依赖，参考示例中工程中[根目录下的settings.gradle](./example/settings.gradle)；
+ * 工程根目录下的`build.gradle`文件中要移除Kotlin依赖和APG依赖，参考示例工程中[根目录下的build.gradle](./example/build.gradle)。
+
+声明插件后，使用`p2m { }`可以配置P2M大多数功能，在`settings.gradle`文件中：
+```
+...
+
+apply plugin: "p2m-android"
 
 p2m {
-    app {                                       // 声明app壳，可声明多个
-        include(":app")                         // 声明project
-        dependencies {                          // 声明依赖的模块，这里表示app壳依赖模块Account和模块Main
-            module("Account")
-            module("Main")
+    app {                                                   // 声明一个app壳，至少声明一个，可声明多个
+        include(":your project path") {                     // 声明project描述
+            projectDir = new File("your project path")      // 声明project文件夹路径，如project文件夹路径与settings.gradle同一层级可不用配置
+        }
+        dependencies {                                      // 声明依赖项，可依赖多个
+            module("YourModuleName1")
+            module("YourModuleName2")
         }
     }
 
-    module("Account") {                         // 声明模块Account
+    module("YourModuleName") {                              // 声明一个模块，驼峰命名，可声明多个
+        include(":your project path") {                     // 声明project描述
+            projectDir = new File("your project path")      // 声明project文件夹路径，如project文件夹路径与settings.gradle同一层级可不用配置
+        }
+        dependencies {                                      // 声明依赖项，可依赖多个
+            module("YourModuleName1")
+            module("YourModuleName2")
+        }
+
+        groupId = "com.repo"    // 组，用于发布模块到仓库或者使用仓库中的模块，默认值模块名
+        versionName = "0.0.1"   // 版本，用于发布模块到仓库或者使用仓库中的模块，默认值unspecified
+
+        useRepo = false         // 使用已经发布到仓库中的模块，true表示使用仓库，false表示使用源码，默认false。
+        runApp = false          // 运行app开关，true表示可以运行app，false表示作为模块，默认值false，applicationId等配置在./your project path/build.gradle中的p2mRunAppBuildGradle{}
+    }
+
+    p2mMavenRepository {                    // 声明maven仓库用于发布和获取模块, 默认为mavenLocal()
+        url = "your maven repository url"   // 仓库地址
+        credentials {                       // 登录信息
+            username = "your user name"
+            password = "your password"
+        }
+    }
+}
+```
+
+注意事项：
+ * P2M规定至少声明一个app壳；
+ * P2M内部将根据配置对app壳和模块自动引用插件`com.android.application`、`com.android.library`、`kotlin-android`和`kotlin-kapt`，对应目录下的`build.gradle`文件中要移除这些插件声明，参考示例工程中[app壳的build.gradle](./example/app/build.gradle)和示例工程中[Main模块的build.gradle](./example/module-main/build.gradle)；
+
+Module态
+--------
+一个Module态对应是一个模块，一个模块包含[Api区](#Api区)和[Source code区](#Source-code区)，Api区会暴露给外部模块，Source Code区是对外隐藏的，它们的可视范围由P2M控制。
+<br/><br/><img src="assets/p2m_module_detail.png" width="600"  alt="image"/><br/>
+
+一个模块使用其他模块的Api区，要依次进行：
+ 1. [声明模块](#声明模块)；
+ 2. [声明依赖项](#声明模块的依赖项)；
+ 3. [编译Api区](#如何编译Api区)。
+
+### 声明模块
+假设有一个工程中包含帐号功能和其他的功能，所有的功能都存放一个project中，它的project文件夹名称是`app`，工程的文件结构大致如下：
+```
+├── app
+│   ├── src
+│   └── build.gradle
+├── build.gradle
+└── settings.gradle
+```
+
+接下来将帐号功能剥离出来作为单独的模块，并称其为帐号模块，它的project文件夹命名为`module-account`，此时工程的文件结构大致如下：
+```
+├── app
+│   ├── src                                 // app壳
+│   └── build.gradle
+├── module-account                          // 帐号模块
+│   ├── src
+│   └── build.gradle
+├── build.gradle
+└── settings.gradle                         // P2M配置
+```
+
+帐号模块在P2M中命名为`Account`，在`settings.gradle`文件中声明：
+```
+p2m {
+    app {                                   // 声明app壳
+        include(":app")
+    }
+    
+    module("Account") {                     // 声明模块
+        include(":module-account")          // 描述project
+    }
+}
+```
+
+如果`module-account`在更深的文件层级，工程的文件结构大致如下：
+```
+├── app
+├── modules
+│   └── module-account                      // 帐号模块
+└── settings.gradle
+```
+
+此时P2M已经无法识别该模块的具体路径，这需要描述该模块的project文件夹路径，在`settings.gradle`文件中：
+```
+p2m {
+    ...
+    
+    module("Account") {
+        include(":module-account") {
+            projectDir = new File("./modules/module-account") // 描述project文件夹路径
+        }
+    }
+}
+```
+
+### 声明模块的依赖项
+模块之间可以建立依赖关系，如A模块依赖B模块：
+ * 对于A模块来说，B模块是**依赖项**；
+ * 对于B模块来说，A模块是**外部模块**；
+ * 此时B模块不能再依赖A模块了，模块之间**禁止互相依赖**。
+
+如果`Main`模块使用`Account`模块，因此`Main`需要依赖`Account`，在`settings.gradle`文件中声明：
+```
+p2m {
+    module("Account") {                         // 声明模块
         include(":module-account")              // 声明project
     }
 
-    module("Main") {                            // 声明模块Main
-        include(":module-main")                 // 声明project
-        dependencies {                          // 声明依赖的模块，这里表示模块Main依赖模块Account
+    module("Main") {
+        include(":module-main")
+        dependencies {                          // 声明依赖项，这里表示Main依赖Account
             module("Account")
         }
     }
 }
-
 ```
 
-整个项目结构如下图所示：
+此时`Account`的Api区暴露给了外部模块`Main`：
+<br/><br/><img src="assets/p2m_module_depend_on_module.png" width="600"  alt="image"/><br/>
 
-<img src="https://github.com/wangdaqi77/P2M/blob/master/assets/p2m_project_example.png" width="400"  alt="image"/><br/>
+模块也可以使用自身的Api区：
+<br/><br/><img src="assets/p2m_module_internal.png" width="260"  alt="image"/><br/>
 
-
-模块Account
------------
- * Api区是对外打开的一扇窗口，因此我们先考虑如何设计Api区：
-
-   * `launcher` - 对外提供登录界面的`Intent`，因此在Source code区定义：
-        ```kotlin
-        /**
-         * 登录Activity
-         *
-         * 登录成功后将发送登录成功的事件[AccountEvent.loginSuccess]，外部模块接收此事件可进行跳转。
-         */
-        @ApiLauncher("Login")
-        class LoginActivity : AppCompatActivity() 
-        ```
-
-        编译后将在Api区生成以下代码：
-        ```kotlin
-        /**
-         * A launcher class of Account module.
-         *
-         * Use `P2M.apiOf(Account).launcher` to get the instance.
-         */
-        public interface AccountModuleLauncher : ModuleLauncher {
-            /**
-             * 登录Activity
-             *
-             * 登录成功后将发送登录成功的事件[AccountEvent.loginSuccess]，外部模块接收此事件可进行跳转。
-             *
-             * @see com.p2m.example.account.pre_api.LoginActivity - origin.
-             */
-            public val activityOfLogin: ActivityLauncher
-        }
-        ```
-     
-   * `service` - 对外提供退出登录功能，因此在Source code区定义：
-        ```kotlin
-        @ApiService
-        class AccountService {
-            fun logout() { }
-        }
-        ```
-        编译后将在Api区生成以下代码（同样会生成文档，此处不再贴出）：
-        ```kotlin
-        public interface AccountModuleService : ModuleService {
-          public fun logout(): Unit
-        }
-        ```
-
-   * `event` - 对外提供登录状态，登录用户信息等，因此在Source code区定义：
-        ```kotlin
-        @ApiEvent
-        interface AccountEvent{
-            @ApiEventField(eventOn = EventOn.MAIN, mutableFromExternal = false)        // 发送、订阅接收事件在主线程
-            val loginInfo: LoginUserInfo?                                           // 登录用户信息
-
-            @ApiEventField                                                             // 发送、订阅接收事件在主线程（等效于@ApiEventField(eventOn = EventOn.MAIN, mutableFromExternal = false)）
-            val loginState: Boolean                                                 // 登录状态
-
-            @ApiEventField(eventOn = EventOn.BACKGROUND, mutableFromExternal = false)  // 发送、订阅接收事件不占用主线程资源
-            val loginSuccess: Boolean                                               // 登录成功
-            
-            @ApiEventField(eventOn = EventOn.MAIN, mutableFromExternal = true)         // mutableFromExternal = true，表示外部模块可以setValue和postValue，为了保证事件的安全性不推荐设置
-            val testMutableEventFromExternal: Int                                   // 用于测试外部可变性
-            
-            val testAPT:Int     // 这个字段没有被注解，因此它将被过滤
-        }
-        ```
-        编译后将在Api区生成以下代码（同样会生成文档，此处不再贴出）：
-        ```kotlin
-        public interface AccountModuleEvent : ModuleEvent {
-          public val loginInfo: LiveEvent<LoginUserInfo?>
-          public val loginState: LiveEvent<Boolean>
-          public val loginSuccess: BackgroundLiveEvent<Unit>
-          public val testMutableEventFromExternal: MutableLiveEvent<Int>
-        }
-        ```
-
- * Module init区是模块开机的地方，开发者根据模块的职责来设计所必要的初始化工作，一般所有的业务模块都会依赖Account模块，因此我们需要在Account模块初始化完成时对其Api区输入正确的数据，这样其他模块可以安全的进行访问了。
-    ```kotlin
-    @ModuleInitializer
-    class AccountModuleInit : ModuleInit {
-
-        // 运行在子线程，用于注册该模块内的任务、组织任务的依赖关系，所有的任务在单独的子线程运行。
-        override fun onEvaluate(taskRegister: TaskRegister) {
-            val userDiskCache = UserDiskCache(context) // 用户本地缓存
-   
-            // 注册读取登录状态的任务, 输入：userDiskCache
-            taskRegister.register(LoadLoginStateTask::class.java, userDiskCache)
-
-            // 注册读取登录用户信息的任务，输入：userDiskCache
-            taskRegister
-                .register(LoadLastUserTask::class.java, userDiskCache)
-                .dependOn(LoadLoginStateTask::class.java) // 执行顺序一定为LoadLoginStateTask.onExecute() > LoadLastUserTask.onExecute()
-        }
-
-        // 运行在主线程，当所有的依赖项完成模块初始化且本模块的任务执行完毕时调用
-        override fun onExecuted(taskOutputProvider: TaskOutputProvider) {
-            val loginState = taskOutputProvider.outputOf(LoadLoginStateTask::class.java) // 获取任务输出-登录状态
-            val loginInfo = taskOutputProvider.outputOf(LoadLastUserTask::class.java)    // 获取任务输出-用户信息
-
-            // 在该模块初始化完成时务必对其Api区输入正确的数据，只有这样才能保证其他模块安全的使用该模块。
-            val accountApi = P2M.apiOf(Account::class.java)                         // 找到自身的Api区
-            accountApi.event.mutable().loginState.setValue(loginState ?: false)     // 保存到事件持有者
-            accountApi.event.mutable().loginInfo.setValue(loginInfo)                // 保存到事件持有者
+app壳也支持声明依赖，在`settings.gradle`文件中：
+```
+p2m {
+    ...
+    
+    app {                                       // 声明App壳
+        include(":app")
+        dependencies {                          // 声明依赖项
+            module("Main")
+            module("Account")
         }
     }
+}
+```
 
-    // 读取登录状态的任务，input:UserDiskCache output:Boolean
-    class LoadLoginStateTask: Task<UserDiskCache, Boolean>() {
+### Api区
+Api区是[模块](#Module态)的一部分，它会暴露给外部模块。
 
-        // 运行在子线程，当所有的依赖项完成模块初始化且所有注册的任务执行完毕时调用
-        override fun onExecute(taskOutputProvider: TaskOutputProvider) {
-            val userDiskCache = input
-            output = userDiskCache.readLoginState()
-        }
+如果把模块比喻成国家，那么Api区就属于外交，因此Api区不能随意暴露一些内容。
+
+P2M限制Api区中只允许提供启动器、服务接口、事件、对外暴露的数据类等，这些类是根据Api区相关的注解在编译时生成，这些操作由P2M处理。
+
+你无需关注生成哪些类文件，你更需要关注的是[如何使用Api区相关的注解](#Api区注解)以及访问Api区的固定方式：
+```kotlin
+val accountApi = P2M.apiOf(Account::class.java)     // Account的api
+val launcher = accountApi.launcher                  // Account中的启动器
+val service = accountApi.service                    // Account中的服务
+val event = accountApi.event                        // Account中的事件
+```
+
+亦可以：
+```kotlin
+val (launcher, service, event) = P2M.apiOf(Account::class.java)
+```
+
+### Api区注解
+Api区主要有三大注解[ApiLauncher](#Api区注解之ApiLauncher)、[ApiService](#Api区注解之ApiService)、[ApiEvent](#Api区注解之ApiEvent)，它们分别是为启动器、服务接口、事件而设计的。
+
+有时模块需要暴露某个数据类给外部模块，该类使用`ApiUse`注解并[编译Api区](#如何编译Api区)后外部模块即可使用，如：
+```kotlin
+@ApiUser
+data class UserInfo(
+    val userId: String,
+    val userName: String,
+)
+```
+
+#### Api区注解之ApiLauncher
+它是为模块的启动器而设计的，同一模块内可注解多个类，需要指定`launcherName`：
+ * 支持注解Activity的子类，将生成`val activityOf$launcherName() : ActivityLauncher`;
+ * 支持注解Fragment的子类，将生成`val fragmentOf$launcherName() : FragmentLauncher`；
+ * 支持注解Service的子类，将生成`val serviceOf$launcherName() : ServiceLauncher`。
+
+例如，外部模块需要使用`Account`模块的登录界面`LoginActivity`，首先在`Account`模块声明：
+```kotlin
+@ApiLauncher(launcherName = "Login")
+class LoginActivity: Activity() {
+    ...
+}
+```
+
+然后[编译Api区](#如何编译Api区)后，外部模块启动`LoginActivity`：
+```kotlin
+P2M.apiOf(Account::class.java)
+    .launcher
+    .activityOfLogin
+    .launch(this)
+```
+当然Activity的启动器还[支持ResultApi](#Activity启动器如何支持ResultApi)。
+
+#### Api区注解之ApiService
+它是为模块的服务接口而设计的，同一模块内只能注解一个类：
+ * 被注解类必须是`public class`；
+ * 被注解类中的所有公开成员方法将会被提取到Api区中。
+
+例如，外部模块需要使用`Account`模块的退出登录功能，首先在`Account`模块声明：
+```kotlin
+@ApiService
+class AccountService {
+    fun logout() {
+        ...
+    }
+}
+```
+
+然后[编译Api区](#如何编译Api区)后，外部模块退出登录：
+```kotlin
+P2M.apiOf(Account::class.java)
+    .service
+    .logout()
+```
+
+#### Api区注解之ApiEvent
+它是为模块的事件而设计的，同一模块内只能注解一个类：
+ * 被注解类必须是`interface`；
+ * 被注解类中所有使用`ApiEventField`注解的成员字段将会转换成[可感知生命周期的可订阅的事件持有类型][live-event]（概况一下就是类似LiveData，但是比LiveData适合事件场景），这些类型用于发送事件和订阅事件。
+   * `ApiEventField`需要指定`eventOn`和`mutableFromExternal`，默认为`@ApiEventField(eventOn = EventOn.MAIN, mutableFromExternal = false)`；
+     * `eventOn = MAIN`表示在主线程维护和接收事件，`eventOn = BACKGROUND`表示在后台线程维护和接收事件；
+     * `mutableFromExternal = false`表示外部模块不可发出事件，为了保证事件的安全性，不推荐外部模块发出事件。
+ * 模块内部通过调用`P2M.apiOf(${moduleName}::class.java).event.mutable()`发出事件；
+
+例如，外部模块需要登录成功后进行跳转，因此`Account`模块需要暴露登录成功的事件，且此事件禁止外部模块更改，首先在`Account`模块声明：
+```kotlin
+@ApiEvent
+interface AccountEvent {
+    @ApiEventField(eventOn = EventOn.BACKGROUND, mutableFromExternal = false)
+    val loginSuccess: Unit
+}
+```
+
+然后[编译Api区](#如何编译Api区)后，外部模块观察该事件：
+```kotlin
+P2M.apiOf(Account::class.java)
+    .event
+    .loginSuccess
+    .observeForeverNoSticky(Observer { _ -> // 相比LiveData.observeForever，不会收到粘值
+        // 跳转...
+    })
+```
+
+### Source code区
+Source code区是[模块](#Module态)的一部分，它是对外隐藏的，主要有三个部分：
+ * [Module init](#Module-init区)          - 模块初始化，由开发者编码完成；
+ * Api implementation   - 模块Api区的具体实现，该部分开发者无需感知；
+ * Feature code         - 模块内部功能编码区，由开发者编码完成。
+
+### Module init区
+Module init区属于[Source code区](#Source-code区)的一部分，它是为模块初始化而设计的。
+
+Module init区需要使用`ModuleInitializer`注解，一个模块内只能有一个类使用这个注解，且该类必须实现`ModuleInit`接口，每个模块必须声明此类。
+
+例如`Account`模块：
+```kotlin
+@ModuleInitializer
+class AccountModuleInit : ModuleInit {
+    // 运行在子线程，可以为本模块注册一些任务用于快速加载数据
+    override fun onEvaluate(context: Context, taskRegister: TaskRegister) {
+        // 用户本地缓存
+        val userDiskCache = UserDiskCache(context)
+        // 注册读取登录状态的任务
+        taskRegister.register(LoadLoginStateTask::class.java, userDiskCache)
+
+        taskRegister.register(ATask::class.java)    // 注册A任务
+        taskRegister.register(BTask::class.java)    // 注册B任务
+        taskRegister.find(ATask::class.java)        // A任务依赖B任务
+            .dependOn(BTask::class.java)
     }
 
-    // 注册读取登录用户信息的任务，input:UserDiskCache output:LoginUserInfo
-    class LoadLastUserTask: Task<UserDiskCache, LoginUserInfo>() {
-
-        // 运行在子线程，当所有的依赖项完成模块初始化且所有注册的任务执行完毕时调用
-        override fun onExecute(taskOutputProvider: TaskOutputProvider) {
-            val loginState = taskOutputProvider.outputOf(LoadLoginStateTask::class.java)
-
-            // 查询用户信息
-            if (loginState == true) {
-                val userDiskCache = input
-                output = userDiskCache.readLoginUserInfo()
-            }
-        }
+    // 运行在主线程，本模块注册的任务已经执行完毕，这里意味着模块即将完成初始化
+    override fun onExecuted(context: Context, taskOutputProvider: TaskOutputProvider) {
+        // 获取任务输出-登录状态
+        val loginState = taskOutputProvider.outputOf(LoadLoginStateTask::class.java) ?: false
+        // 在运行时，Account模块初始化完成后，外部模块才可以使用其Api区，因此在模块初始化时一定要准备好必要的数据或者行为。
+        P2M.apiOf(Account::class.java)
+            .event
+            .mutable()
+            .loginState
+            .setValue(loginState)
     }
-    ```
+}
+```
+更多代码也可以参考示例工程中[Account模块的Module init区](./example/module-account/src/main/java/com/p2m/example/account/module_init)。
 
-更多实现可以查看[所有的示例源代码][example]。
+模块初始化工作有三个阶段：
+ * `onEvaluate()` - 评估自身阶段，主要用于注册任务，它运行在后台线程。
+ * `onExecute()`  - 执行阶段，当模块依赖项均已完成初始化时触发，将执行注册过的任务，每个任务运行在单独的后台线程。
+ * `onExecuted()` - 完成执行阶段，本模块注册的任务已经执行完毕，这里意味着模块即将完成初始化，它运行在主线程。
+
+模块初始化工作有以下定式：
+ * 在模块内部，执行顺序一定为`onEvaluate()` > `onExecute()` > `onExecuted()`。
+ * 在模块内部，如果任务`A`依赖任务`B`，执行顺序一定为任务B的`onExecute()`> 任务A的`onExecute()`。
+ * 如果模块`A`依赖模块`B`，执行顺序一定为模块`B`的`onExecuted()` > 模块A的`onExecute()`。
+ * 如果模块`A`依赖模块`B`且模块`B`依赖模块`C`，执行顺序一定为模块`C`的`onExecuted()` > 模块A的`onExecute()`。
+
+当`Main`模块依赖`Account`模块时，模块初始化的运行时流程图：
+<br/><br/><img src="assets/p2m_module_init.png" width="800"  alt="image"/><br/>
+
+当任务`A`依赖任务`B`，模块内任务的运行时流程图：
+<br/><br/><img src="assets/p2m_module_task_execute.png" width="600"  alt="image"/><br/>
 
 Q&A
 ===
-如何将数据类发布到Api区？
-----------------------
-首先在数据类添加@ApiUse注解，最后[编译Api区](#如何编译Api区)。例如[示例中的LoginUserInfo][LoginUserInfo]
 
 如何编译Api区？
 -------------
-如果Api区使用的相关注解（@ApiLauncher、@ApiService、@ApiEvent、@ApiEventField、@ApiUse）在代码中有增删改操作，需要点击Android Studio中的[Build][AS-Build] > Make Module或者[Build][AS-Build] > Make Project编译项目。
+编写代码时，如果[Api区相关注解](#Api区注解)有增删改操作，手动编译后才能暴露Api区的内容：
+ * 单个模块：点击Android Studio中的[Build][AS-Build] > Make Module；
+ * 所有模块：点击Android Studio中的[Build][AS-Build] > Make Project。
+
+P2M支持增量编译，这大大提高了编译速度。
+
+Activity启动器如何支持ResultApi？
+-------------------------------
+需要使用相关的注解支持：
+ 1. 使用`@ApiLauncher`为Activity声明Activity启动器，可参考示例工程中[Account模块的ModifyAccountNameActivity](./example/module-account/src/main/java/com/p2m/example/account/pre_api/ModifyAccountNameActivity.kt)；
+ 2. 使用`@ApiLauncherActivityResultContractFor`指定一个ActivityResult合约，该注解的`launcherName`与Activity的`launcherName`一致才能匹配关联到Activity，可参考示例工程中[Account模块的ModifyUserNameActivityResultContract](./example/module-account/src/main/java/com/p2m/example/account/pre_api/ModifyUserNameActivityResultContract.kt)；
+
+在[编译Api区](#如何编译Api区)后外部模块就可以使用了，可参考示例工程中[Main模块的MainActivity](./example/module-main/src/main/java/com/p2m/example/main/pre_api/MainActivity.kt)；：
+```kotlin
+
+private val modifyAccountNameLauncherForActivityResult =
+    P2M.apiOf(Account::class.java)
+        .launcher
+        .activityOfModifyAccountName
+        .registerForActivityResult(this) { resultCode, output ->
+            // 接收到结果...
+        }
+
+// 启动界面
+modifyAccountNameLauncherForActivityResult.launch()
+```
 
 如何单独运行模块？
 ------------
-主要需要配置开启运行app和applicationId等：
- 1. 在声明模块代码块中增加`runApp = true`和`useRepo = false`，位于项目根目录下的settings.gradle：
+单独运行模块分为三步：
+ 1. 打开运行开关，在声明模块代码块中增加`runApp = true`和`useRepo = false`，位于工程根目录下的settings.gradle：
     ```groovy
     p2m {
         module("YourModuleName") {
             // ...
-            runApp = true               // true表示可以运行app
-            useRepo = false             // 使用已经发布到仓库中的模块，默认false。
-        }
+            useRepo = false             // 使用已经发布到仓库中的模块，true表示使用仓库，false表示使用源码，默认false
+            runApp = true               // 运行app开关，true表示可以运行app，false表示作为模块，默认false
+        }evaluateModulesFromConfigExtensions
     }
     ```
 
- 2. 在该模块文件夹下的build.gradle声明：
+ 2. 声明必要参数，在该模块文件夹下的`build.gradle`声明，参考示例工程中[Main模块的build.gradle](./example/module-main/build.gradle)：
     ```groovy
-    // 当该module设置`runApp=true`时才会应用这里的配置，必须放置文件的底部，以便覆盖以上已配置的值。
+    // 当`runApp=true`时才会应用这里的配置，必须放置文件的底部，以便覆盖上面的配置。
     p2mRunAppBuildGradle {
         android {
             defaultConfig{
@@ -365,33 +422,33 @@ Q&A
             }
 
             sourceSets {
-                main {
-                    java.srcDirs += 'src/app/java'                      // 在这里需要自定义Application，用于打开P2M驱动
-                    manifest.srcFile 'src/app/AndroidManifest.xml'      // 在这里需要指定自定义的Application
+                debug {
+                    java.srcDirs += 'src/app/java'                      // 在这里需要自定义Application，用于调用P2M.init()
+                    manifest.srcFile 'src/app/AndroidManifest.xml'      // 在这里需要指定自定义的Application，启动界面
                 }
             }
         }
     }
     ```
 
- 3. sync project
+ 3. Sync Project
 
 如何发布模块到仓库？
 --------------------
-发布前需要配置仓库等信息：
- 1. 在声明模块代码块中增加以下配置，位于根项目下的settings.gradle：
+发布模块到仓库需要两步完成：
+ 1. 在声明模块代码块中增加一些配置，位于工程根目录下的`settings.gradle`：
     ```groovy
     p2m {
         module("YourModuleName") {
             // ...
-            groupId = "your.repo.groupId"       // 组，主要用于确定发布的组，默认值模块名
-            versionName = "0.0.1"               // 版本，主要用于确定发布的版本，默认值unspecified
-            useRepo = false                     // 使用已经发布到仓库中的模块，默认false。
+            groupId = "your.repo.groupId"       // 组
+            versionName = "0.0.1"               // 版本
+            useRepo = false
         }
 
-        p2mMavenRepository {                    // 声明maven仓库用于发布和获取模块, 默认为mavenLocal()
+        p2mMavenRepository {                    // 声明maven仓库
             url = "your maven repository url"   // 仓库地址
-            credentials {                       // 登录仓库的用户
+            credentials {                       // 仓库的用户认证信息
                 username = "your user name"
                 password = "your password"
             }
@@ -401,39 +458,39 @@ Q&A
 
  2. 执行发布到仓库的命令
     * linux/mac下：
-    ```shell
-    ./gradlew publish${YourModuleName}      // 用于发布单个模块
-    ./gradlew publishAllModule              // 用于发布所有的模块
-    ```
+      ```shell
+      ./gradlew publish${YourModuleName}      // 用于发布单个模块
+      ./gradlew publishAllModule              // 用于发布所有的模块
+      ```
     * windows下：
-    ```shell
-    gradlew.bat publish${YourModuleName}    // 用于发布单个模块
-    gradlew.bat publishAllModule            // 用于发布所有的模块
-    ```
+      ```shell
+      gradlew.bat publish${YourModuleName}    // 用于发布单个模块
+      gradlew.bat publishAllModule            // 用于发布所有的模块
+      ```
 
-如何依赖已经发布到仓库中的模块？
----------------
-前提是已经将模块打包到了仓库中，然后：
- 1. 在声明模块代码块中增加以下配置，位于根项目下的settings.gradle：
+如何依赖仓库中的模块？
+-------------------
+前提是已经将模块打包到了仓库中，依赖仓库中的模块需要两步完成：
+ 1. 在声明模块代码块中增加以下配置，位于工程根目录下的`settings.gradle`：
     ```groovy
     p2m {
         module("YourModuleName") {
             // ...
-            groupId = "your.repo.groupId"       // 组，主要用于确定发布的组，默认值模块名
-            versionName = "0.0.1"               // 版本，主要用于确定发布的版本，默认值unspecified
-            useRepo = true                      // 使用已经发布到仓库中的模块，默认false。
+            groupId = "your.repo.groupId"       // 组
+            versionName = "0.0.1"               // 版本
+            useRepo = true                      // 使用已经发布到仓库中的模块，true表示使用仓库，false表示使用源码，默认false
         }
 
-        p2mMavenRepository {                    // 声明maven仓库用于发布和获取模块, 默认为mavenLocal()
+        p2mMavenRepository {                    // 声明maven仓库
             url = "your maven repository url"   // 仓库地址
-            credentials {                       // 登录仓库的用户
+            credentials {                       // 仓库的用户认证信息
                 username = "your user name"
                 password = "your password"
             }
         }
     }
     ```
- 2. sync project
+ 2. Sync Project
 
 混淆
 ====
@@ -452,4 +509,4 @@ Q&A
  [AS-Build]: https://developer.android.com/studio/run#reference
  [live-event]: https://github.com/wangdaqi77/live-event
  [example]: https://github.com/wangdaqi77/P2M/tree/master/example
- [LoginUserInfo]: https://github.com/wangdaqi77/P2M/blob/master/example/module-account/src/main/java/com/p2m/example/account/pre_api/LoginUserInfo.kt
+ [LoginUserInfo]: example/module-account/src/main/java/com/p2m/example/account/pre_api/LoginUserInfo.kt

@@ -7,8 +7,7 @@ import org.gradle.api.Project
 import org.gradle.util.ConfigureUtil
 
 /**
- * 当Module可以运行App时apply这个插件
- * 该插件主要提供了p2mRunAppBuildGradle闭包，在闭包内可以配置当运行app时的applicationId等...
+ * For run app of local module.
  */
 class ModuleWhenRunAppConfigPlugin implements Plugin<Project> {
     LocalModuleProjectUnit moduleProject
@@ -21,22 +20,22 @@ class ModuleWhenRunAppConfigPlugin implements Plugin<Project> {
         }
     }
 
-    private def p2mRunAppBuildGradle(LocalModuleProjectUnit moduleProject, Closure c) {
+    private static void p2mRunAppBuildGradle(LocalModuleProjectUnit moduleProject, Closure c) {
         if (!available(moduleProject)) return
 
         ConfigureUtil.configure(c, moduleProject.project)
     }
 
-    private boolean available(LocalModuleProjectUnit moduleProject){
+    private static boolean available(LocalModuleProjectUnit moduleProject){
         if (!moduleProject.runApp){
             moduleProject.project.logger.info(
-                    """
-The following configuration is not in effect, in ${moduleProject.project.projectDir.absolutePath}/build.gradle
+                    """以下配置暂时未生效
+The following configuration is temporarily not effective for ${ModuleProjectUtils.getStatement(moduleProject)}, in ${moduleProject.project.projectDir.absolutePath}/build.gradle
 p2mRunAppBuildGradle {
     ...
 }
 
-If you want the configuration to take effect, please configure in ${moduleProject.project.rootProject.projectDir.absolutePath}/settings.gradle
+If you want let module run app, please configure in ${moduleProject.project.rootProject.projectDir.absolutePath}/settings.gradle:
 p2m {
     ${ModuleProjectUtils.getStatement(moduleProject)} {
         runApp=true
@@ -46,26 +45,26 @@ p2m {
             )
             return false
         }
-        if (moduleProject.runAppConfig.enabled) {
-            moduleProject.project.logger.info(
-                    """
-The following configuration is not in effect, in ${moduleProject.project.projectDir.absolutePath}/build.gradle
-p2mRunAppBuildGradle {
-    ...
-}
-
-If you want the configuration to take effect, please configure in ${moduleProject.project.rootProject.projectDir.absolutePath}/settings.gradle
-p2m {
-    ${ModuleProjectUtils.getStatement(moduleProject)} {
-        runAppConfig {
-            enabled=false
-        }
-    }
-}
-                    """
-            )
-            return false
-        }
+//        if (moduleProject.runAppConfig.enabled) {
+//            moduleProject.project.logger.info(
+//                    """
+//The following configuration is not in effect, in ${moduleProject.project.projectDir.absolutePath}/build.gradle
+//p2mRunAppBuildGradle {
+//    ...
+//}
+//
+//If you want the configuration to take effect, please configure in ${moduleProject.project.rootProject.projectDir.absolutePath}/settings.gradle
+//p2m {
+//    ${ModuleProjectUtils.getStatement(moduleProject)} {
+//        runAppConfig {
+//            enabled=false
+//        }
+//    }
+//}
+//                    """
+//            )
+//            return false
+//        }
         return true
     }
 

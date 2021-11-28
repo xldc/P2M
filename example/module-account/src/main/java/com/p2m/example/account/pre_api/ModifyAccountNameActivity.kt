@@ -20,7 +20,7 @@ import java.util.*
 /**
  * 修改帐号名Activity
  */
-@ApiLauncher("ModifyAccountName")
+@ApiLauncher(launcherName = "ModifyAccountName")
 class ModifyAccountNameActivity : AppCompatActivity() {
     private var loading: ProgressBar? = null
     private var confirm: Button? = null

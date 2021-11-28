@@ -1,4 +1,4 @@
-package com.p2m.core.internal.log
+package com.p2m.core.internal
 
 import com.p2m.core.module.Module
 

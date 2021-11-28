@@ -5,25 +5,27 @@ include ':lib-http'
 buildscript {
     repositories {
         google()
+        mavenLocal()
         mavenCentral()
         maven { url 'https://jitpack.io' }
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:4.0.2'        // 支持3.4.0以上
-        classpath 'com.github.wangdaqi77.P2M:p2m-plugin:0.0.11'  // P2M插件
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.4.10'    // Kotlin支持1.3.20+
+        classpath 'com.android.tools.build:gradle:4.0.2'                // AGP支持3.4.0+
+        classpath 'com.github.wangdaqi77.P2M:p2m-plugin:0.0.12'         // P2M插件
     }
 }
 
 apply plugin: "p2m-android"
 
-p2m {                                       // 声明组件化
+p2m {
 
-    app {                                   // 声明app壳，支持多个声明
+    app {                                   // 声明app壳，至少声明一个，可声明多个
         include(":app") {                   // 声明project描述
-            projectDir = new File("./app")  // project路径
+            projectDir = new File("./app")  // 声明project文件夹路径，如project文件夹路径与settings.gradle同一层级可不用配置
         }
-        dependencies {                      // 依赖的模块
+        dependencies {                      // 声明依赖项，可依赖多个
             module("Account")
             module("Main")
         }
@@ -31,34 +33,35 @@ p2m {                                       // 声明组件化
 
     module("Account") {                     // 声明Login模块
         include(":module-account")          // 声明project描述
-        runApp = false                      // 运行app开关
 
-        groupId = "com.repo"                // 组，主要用于确定发布的组，默认值模块名
-        versionName = "0.0.1"               // 版本，主要用于确定发布的版本，默认值unspecified
-        useRepo = false                     // 使用已经发布到仓库中的模块，默认false。
+        groupId = "com.repo"                // 组
+        versionName = "0.0.1"               // 版本
+
+        useRepo = false                     // 使用已经发布到仓库中的模块，true表示使用仓库，false表示使用源码，默认false
+        runApp = false                      // 运行app开关，true表示可以运行app，false表示作为模块，默认false
     }
 
-    module("Main") {                        // 声明Main模块
-        include(":module-main")             // 声明project描述
-        dependencies {                      // 依赖的模块
+    module("Main") {
+        include(":module-main")
+        dependencies {
             module("Account")
             module("None")
         }
-        runApp = false                      // 运行app开关, applicationId等配置在module-main/build.gradle中的whenRunApp{}
 
-        groupId = "com.repo"                // 组，主要用于确定发布的组，默认值模块名
-        versionName = "0.0.1"               // 版本，主要用于确定发布的版本，默认值unspecified
-        useRepo = false                     // 使用已经发布到仓库中的模块，默认false。
+        groupId = "com.repo"
+        versionName = "0.0.1"
+
+        useRepo = false
+        runApp = false
     }
 
-    module("None") {                        // 声明None模块
-        include(":module-none")             // 声明project描述
-        useRepo = false
+    module("None") {
+        include(":module-none")
     }
 
 //    p2mMavenRepository {                    // 声明maven仓库用于发布和获取模块, 默认为mavenLocal()
 //        url = "your maven repository url"   // 仓库地址
-//        credentials {                       // 登录仓库的用户
+//        credentials {                       // 登录信息
 //            username = "your user name"
 //            password = "your password"
 //        }

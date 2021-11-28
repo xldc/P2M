@@ -63,9 +63,10 @@ interface ActivityLauncher<I, O> {
     /**
      * Register a activity result for that [Activity] class annotated by [ApiLauncher].
      *
-     * Can use [ApiLauncherActivityResultContractFor] to annotated a implement class of
-     * [ActivityResultContractP2MCompact] for the activity, and that implement class must has
-     * empty constructor for internal create.
+     * No need to explicitly pass in a instance of activity result contract during registration,
+     * that instance will auto create, that type is implement class of
+     * [ActivityResultContractP2MCompact] and use [ApiLauncherActivityResultContractFor]
+     * annotated, and that must has a empty constructor.
      *
      * @return a instance of ActivityResultLauncher.
      *
@@ -78,9 +79,10 @@ interface ActivityLauncher<I, O> {
     /**
      * Register a activity result for that [Activity] class annotated by [ApiLauncher].
      *
-     * Can use [ApiLauncherActivityResultContractFor] to annotated a implement class of
-     * [ActivityResultContractP2MCompact] for the activity, and that implement class must has
-     * empty constructor for internal create.
+     * No need to explicitly pass in a instance of activity result contract during registration,
+     * that instance will auto create, that type is implement class of
+     * [ActivityResultContractP2MCompact] and use [ApiLauncherActivityResultContractFor]
+     * annotated, and that must has a empty constructor.
      *
      * @return a instance of ActivityResultLauncher.
      *
@@ -93,9 +95,10 @@ interface ActivityLauncher<I, O> {
     /**
      * Register a activity result for that [Activity] class annotated by [ApiLauncher].
      *
-     * Can use [ApiLauncherActivityResultContractFor] to annotated a implement class of
-     * [ActivityResultContractP2MCompact] for the activity, and that implement class must has
-     * empty constructor for internal create.
+     * No need to explicitly pass in a instance of activity result contract during registration,
+     * that instance will auto create, that type is implement class of
+     * [ActivityResultContractP2MCompact] and use [ApiLauncherActivityResultContractFor]
+     * annotated, and that must has a empty constructor.
      *
      * @return a instance of ActivityResultLauncher.
      *
@@ -108,9 +111,10 @@ interface ActivityLauncher<I, O> {
     /**
      * Launch a activity result for that [Activity] class annotated by [ApiLauncher].
      *
-     * Can use [ApiLauncherActivityResultContractFor] to annotated a implement class of
-     * [ActivityResultContractP2MCompact] for the activity, and that implement class must has
-     * empty constructor for internal create.
+     * No need to explicitly pass in a instance of activity result contract during registration,
+     * that instance will auto create, that type is implement class of
+     * [ActivityResultContractP2MCompact] and use [ApiLauncherActivityResultContractFor]
+     * annotated, and that must has a empty constructor.
      *
      * @return a instance of ActivityResultLauncher.
      *
@@ -123,9 +127,10 @@ interface ActivityLauncher<I, O> {
     /**
      * Launch a activity result for that [Activity] class annotated by [ApiLauncher].
      *
-     * Can use [ApiLauncherActivityResultContractFor] to annotated a implement class of
-     * [ActivityResultContractP2MCompact] for the activity, and that implement class must has
-     * empty constructor for internal create.
+     * No need to explicitly pass in a instance of activity result contract during registration,
+     * that instance will auto create, that type is implement class of
+     * [ActivityResultContractP2MCompact] and use [ApiLauncherActivityResultContractFor]
+     * annotated, and that must has a empty constructor.
      *
      * @return a instance of ActivityResultLauncher.
      *

@@ -10,7 +10,7 @@ import org.gradle.api.Project
 import org.gradle.api.artifacts.dsl.DependencyHandler
 
 /**
- * App壳工程插件
+ * For app
  */
 class MainAppProjectPlugin extends BaseSupportDependencyModulePlugin {
     AppProjectUnit appProject

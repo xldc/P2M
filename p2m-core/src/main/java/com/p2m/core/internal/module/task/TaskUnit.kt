@@ -8,12 +8,14 @@ internal class TaskUnitImpl constructor(private val owner: Class<out Task<*, *>>
 
     override fun getOwner(): Class<out Task<*, *>> = owner
 
-    override fun dependOn(taskClass: Class<out Task<*, *>>) {
+    override fun dependOn(taskClass: Class<out Task<*, *>>): TaskUnit {
         dependencies.add(taskClass)
+        return this
     }
     
-    override fun dependOn(vararg taskClass: Class<out Task<*, *>>) {
+    override fun dependOn(vararg taskClass: Class<out Task<*, *>>): TaskUnit {
         dependencies.addAll(taskClass)
+        return this
     }
 
     override fun getDependencies(): Set<Class<out Task<*, *>>> = dependencies

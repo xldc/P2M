@@ -13,16 +13,16 @@ internal class InternalSafeIntent : Intent {
     constructor(context: Context, cls: Class<*>) :super(context, cls)
 
     override fun setComponent(component: ComponentName?): Intent =
-        throw IllegalStateException("NOT SUPPORT!")
+        throw IllegalStateException("Immutable!")
 
     override fun setClassName(packageName: String, className: String): Intent =
-        throw IllegalStateException("NOT SUPPORT!")
+        throw IllegalStateException("Immutable!")
 
     override fun setClassName(packageContext: Context, className: String): Intent =
-        throw IllegalStateException("NOT SUPPORT!")
+        throw IllegalStateException("Immutable!")
 
     override fun setClass(packageContext: Context, cls: Class<*>): Intent =
-        throw IllegalStateException("NOT SUPPORT!")
+        throw IllegalStateException("Immutable!")
 
     fun setComponentInternal(component: ComponentName?) =
         super.setComponent(component)

@@ -73,7 +73,7 @@ internal class TaskGraphExecutor(override val graph: TaskGraph, private val exec
 
         val countDownLatch = CountDownLatch(dependNodes.size)
         val onDependsNodeComplete = {
-            // Depends node be Completed.
+            // Dependencies be Completed.
             countDownLatch.countDown()
         }
 
@@ -81,7 +81,7 @@ internal class TaskGraphExecutor(override val graph: TaskGraph, private val exec
             runNode(dependNode, onDependsNodeComplete)
         }
 
-        // Wait Depends node be Completed.
+        // Wait dependencies be Completed.
         countDownLatch.await()
     }
 

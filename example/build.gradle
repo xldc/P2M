@@ -1,11 +1,13 @@
 
 buildscript {
-    ext.kotlin_version = "1.3.72"
+    ext.kotlin_version = "1.4.10"
     repositories {
         mavenCentral()
     }
     dependencies {
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+// 移除这几个依赖声明
+//        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.4.10'
+//        classpath 'com.android.tools.build:gradle:4.0.2'
     }
 }
 

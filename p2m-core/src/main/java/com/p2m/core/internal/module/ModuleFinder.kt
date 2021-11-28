@@ -5,7 +5,7 @@ import android.content.pm.PackageManager
 import com.p2m.core.module.Module
 import java.lang.RuntimeException
 
-class ModuleFinder(context: Context) {
+internal class ModuleFinder(context: Context) {
 
     private val table = HashMap<String, Class<out Module<*>>>()
     private val metaData =

@@ -1,6 +1,6 @@
 package com.p2m.core.internal.module
 
-import com.p2m.core.internal.log.moduleName
+import com.p2m.core.internal.moduleName
 import com.p2m.core.module.*
 
 internal interface SafeModuleApiProvider : ModuleApiProvider {

@@ -91,18 +91,18 @@ internal class ModuleGraphExecutor(
         }
 
         val countDownLatch = CountDownLatch(dependNodes.size)
-        val onDependsNodeComplete = {
-            // Depends node be Completed.
+        val onDependenciesComplete = {
+            // Dependencies be Completed.
             countDownLatch.countDown()
         }
 
         dependNodes.forEach { dependNode ->
-            runNode(dependNode, onDependsNodeComplete)
+            runNode(dependNode, onDependenciesComplete)
         }
 
         evaluatingWhenDependingIdle()
 
-        // Wait Depends node be Completed.
+        // Wait dependencies be Completed.
         countDownLatch.await()
     }
 

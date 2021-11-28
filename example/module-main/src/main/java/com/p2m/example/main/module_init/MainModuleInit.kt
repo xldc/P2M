@@ -16,7 +16,7 @@ import com.p2m.core.module.task.TaskUnit
 @ModuleInitializer
 class MainModuleInit : ModuleInit {
 
-    override fun onEvaluate(context: Context, taskRegister: TaskRegister<out TaskUnit>) {
+    override fun onEvaluate(context: Context, taskRegister: TaskRegister) {
 
     }
 

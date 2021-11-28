@@ -6,8 +6,6 @@ import com.p2m.core.module.EmptyModuleLauncher
 import com.p2m.core.module.ModuleApi
 import com.p2m.core.module.ModuleService
 
-internal const val APP_MODULE_NAME = "App"
-
 interface AppModuleService : ModuleService
 
 class AppModuleApi(

@@ -15,7 +15,7 @@ import com.p2m.example.account.p2m.impl.mutable
 class AccountModuleInit : ModuleInit {
 
     // 运行在子线程，用于注册该模块内的任务、组织任务的依赖关系，所有的任务在单独的子线程运行。
-    override fun onEvaluate(context: Context, taskRegister: TaskRegister<out TaskUnit>) {
+    override fun onEvaluate(context: Context, taskRegister: TaskRegister) {
         val userDiskCache = UserDiskCache(context) // 用户本地缓存
 
         // 注册读取登录状态的任务

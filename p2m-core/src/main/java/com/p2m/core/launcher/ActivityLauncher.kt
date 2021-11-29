@@ -147,26 +147,43 @@ abstract class ActivityResultContractP2MCompact<I, O> :
     internal lateinit var activityClazz: Class<*>
 
     /**
-     *  Input fill to intent.
+     * Fill input into created intent.
+     *
+     * @param input - from input of [ActivityResultLauncher.launch].
+     * @param intent - from returns of [createIntent].
      */
-    abstract fun inputFillToIntent(input: I, intent: Intent)
+    abstract fun inputIntoCreatedIntent(input: I, intent: Intent)
+
+    /**
+     * Returns output of result, that will provide to [ActivityResultCallbackP2MCompact].
+     *
+     * @param resultCode - from [Activity.setResult]] of owner activity.
+     * @param intent - from [Activity.setResult]] of owner activity.
+     * @return - output of result.
+     *
+     * @see ActivityLauncher.registerForActivityResult
+     * @see ActivityLauncher.launchForResult
+     */
+    abstract fun outputFromResultIntent(resultCode: Int, intent: Intent?): O?
 
     final override fun createIntent(context: Context, input: I): Intent {
         val intent = if (input is Intent) InternalSafeIntent(input as Intent) else InternalSafeIntent()
         intent.setComponentInternal(ComponentName(context, activityClazz))
-        return intent.also { inputFillToIntent(input, it) }
+        return intent.also { inputIntoCreatedIntent(input, it) }
     }
+
+    final override fun parseResult(resultCode: Int, intent: Intent?): ActivityResultP2MCompact<O> =
+        ActivityResultP2MCompact(resultCode, outputFromResultIntent(resultCode, intent))
 }
 
 class DefaultActivityResultContractP2MCompact : ActivityResultContractP2MCompact<Intent, Intent>() {
 
-    override fun inputFillToIntent(input: Intent, intent: Intent) = Unit
+    override fun inputIntoCreatedIntent(input: Intent, intent: Intent) = Unit
 
-    override fun parseResult(resultCode: Int, intent: Intent?): ActivityResultP2MCompact<Intent> =
-        ActivityResultP2MCompact(resultCode, intent)
+    override fun outputFromResultIntent(resultCode: Int, intent: Intent?): Intent? = intent
 }
 
-class ActivityResultP2MCompact<O>(val resultCode: Int, val output: O?)
+data class ActivityResultP2MCompact<O>(val resultCode: Int, val output: O?)
 
 /**
  * Fill for created intent.

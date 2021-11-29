@@ -21,7 +21,7 @@ class MainActivity : AppCompatActivity() {
             .activityOfModifyAccountName
             .registerForActivityResult(this) { resultCode, output ->
                 when (resultCode) {
-                    RESULT_OK -> Toast.makeText(this, "修改成功", Toast.LENGTH_SHORT).show()
+                    RESULT_OK -> Toast.makeText(this, "修改成功，output: $output", Toast.LENGTH_SHORT).show()
                     else -> {
                     }
                 }

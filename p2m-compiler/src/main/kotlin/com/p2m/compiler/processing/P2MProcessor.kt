@@ -625,7 +625,7 @@ class P2MProcessor : BaseProcessor() {
                         .mutable(false)
                         .apply {
                             elementUtils.getKDoc(element)?.apply { addKdoc(this) }
-                            addKdoc("@see %T - origin.", className)
+                            addKdoc("@see %T - origin.\n", className)
                             addKdoc("@see %T - activity result contract.", activityResultContractMap[launcherName]?.className() ?: DefaultActivityResultContractP2MCompact)
                         }
                 }

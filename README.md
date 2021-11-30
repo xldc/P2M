@@ -22,7 +22,7 @@ P2M是完整的组件化工具，它将Project态升级为[Module态](#Module态
 
 使用P2M
 -------
-P2M支持Module态的[声明](#声明模块)、[声明依赖项](#声明模块的依赖项)、[安全初始化](#Module-init区)、[单独运行](#如何单独运行模块)、[打包到仓库](#如何发布模块到仓库)、[依赖仓库中的模块](#如何依赖仓库中的模块)等主要功能，它将所有的功能集成在`p2m-android`插件中，在`settings.gradle`文件中声明该插件：
+P2M支持Module态的[声明](#声明模块)、[声明依赖项](#声明依赖项)、[安全初始化](#Module-init区)、[单独运行](#如何单独运行模块)、[打包到仓库](#如何发布模块到仓库)、[依赖仓库中的模块](#如何依赖仓库中的模块)等主要功能，它将所有的功能集成在`p2m-android`插件中，在`settings.gradle`文件中声明该插件：
 ```
 buildscript {
     repositories {
@@ -42,10 +42,10 @@ buildscript {
 apply plugin: "p2m-android"
 ```
 注意事项：
- * P2M内部使用了Kotlin和APG，如上在`settings.gradle`文件中必须声明Kotlin依赖和APG依赖，参考示例中工程中[根目录下的settings.gradle](./example/settings.gradle)；
- * 工程根目录下的`build.gradle`文件中要移除Kotlin依赖和APG依赖，参考示例工程中[根目录下的build.gradle](./example/build.gradle)。
+ * P2M内部使用了Kotlin和APG，如上在`settings.gradle`文件中必须声明Kotlin依赖项和APG依赖项，参考示例中工程中[根目录下的settings.gradle](./example/settings.gradle)；
+ * 工程根目录下的`build.gradle`文件中要移除Kotlin依赖项和APG依赖项，参考示例工程中[根目录下的build.gradle](./example/build.gradle)。
 
-声明插件后，使用`p2m { }`可以配置P2M大多数功能，在`settings.gradle`文件中：
+声明插件后，使用`p2m { }`配置大多数功能，在`settings.gradle`文件中：
 ```
 ...
 
@@ -94,16 +94,24 @@ p2m {
 
 Module态
 --------
-一个Module态对应是一个模块，一个模块包含[Api区](#Api区)和[Source code区](#Source-code区)，Api区会暴露给外部模块，Source Code区是对外隐藏的，它们的可视范围由P2M控制。
+一个Module态对应是一个[声明的模块](#声明模块)，模块之间可以[建立依赖关系](#声明依赖项)。
+
+如果有A模块依赖B模块：
+ * 对于A来说，B是**依赖项**；
+ * 对于B来说，A是**外部模块**；
+ * 此时B不能再依赖A了，**模块之间禁止互相依赖**。
+
+一个模块包含一个[Api区](#Api区)和一个[Source code区](#Source-code区)，Api区会暴露给外部模块，Source Code区是对外隐藏的。
 <br/><br/><img src="assets/p2m_module_detail.png" width="600"  alt="image"/><br/>
 
-一个模块使用其他模块的Api区，要依次进行：
- 1. [声明模块](#声明模块)；
- 2. [声明依赖项](#声明模块的依赖项)；
- 3. [编译Api区](#如何编译Api区)。
+每个模块还支持：
+ * [安全初始化](#Module-init区)
+ * [打包到仓库](#如何发布模块到仓库)
+ * [依赖仓库中的模块](#如何依赖仓库中的模块)
+ * [单独运行](#如何单独运行模块)
 
 ### 声明模块
-假设有一个工程中包含帐号功能和其他的功能，所有的功能都存放一个project中，它的project文件夹名称是`app`，工程的文件结构大致如下：
+假设有一个工程包含帐号功能和其他的功能，所有的功能都存放一个project中，它的project文件夹名称是`app`，工程的文件结构大致如下：
 ```
 ├── app
 │   ├── src
@@ -158,12 +166,7 @@ p2m {
 }
 ```
 
-### 声明模块的依赖项
-模块之间可以建立依赖关系，如A模块依赖B模块：
- * 对于A模块来说，B模块是**依赖项**；
- * 对于B模块来说，A模块是**外部模块**；
- * 此时B模块不能再依赖A模块了，模块之间**禁止互相依赖**。
-
+### 声明依赖项
 如果`Main`模块使用`Account`模块，因此`Main`需要依赖`Account`，在`settings.gradle`文件中声明：
 ```
 p2m {
@@ -206,27 +209,29 @@ Api区是[模块](#Module态)的一部分，它会暴露给外部模块。
 
 如果把模块比喻成国家，那么Api区就属于外交，因此Api区不能随意暴露一些内容。
 
-P2M限制Api区中只允许提供启动器、服务接口、事件、对外暴露的数据类等，这些类是根据Api区相关的注解在编译时生成，这些操作由P2M处理。
+P2M限制Api区中只允许提供启动器、服务接口、事件、对外暴露的数据类等内容，它们是根据[Api区相关的注解](#Api区注解)在[编译Api区](#如何编译Api区)后生成。
 
-你无需关注生成哪些类文件，你更需要关注的是[如何使用Api区相关的注解](#Api区注解)以及访问Api区的固定方式：
+你无需关注会生成的具体内容，你更需要了解在[编译Api区](#如何编译Api区)后，外部模块可以在代码中访问Api区：
 ```kotlin
 val accountApi = P2M.apiOf(Account::class.java)     // Account的api
 val launcher = accountApi.launcher                  // Account中的启动器
 val service = accountApi.service                    // Account中的服务
 val event = accountApi.event                        // Account中的事件
 ```
-
 亦可以：
 ```kotlin
 val (launcher, service, event) = P2M.apiOf(Account::class.java)
 ```
 
 ### Api区注解
-Api区主要有三大注解[ApiLauncher](#Api区注解之ApiLauncher)、[ApiService](#Api区注解之ApiService)、[ApiEvent](#Api区注解之ApiEvent)，它们分别是为启动器、服务接口、事件而设计的。
+[Api区](#Api区)主要有三大注解，它们分别是为启动器、服务接口、事件而设计的：
+ * [ApiLauncher](#Api区注解之ApiLauncher) - 启动器
+ * [ApiService](#Api区注解之ApiService) - 服务接口
+ * [ApiEvent](#Api区注解之ApiEvent) - 事件
 
-有时模块需要暴露某个数据类给外部模块，该类使用`ApiUse`注解并[编译Api区](#如何编译Api区)后外部模块即可使用，如：
+有时外部模块要使用模块内部的一些数据类，这些类使用`ApiUse`注解在[编译Api区](#如何编译Api区)后，这些类将会放入到Api区中，如：
 ```kotlin
-@ApiUser
+@ApiUse
 data class UserInfo(
     val userId: String,
     val userName: String,
@@ -234,10 +239,10 @@ data class UserInfo(
 ```
 
 #### Api区注解之ApiLauncher
-它是为模块的启动器而设计的，同一模块内可注解多个类，需要指定`launcherName`：
- * 支持注解Activity的子类，将生成`val activityOf$launcherName() : ActivityLauncher`;
- * 支持注解Fragment的子类，将生成`val fragmentOf$launcherName() : FragmentLauncher`；
- * 支持注解Service的子类，将生成`val serviceOf$launcherName() : ServiceLauncher`。
+`ApiLauncher`是为模块的启动器而设计的，同一模块内可注解多个类，需要指定`launcherName`：
+ * 支持注解Activity的子类，将为其生成启动器`val activityOf$launcherName() : ActivityLauncher`;
+ * 支持注解Fragment的子类，将为其生成启动器`val fragmentOf$launcherName() : FragmentLauncher`；
+ * 支持注解Service的子类，将为其生成启动器`val serviceOf$launcherName() : ServiceLauncher`。
 
 例如，外部模块需要使用`Account`模块的登录界面`LoginActivity`，首先在`Account`模块声明：
 ```kotlin
@@ -247,31 +252,30 @@ class LoginActivity: Activity() {
 }
 ```
 
-然后[编译Api区](#如何编译Api区)后，外部模块启动`LoginActivity`：
+在[编译Api区](#如何编译Api区)后，外部模块启动`Account`模块的`LoginActivity`调用：
 ```kotlin
 P2M.apiOf(Account::class.java)
     .launcher
     .activityOfLogin
     .launch(this)
 ```
-当然Activity的启动器还[支持ResultApi](#Activity启动器如何支持ResultApi)。
+Activity的启动器还[支持ResultApi](#Activity启动器如何支持ResultApi)。
 
 #### Api区注解之ApiService
-它是为模块的服务接口而设计的，同一模块内只能注解一个类：
- * 被注解类必须是`public class`；
+`ApiService`是为模块的服务接口而设计的，同一模块内只能注解一个类：
+ * 被注解类必须是`class`；
  * 被注解类中的所有公开成员方法将会被提取到Api区中。
 
 例如，外部模块需要使用`Account`模块的退出登录功能，首先在`Account`模块声明：
 ```kotlin
 @ApiService
 class AccountService {
-    fun logout() {
+    fun logout() {              // logout()会被提取到Api区中
         ...
     }
 }
 ```
-
-然后[编译Api区](#如何编译Api区)后，外部模块退出登录：
+在[编译Api区](#如何编译Api区)后，外部模块退出登录调用：
 ```kotlin
 P2M.apiOf(Account::class.java)
     .service
@@ -279,7 +283,7 @@ P2M.apiOf(Account::class.java)
 ```
 
 #### Api区注解之ApiEvent
-它是为模块的事件而设计的，同一模块内只能注解一个类：
+`ApiEvent`是为模块的事件而设计的，同一模块内只能注解一个类：
  * 被注解类必须是`interface`；
  * 被注解类中所有使用`ApiEventField`注解的成员字段将会转换成[可感知生命周期的可订阅的事件持有类型][live-event]（概况一下就是类似LiveData，但是比LiveData适合事件场景），这些类型用于发送事件和订阅事件。
    * `ApiEventField`需要指定`eventOn`和`mutableFromExternal`，默认为`@ApiEventField(eventOn = EventOn.MAIN, mutableFromExternal = false)`；
@@ -296,7 +300,7 @@ interface AccountEvent {
 }
 ```
 
-然后[编译Api区](#如何编译Api区)后，外部模块观察该事件：
+在[编译Api区](#如何编译Api区)后，外部模块观察该事件调用：
 ```kotlin
 P2M.apiOf(Account::class.java)
     .event
@@ -313,9 +317,9 @@ Source code区是[模块](#Module态)的一部分，它是对外隐藏的，主�
  * Feature code         - 模块内部功能编码区，由开发者编码完成。
 
 ### Module init区
-Module init区属于[Source code区](#Source-code区)的一部分，它是为模块初始化而设计的。
+Module init区是[Source code区](#Source-code区)的一部分，它是为模块初始化而设计的。
 
-Module init区需要使用`ModuleInitializer`注解，一个模块内只能有一个类使用这个注解，且该类必须实现`ModuleInit`接口，每个模块必须声明此类。
+模块初始化需要使用`ModuleInitializer`注解，一个模块内只能有一个类使用这个注解，且该类必须实现`ModuleInit`接口，每个模块必须声明此类。
 
 例如`Account`模块：
 ```kotlin
@@ -380,8 +384,8 @@ P2M支持增量编译，这大大提高了编译速度。
 Activity启动器如何支持ResultApi？
 -------------------------------
 需要使用相关的注解支持：
- 1. 使用`@ApiLauncher`为Activity声明Activity启动器，可参考示例工程中[Account模块的ModifyAccountNameActivity](./example/module-account/src/main/java/com/p2m/example/account/pre_api/ModifyAccountNameActivity.kt)；
- 2. 使用`@ApiLauncherActivityResultContractFor`指定一个ActivityResult合约，该注解的`launcherName`与Activity的`launcherName`一致才能匹配关联到Activity，可参考示例工程中[Account模块的ModifyUserNameActivityResultContract](./example/module-account/src/main/java/com/p2m/example/account/pre_api/ModifyUserNameActivityResultContract.kt)；
+ * 使用`@ApiLauncher`为Activity声明Activity启动器，可参考示例工程中[Account模块的ModifyAccountNameActivity](./example/module-account/src/main/java/com/p2m/example/account/pre_api/ModifyAccountNameActivity.kt)；
+ * 使用`@ApiLauncherActivityResultContractFor`指定一个ActivityResult合约，该注解的`launcherName`与Activity的`launcherName`一致才能匹配关联到Activity，可参考示例工程中[Account模块的ModifyUserNameActivityResultContract](./example/module-account/src/main/java/com/p2m/example/account/pre_api/ModifyUserNameActivityResultContract.kt)；
 
 在[编译Api区](#如何编译Api区)后外部模块就可以使用了，可参考示例工程中[Main模块的MainActivity](./example/module-main/src/main/java/com/p2m/example/main/pre_api/MainActivity.kt)；：
 ```kotlin
@@ -408,7 +412,7 @@ modifyAccountNameLauncherForActivityResult.launch()
             // ...
             useRepo = false             // 使用已经发布到仓库中的模块，true表示使用仓库，false表示使用源码，默认false
             runApp = true               // 运行app开关，true表示可以运行app，false表示作为模块，默认false
-        }evaluateModulesFromConfigExtensions
+        }
     }
     ```
 

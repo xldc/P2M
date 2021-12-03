@@ -9,6 +9,7 @@ import android.widget.Toast
 import androidx.lifecycle.Observer
 import com.p2m.core.P2M
 import com.p2m.annotation.module.api.ApiLauncher
+import com.p2m.core.launcher.OnActivityLaunchIntercept
 import com.p2m.example.main.R
 import com.p2m.example.account.p2m.api.Account
 
@@ -47,7 +48,12 @@ class MainActivity : AppCompatActivity() {
 
         // 修改用户名
         findViewById<Button>(R.id.main_btn_modify).setOnClickListener {
-            modifyAccountNameLauncherForActivityResult.launch(Unit)
+            modifyAccountNameLauncherForActivityResult.launch(null, onIntercept = object : OnActivityLaunchIntercept{
+                override fun onIntercept() {
+
+                }
+
+            })
         }
 
         // 退出登录

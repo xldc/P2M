@@ -17,7 +17,6 @@ class MyApp: Application() {
                 }
             }
         }
-
         P2M.init(this)
     }
 }

@@ -31,8 +31,7 @@ class MainModuleInit : ModuleInit {
                 P2M.apiOf(Main::class.java)
                     .launcher
                     .activityOfMain
-                    .createIntent(context)
-                    .run {
+                    .launch(context) {
                         addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         context.startActivity(this)

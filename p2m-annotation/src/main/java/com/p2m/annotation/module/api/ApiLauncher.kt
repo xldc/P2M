@@ -4,7 +4,7 @@ package com.p2m.annotation.module.api
  * A class uses this annotation will generate a launch property for launcher of `Api` area.
  *
  * Use `P2M.apiOf(${moduleName}::class.java).launcher` to get `launcher` instance,
- * that `moduleName` is defined in settings.gradle.
+ * that `moduleName` is defined in `settings.gradle`.
  *
  * Supports:
  *  * Activity - will generate a property for launch activity,
@@ -16,21 +16,34 @@ package com.p2m.annotation.module.api
  *  * Service  - will generate a property for launch service,
  *  that property name is serviceOf[launcherName].
  *
- * @property launcherName - default is class name on annotated.
+ * For example, has a `Activity` for login in `Account` module:
+ * ```kotlin
+ * @ApiLauncher("Login")
+ * class LoginActivity : Activity()
+ * ```
+ *
+ * then launch in `activity` of external module:
+ * ```kotlin
+ * val fragment = P2M.apiOf(Account)
+ *      .launcher
+ *      .activityOfLogin
+ *      .launch(this)
+ * ```
+ *
+ * @property launcherName - used to generate property names, it follows the hump nomenclature.
  *
  * @see ApiLauncherActivityResultContractFor - specify a activity result contract for this
  * activity.
  */
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.BINARY)
-annotation class ApiLauncher(val launcherName: String = NAME_NO_SET){
+annotation class ApiLauncher(val launcherName: String){
     companion object{
         private val NAME_REGEX = Regex( "^[A-Z][A-Za-z0-9]*$")
-        const val NAME_NO_SET = ""
 
         fun checkName(launch: ApiLauncher, clazzName: String){
-            check(launch.launcherName == NAME_NO_SET || launch.launcherName.matches(NAME_REGEX)) {
-                "The ApiLauncher(name = \"${launch.launcherName}\") at class $clazzName, that name must matches ${NAME_REGEX.pattern}, like Login or LoginPhone or LoginPhone1"
+            check(launch.launcherName.isEmpty() || launch.launcherName.matches(NAME_REGEX)) {
+                "The ApiLauncher(name = \"${launch.launcherName}\") at class $clazzName, that name must matches ${NAME_REGEX.pattern}, "
             }
         }
     }

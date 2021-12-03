@@ -1,7 +1,7 @@
 package com.p2m.core.module
 
 import com.p2m.core.internal.module.ModuleContainerImpl
-import com.p2m.core.internal.module.ModuleFinder
+import com.p2m.core.internal.module.ManifestModuleFinder
 
 abstract class ModuleCollector {
     private val modules = mutableSetOf<String>()
@@ -10,18 +10,25 @@ abstract class ModuleCollector {
         modules.add(moduleName)
     }
 
-    internal fun collectExternal(vararg moduleName: String) {
-        modules.addAll(moduleName.asList())
+    internal fun injectForExternal(
+        manifestModuleFinder: ManifestModuleFinder,
+        moduleFactory: ModuleFactory,
+        moduleContainer: ModuleContainerImpl,
+        vararg moduleImplClass: String
+    ) {
+        for (implClass in moduleImplClass) {
+            injectModule(manifestModuleFinder, moduleFactory, moduleContainer, implClass)
+        }
     }
 
     internal fun injectForAllFromTop(
         topModule: Module<*>,
-        moduleFinder: ModuleFinder,
+        manifestModuleFinder: ManifestModuleFinder,
         moduleFactory: ModuleFactory,
         moduleContainer: ModuleContainerImpl
     ) {
         for (moduleName in modules) {
-            injectModule(moduleFinder, moduleFactory, moduleContainer, moduleName).also {
+            injectModule(manifestModuleFinder, moduleFactory, moduleContainer, moduleName).also {
                 topModule.internalModuleUnit.dependOn(it.internalModuleUnit.moduleImplClass)
             }
         }
@@ -32,17 +39,26 @@ abstract class ModuleCollector {
     }
 
     private fun injectModule(
-        moduleFinder: ModuleFinder,
+        manifestModuleFinder: ManifestModuleFinder,
         moduleFactory: ModuleFactory,
         moduleContainer: ModuleContainerImpl,
         moduleName: String
     ): Module<*> {
-        val implClass = moduleFinder.getModuleImplClass(moduleName)
+        val implClass = manifestModuleFinder.getModuleImplClass(moduleName)
+        return injectModule(manifestModuleFinder, moduleFactory, moduleContainer, implClass)
+    }
+
+    private fun injectModule(
+        manifestModuleFinder: ManifestModuleFinder,
+        moduleFactory: ModuleFactory,
+        moduleContainer: ModuleContainerImpl,
+        implClass: Class<out Module<*>>
+    ): Module<*> {
         val module = moduleContainer.find(implClass) ?: moduleFactory.newInstance(implClass).also {
             injectForCreatedModule(it, moduleContainer)
         }
         for (moduleNameOfDependency in module.dependencies) {
-            injectModule(moduleFinder, moduleFactory, moduleContainer, moduleNameOfDependency).also {
+            injectModule(manifestModuleFinder, moduleFactory, moduleContainer, moduleNameOfDependency).also {
                 module.internalModuleUnit.dependOn(it.internalModuleUnit.moduleImplClass)
             }
         }

@@ -611,15 +611,13 @@ class P2MProcessor : BaseProcessor() {
             val classSimpleName = className.simpleName
             val launcherName = launcherAnnotation.launcherName
             ApiLauncher.checkName(launcherAnnotation, className.canonicalName)
-            val propertyNameSuffix : String= launcherName.takeIf { it != ApiLauncher.NAME_NO_SET }
-                ?: classSimpleName
             val builder =  when {
                 typeUtils.isSubtype(element.asType(), activityTm) -> { // Activity
                     /*
-                     * val activityOf$propertyNameSuffix: ActivityLauncher<I, O>
+                     * val activityOf$launcherName: ActivityLauncher<I, O>
                      */
                     PropertySpec.builder(
-                        name = "activityOf$propertyNameSuffix",
+                        name = "activityOf$launcherName",
                         type = ActivityLauncher.parameterizedBy(typeArgumentsMap[launcherName]!!)
                     )
                         .mutable(false)
@@ -642,9 +640,9 @@ class P2MProcessor : BaseProcessor() {
                     )
 
                     /*
-                    * val fragmentOf$propertyNameSuffix: FragmentLauncher<Fragment>
+                    * val fragmentOf$launcherName: FragmentLauncher<Fragment>
                     */
-                    PropertySpec.builder(name = "fragmentOf$propertyNameSuffix", type = FragmentLauncher.parameterizedBy(fragmentClassName))
+                    PropertySpec.builder(name = "fragmentOf$launcherName", type = FragmentLauncher.parameterizedBy(fragmentClassName))
                         .mutable(false)
                         .apply {
                             elementUtils.getKDoc(element)?.apply { addKdoc(this) }
@@ -653,9 +651,9 @@ class P2MProcessor : BaseProcessor() {
                 }
                 typeUtils.isSubtype(tm, serviceTm) -> { // Service
                     /*
-                    * val serviceOf$propertyNameSuffix: ServiceLauncher
+                    * val serviceOf$launcherName: ServiceLauncher
                     */
-                    PropertySpec.builder(name = "serviceOf$propertyNameSuffix", type = ServiceLauncher)
+                    PropertySpec.builder(name = "serviceOf$launcherName", type = ServiceLauncher)
                         .mutable(false)
                         .apply {
                             elementUtils.getKDoc(element)?.apply { addKdoc(this) }
@@ -682,15 +680,13 @@ class P2MProcessor : BaseProcessor() {
             val classSimpleName = className.simpleName
             val launcherName = launcherAnnotation.launcherName
             ApiLauncher.checkName(launcherAnnotation, className.canonicalName)
-            val propertyNameSuffix : String= launcherAnnotation.launcherName.takeIf { it != ApiLauncher.NAME_NO_SET }
-                ?: classSimpleName
             val builder =  when {
                 typeUtils.isSubtype(tm, activityTm) -> { // Activity
                     /*
-                     * val activityOf$propertyNameSuffix: ActivityLauncher<I, O> by lazy(ActivityLauncher.Delegate(XX::class.java, XX::class.java))
+                     * val activityOf$launcherName: ActivityLauncher<I, O> by lazy(ActivityLauncher.Delegate(XX::class.java, XX::class.java))
                      */
                     PropertySpec.builder(
-                        name = "activityOf$propertyNameSuffix",
+                        name = "activityOf$launcherName",
                         type = ActivityLauncher.parameterizedBy(typeArgumentsMap[launcherName]!!)
                     )
                         .addModifiers(KModifier.OVERRIDE)
@@ -715,18 +711,18 @@ class P2MProcessor : BaseProcessor() {
                     )
 
                     /*
-                    * val fragmentOf$propertyNameSuffix: FragmentLauncher<Fragment> by lazy(FragmentLauncher.Delegate{ XX() }})
+                    * val fragmentOf$launcherName: FragmentLauncher<Fragment> by lazy(FragmentLauncher.Delegate{ XX() }})
                     */
-                    PropertySpec.builder(name = "fragmentOf$propertyNameSuffix", type = FragmentLauncher.parameterizedBy(fragmentClassName))
+                    PropertySpec.builder(name = "fragmentOf$launcherName", type = FragmentLauncher.parameterizedBy(fragmentClassName))
                         .addModifiers(KModifier.OVERRIDE)
                         .mutable(false)
                         .delegate("%T{ %T() }", FragmentLauncherDelegate, className)
                 }
                 typeUtils.isSubtype(tm, serviceTm) -> { // Service
                     /*
-                    * val serviceOf$propertyNameSuffix: ServiceLauncher by lazy(ServiceLauncher.Delegate(XX::class.java))
+                    * val serviceOf$launcherName: ServiceLauncher by lazy(ServiceLauncher.Delegate(XX::class.java))
                     */
-                    PropertySpec.builder(name = "serviceOf$propertyNameSuffix", type = ServiceLauncher)
+                    PropertySpec.builder(name = "serviceOf$launcherName", type = ServiceLauncher)
                         .addModifiers(KModifier.OVERRIDE)
                         .mutable(false)
                         .delegate("%T(%T::class.java)", ServiceLauncherDelegate, className)

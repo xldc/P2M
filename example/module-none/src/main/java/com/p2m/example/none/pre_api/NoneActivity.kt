@@ -8,7 +8,7 @@ import com.p2m.annotation.module.api.ApiLauncher
 import com.p2m.core.P2M
 import com.p2m.example.none.p2m.api.None
 
-@ApiLauncher
+@ApiLauncher("None")
 class NoneActivity : AppCompatActivity() {
 
     @SuppressLint("SetTextI18n")
@@ -21,7 +21,7 @@ class NoneActivity : AppCompatActivity() {
         val fragment = P2M.apiOf(None::class.java)
             .launcher
             .fragmentOfTest
-            .create()
+            .launch()
     }
 
 }

@@ -244,7 +244,7 @@ data class UserInfo(
  * 支持注解Fragment的子类，将为其生成启动器`val fragmentOf$launcherName() : FragmentLauncher`；
  * 支持注解Service的子类，将为其生成启动器`val serviceOf$launcherName() : ServiceLauncher`。
 
-例如，外部模块需要使用`Account`模块的登录界面`LoginActivity`，首先在`Account`模块声明：
+例如，外部模块需要使用`Account`模块的登录界面，首先在`Account`模块声明：
 ```kotlin
 @ApiLauncher(launcherName = "Login")
 class LoginActivity: Activity() {
@@ -252,7 +252,7 @@ class LoginActivity: Activity() {
 }
 ```
 
-在[编译Api区](#如何编译Api区)后，外部模块启动`Account`模块的`LoginActivity`调用：
+在[编译Api区](#如何编译Api区)后，在外部模块启动调用：
 ```kotlin
 P2M.apiOf(Account::class.java)
     .launcher
@@ -275,7 +275,7 @@ class AccountService {
     }
 }
 ```
-在[编译Api区](#如何编译Api区)后，外部模块退出登录调用：
+在[编译Api区](#如何编译Api区)后，在外部模块调用：
 ```kotlin
 P2M.apiOf(Account::class.java)
     .service
@@ -300,7 +300,7 @@ interface AccountEvent {
 }
 ```
 
-在[编译Api区](#如何编译Api区)后，外部模块观察该事件调用：
+在[编译Api区](#如何编译Api区)后，在外部模块观察此事件：
 ```kotlin
 P2M.apiOf(Account::class.java)
     .event
@@ -399,7 +399,7 @@ private val modifyAccountNameLauncherForActivityResult =
         }
 
 // 启动界面
-modifyAccountNameLauncherForActivityResult.launch()
+modifyAccountNameLauncherForActivityResult.launch(null)
 ```
 
 如何单独运行模块？

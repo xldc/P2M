@@ -12,15 +12,15 @@ import com.p2m.core.internal.module.deriver.InternalDriver
 import com.p2m.core.internal.module.DefaultModuleCollectorFactory
 import com.p2m.core.internal.module.DefaultModuleFactory
 import com.p2m.core.internal.module.ModuleContainerImpl
-import com.p2m.core.internal.module.ModuleFinder
+import com.p2m.core.internal.module.ManifestModuleFinder
 import com.p2m.core.module.*
 
 @SuppressLint("StaticFieldLeak")
 object P2M : ModuleApiProvider{
-    private lateinit var context : Context
+    internal lateinit var internalContext : Context
     private lateinit var moduleCollector : ModuleCollector
     private lateinit var driver: InternalDriver
-    private lateinit var moduleFinder : ModuleFinder
+    private lateinit var manifestModuleFinder : ManifestModuleFinder
     private val moduleFactory: ModuleFactory = DefaultModuleFactory()
     private val moduleContainer = ModuleContainerImpl()
     internal val configManager: P2MConfigManager = InternalP2MConfigManager()
@@ -37,18 +37,18 @@ object P2M : ModuleApiProvider{
      */
     @MainThread
     fun init(context: Context, vararg externalModuleName: String) {
-        check(!this::context.isInitialized) { "`P2M.init()` can only be called once." }
+        check(!this::internalContext.isInitialized) { "`P2M.init()` can only be called once." }
         check(Looper.getMainLooper() === Looper.myLooper()) { "`P2M.init()` must be called on the main thread." }
         val app = App()
         val applicationContext = context.applicationContext
-        this.context = applicationContext
-        this.moduleFinder = ModuleFinder(applicationContext)
+        this.internalContext = applicationContext
+        this.manifestModuleFinder = ManifestModuleFinder(applicationContext)
         this.moduleCollector = DefaultModuleCollectorFactory()
             .newInstance("${applicationContext.packageName}.ModuleAutoCollector")
             .apply {
-                collectExternal(*externalModuleName)
                 injectForCreatedModule(app, moduleContainer)
-                injectForAllFromTop(app, moduleFinder, moduleFactory, moduleContainer)
+                injectForExternal(manifestModuleFinder, moduleFactory, moduleContainer, *externalModuleName)
+                injectForAllFromTop(app, manifestModuleFinder, moduleFactory, moduleContainer)
             }
         this.driver = InternalDriver(applicationContext, app, this.moduleContainer)
         this.driver.considerOpenAwait()
@@ -57,7 +57,7 @@ object P2M : ModuleApiProvider{
     /**
      * Get instance of `api` by [clazz] of module.
      *
-     * @param clazz its class name is defined module name in settings.gradle.
+     * @param clazz its class name is defined module name in `settings.gradle`.
      *
      * @see Module
      * @see ModuleApi
@@ -65,7 +65,7 @@ object P2M : ModuleApiProvider{
     override fun <MODULE_API : ModuleApi<*, *, *>> apiOf(
         clazz: Class<out Module<MODULE_API>>
     ): MODULE_API {
-        check(::context.isInitialized) { "Must call P2M.init() before when call here." }
+        check(::internalContext.isInitialized) { "Must call P2M.init() before when call here." }
 
         val driver = this.driver
         check(driver.isEvaluating?.get() != true) { "Don not call `P2M.apiOf()` in `onEvaluate()`." }

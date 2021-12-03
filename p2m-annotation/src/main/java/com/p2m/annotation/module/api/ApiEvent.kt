@@ -5,9 +5,29 @@ package com.p2m.annotation.module.api
  * that class member property only use [ApiEventField] annotation to take effect.
  *
  * Use `P2M.apiOf(${moduleName}::class.java).event` to get `event` instance,
- * that `moduleName` is defined in settings.gradle
+ * that `moduleName` is defined in `settings.gradle`.
  *
  * The annotation can only be used once within same module scope.
+ *
+ * For example, define the event holder for successful login in `Account` module:
+ * ```kotlin
+ * @ApiEvent
+ * interface Event {
+ *      @ApiEventField(eventOn = EventOn.BACKGROUND, mutableFromExternal = false)
+ *      val loginSuccess : Unit
+ * }
+ * ```
+ *
+ * then observe in external module:
+ * ```kotlin
+ * P2M.apiOf(Account)
+ *      .event
+ *      .loginSuccess
+ *      .observe(Observe { _ ->
+ *          jump after login success...
+ *      })
+ * ```
+ *
  */
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.BINARY)

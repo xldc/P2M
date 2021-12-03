@@ -8,6 +8,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.ActivityResultRegistry
 import androidx.activity.result.contract.ActivityResultContract
+import androidx.core.app.ActivityOptionsCompat
 import androidx.fragment.app.Fragment
 import com.p2m.annotation.module.api.ApiLauncher
 import com.p2m.annotation.module.api.ApiLauncherActivityResultContractFor
@@ -16,7 +17,21 @@ import com.p2m.core.internal.launcher.InternalSafeIntent
 import kotlin.reflect.KProperty
 
 /**
- * A launcher of Activity.
+ * A launcher of `Activity`.
+ *
+ * For example, has a `Activity` of login in `Account` module:
+ * ```kotlin
+ * @ApiLauncher("Login")
+ * class LoginActivity:Activity()
+ * ```
+ *
+ * then launch in `activity` of external module:
+ * ```kotlin
+ * val fragment = P2M.apiOf(Account)
+ *      .launcher
+ *      .activityOfLogin
+ *      .launch(this)
+ * ```
  *
  * @see ApiLauncher
  */
@@ -31,34 +46,25 @@ interface ActivityLauncher<I, O> {
     }
 
     /**
-     * Create a instance of Intent for that [Activity] class annotated by [ApiLauncher],
-     * all other fields (action, data, type, class) are null, though they can be modified
-     * later with explicit calls.
-     *
-     * @return a instance of Intent.
+     * Launch for that [Activity] class annotated by [ApiLauncher],
+     * all other fields (action, data, type) are null, though they can be modified
+     * later with [onFillIntent] calls.
      */
-    fun createIntent(context: Context): Intent
+    fun launch(context: Context, onIntercept : OnActivityLaunchIntercept? = null, onFillIntent: OnFillIntent? = null,)
 
     /**
      * Launch for that [Activity] class annotated by [ApiLauncher],
-     * all other fields (action, data, type, class) are null, though they can be modified
+     * all other fields (action, data, type) are null, though they can be modified
      * later with [onFillIntent] calls.
      */
-    fun launch(context: Context, onFillIntent: OnFillIntent? = null)
+    fun launch(activity: Activity, onIntercept : OnActivityLaunchIntercept? = null, onFillIntent: OnFillIntent? = null)
 
     /**
      * Launch for that [Activity] class annotated by [ApiLauncher],
-     * all other fields (action, data, type, class) are null, though they can be modified
+     * all other fields (action, data, type) are null, though they can be modified
      * later with [onFillIntent] calls.
      */
-    fun launch(activity: Activity, onFillIntent: OnFillIntent? = null)
-
-    /**
-     * Launch for that [Activity] class annotated by [ApiLauncher],
-     * all other fields (action, data, type, class) are null, though they can be modified
-     * later with [onFillIntent] calls.
-     */
-    fun launch(fragment: Fragment, onFillIntent: OnFillIntent? = null)
+    fun launch(fragment: Fragment, onIntercept : OnActivityLaunchIntercept? = null, onFillIntent: OnFillIntent? = null)
 
     /**
      * Register a activity result for that [Activity] class annotated by [ApiLauncher].
@@ -74,7 +80,7 @@ interface ActivityLauncher<I, O> {
      * @see ApiLauncherActivityResultContractFor
      * @see ActivityResultContractP2MCompact
      */
-    fun registerForActivityResult(activity: ComponentActivity, callback: ActivityResultCallbackP2MCompact<O>): ActivityResultLauncher<I>
+    fun registerForActivityResult(activity: ComponentActivity, callback: ActivityResultCallbackP2MCompact<O>): ActivityResultLauncherP2MCompact<I, O>
 
     /**
      * Register a activity result for that [Activity] class annotated by [ApiLauncher].
@@ -90,7 +96,7 @@ interface ActivityLauncher<I, O> {
      * @see ApiLauncherActivityResultContractFor
      * @see ActivityResultContractP2MCompact
      */
-    fun registerForActivityResult(fragment: Fragment, callback: ActivityResultCallbackP2MCompact<O>): ActivityResultLauncher<I>
+    fun registerForActivityResult(fragment: Fragment, callback: ActivityResultCallbackP2MCompact<O>): ActivityResultLauncherP2MCompact<I, O>
 
     /**
      * Register a activity result for that [Activity] class annotated by [ApiLauncher].
@@ -106,7 +112,29 @@ interface ActivityLauncher<I, O> {
      * @see ApiLauncherActivityResultContractFor
      * @see ActivityResultContractP2MCompact
      */
-    fun registerForActivityResult(activityResultRegistry: ActivityResultRegistry, key: String, callback: ActivityResultCallbackP2MCompact<O>): ActivityResultLauncher<I>
+    fun registerForActivityResult(activityResultRegistry: ActivityResultRegistry, key: String, callback: ActivityResultCallbackP2MCompact<O>): ActivityResultLauncherP2MCompact<I, O>
+}
+
+/**
+ * A callback when activity launch been intercepted.
+ */
+interface OnActivityLaunchInterceptor {
+    fun onIntercept(activityLauncher: ActivityLauncher<*, *>): Boolean
+}
+
+/**
+ * A callback when activity launch been intercepted.
+ */
+interface OnActivityLaunchIntercept {
+    fun onIntercept()
+}
+
+/**
+ * A launcher of Activity Result.
+ *
+ * @see ApiLauncher
+ */
+class ActivityResultLauncherP2MCompact<I, O>(private val activityLauncher:ActivityLauncher<I, O>, private val activityResultLauncher: ActivityResultLauncher<I>) {
 
     /**
      * Launch a activity result for that [Activity] class annotated by [ApiLauncher].
@@ -122,23 +150,16 @@ interface ActivityLauncher<I, O> {
      * @see ApiLauncherActivityResultContractFor
      * @see ActivityResultContractP2MCompact
      */
-    fun launchForResult(activity: ComponentActivity, input: I, callback: ActivityResultCallbackP2MCompact<O>)
+    fun launch(input: I, options: ActivityOptionsCompat? = null, onIntercept: OnActivityLaunchIntercept? = null) {
+        activityResultLauncher.launch(input, options)
+    }
 
-    /**
-     * Launch a activity result for that [Activity] class annotated by [ApiLauncher].
-     *
-     * No need to explicitly pass in a instance of activity result contract during registration,
-     * that instance will auto create, that type is implement class of
-     * [ActivityResultContractP2MCompact] and use [ApiLauncherActivityResultContractFor]
-     * annotated, and that must has a empty constructor.
-     *
-     * @return a instance of ActivityResultLauncher.
-     *
-     * @see ApiLauncher
-     * @see ApiLauncherActivityResultContractFor
-     * @see ActivityResultContractP2MCompact
-     */
-    fun launchForResult(fragment: Fragment, input: I, callback: ActivityResultCallbackP2MCompact<O>)
+
+    fun unregister() = activityResultLauncher.unregister()
+
+    @Suppress("UNCHECKED_CAST")
+    fun getContract(): ActivityResultContractP2MCompact<I, O> =
+        activityResultLauncher.contract as ActivityResultContractP2MCompact<I, O>
 }
 
 abstract class ActivityResultContractP2MCompact<I, O> :
@@ -157,18 +178,18 @@ abstract class ActivityResultContractP2MCompact<I, O> :
     /**
      * Returns output of result, that will provide to [ActivityResultCallbackP2MCompact].
      *
-     * @param resultCode - from [Activity.setResult]] of owner activity.
-     * @param intent - from [Activity.setResult]] of owner activity.
+     * @param resultCode - from [Activity.setResult] of owner activity.
+     * @param intent - from [Activity.setResult] of owner activity.
      * @return - output of result.
      *
      * @see ActivityLauncher.registerForActivityResult
-     * @see ActivityLauncher.launchForResult
+     * @see ActivityResultLauncherP2MCompact.launch
      */
     abstract fun outputFromResultIntent(resultCode: Int, intent: Intent?): O?
 
     final override fun createIntent(context: Context, input: I): Intent {
         val intent = if (input is Intent) InternalSafeIntent(input as Intent) else InternalSafeIntent()
-        intent.setComponentInternal(ComponentName(context, activityClazz))
+        intent.setClassInternal(activityClazz)
         return intent.also { inputIntoCreatedIntent(input, it) }
     }
 
@@ -185,9 +206,8 @@ class DefaultActivityResultContractP2MCompact : ActivityResultContractP2MCompact
 
 data class ActivityResultP2MCompact<O>(val resultCode: Int, val output: O?)
 
-/**
- * Fill for created intent.
- */
-typealias OnFillIntent = Intent.() -> Unit
 
+/**
+ * A callback for receive activity result.
+ */
 typealias ActivityResultCallbackP2MCompact<O> = (resultCode: Int, output: O?) -> Unit

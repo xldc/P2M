@@ -34,7 +34,6 @@ import com.p2m.annotation.module.ModuleInitializer
  * @see Task - the smallest unit in a module to perform initialization.
  * @see TaskRegister - register some task.
  * @see TaskOutputProvider - get some task output.
- *
  */
 interface ModuleInit : OnEvaluateListener, OnExecutedListener
 

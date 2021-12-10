@@ -1,7 +1,6 @@
 package com.p2m.core.launcher
 
 import android.app.Activity
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import androidx.activity.ComponentActivity
@@ -35,7 +34,7 @@ import kotlin.reflect.KProperty
  *
  * @see ApiLauncher
  */
-interface ActivityLauncher<I, O> {
+interface ActivityLauncher<I, O> : Launcher{
 
     class Delegate<I, O>(clazz: Class<*>, createActivityResultContractBlock: () -> ActivityResultContractP2MCompact<I, O>) {
         private val real by lazy(LazyThreadSafetyMode.NONE) {
@@ -47,24 +46,24 @@ interface ActivityLauncher<I, O> {
 
     /**
      * Launch for that [Activity] class annotated by [ApiLauncher],
-     * all other fields (action, data, type) are null, though they can be modified
-     * later with [onFillIntent] calls.
+     * all other fields (action, data, type) are null, though
+     * they can be modified later in [onFillIntent].
      */
-    fun launch(context: Context, onIntercept : OnActivityLaunchIntercept? = null, onFillIntent: OnFillIntent? = null,)
+    fun launch(context: Context, onIntercept : OnLaunchIntercept? = null, onFillIntent: OnFillIntent? = null)
 
     /**
      * Launch for that [Activity] class annotated by [ApiLauncher],
-     * all other fields (action, data, type) are null, though they can be modified
-     * later with [onFillIntent] calls.
+     * all other fields (action, data, type) are null, though
+     * they can be modified later in [onFillIntent].
      */
-    fun launch(activity: Activity, onIntercept : OnActivityLaunchIntercept? = null, onFillIntent: OnFillIntent? = null)
+    fun launch(activity: Activity, onIntercept : OnLaunchIntercept? = null, onFillIntent: OnFillIntent? = null)
 
     /**
      * Launch for that [Activity] class annotated by [ApiLauncher],
-     * all other fields (action, data, type) are null, though they can be modified
-     * later with [onFillIntent] calls.
+     * all other fields (action, data, type) are null, though
+     * they can be modified later in [onFillIntent].
      */
-    fun launch(fragment: Fragment, onIntercept : OnActivityLaunchIntercept? = null, onFillIntent: OnFillIntent? = null)
+    fun launch(fragment: Fragment, onIntercept : OnLaunchIntercept? = null, onFillIntent: OnFillIntent? = null)
 
     /**
      * Register a activity result for that [Activity] class annotated by [ApiLauncher].
@@ -116,20 +115,6 @@ interface ActivityLauncher<I, O> {
 }
 
 /**
- * A callback when activity launch been intercepted.
- */
-interface OnActivityLaunchInterceptor {
-    fun onIntercept(activityLauncher: ActivityLauncher<*, *>): Boolean
-}
-
-/**
- * A callback when activity launch been intercepted.
- */
-interface OnActivityLaunchIntercept {
-    fun onIntercept()
-}
-
-/**
  * A launcher of Activity Result.
  *
  * @see ApiLauncher
@@ -150,10 +135,9 @@ class ActivityResultLauncherP2MCompact<I, O>(private val activityLauncher:Activi
      * @see ApiLauncherActivityResultContractFor
      * @see ActivityResultContractP2MCompact
      */
-    fun launch(input: I, options: ActivityOptionsCompat? = null, onIntercept: OnActivityLaunchIntercept? = null) {
+    fun launch(input: I, options: ActivityOptionsCompat? = null, onIntercept: OnLaunchIntercept? = null) {
         activityResultLauncher.launch(input, options)
     }
-
 
     fun unregister() = activityResultLauncher.unregister()
 

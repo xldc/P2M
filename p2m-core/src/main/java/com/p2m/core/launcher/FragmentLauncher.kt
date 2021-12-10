@@ -17,15 +17,23 @@ import kotlin.reflect.KProperty
  *
  * then get a instance for launch in external module:
  * ```kotlin
- * val fragment = P2M.apiOf(Main)
+ * P2M.apiOf(Main)
  *      .launcher
  *      .fragmentOfHome
- *      .launch()
+ *      .launch { fragment->
+ *          // block of launch
+ *      }
+ *
+ * // or
+ * P2M.apiOf(Main)
+ *      .launcher
+ *      .fragmentOfHome
+ *      .launch(::launchBlock)
  * ```
  *
  * @see ApiLauncher
  */
-interface FragmentLauncher<T> {
+interface FragmentLauncher<T> : Launcher {
 
     class Delegate<T>(createBlock:() -> T) {
         private val real by lazy(LazyThreadSafetyMode.NONE) { InternalFragmentLauncher<T>(createBlock) }
@@ -38,5 +46,10 @@ interface FragmentLauncher<T> {
      *
      * @return a instance.
      */
-    fun launch(): T
+    fun launch()
 }
+
+/**
+ * A block for launch fragment.
+ */
+typealias LaunchFragmentBlock<T> = (fragment: T) -> Unit

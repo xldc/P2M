@@ -21,16 +21,16 @@ import kotlin.reflect.KProperty
  * P2M.apiOf(Account)
  *      .launcher
  *      .serviceOfWork
- *      .launchCalling(::startService)
+ *      .launch(::startService)
  * ```
  *
- * @see Context.startService - e.g.`launchCalling(::startService)`.
- * @see Context.startForegroundService - e.g.`launchCalling(::startForegroundService)`.
- * @see Context.bindService - declare `bind` method for use `launchCalling(::bind)`.
- * @see Context.unbindService - e.g.`launchCalling(::unbindService)`.
+ * @see Context.startService - e.g.`launch(::startService)`.
+ * @see Context.startForegroundService - e.g.`launch(::startForegroundService)`.
+ * @see Context.bindService - e.g. use `launch(::xx)` need declare `fun xx(intent: Intent)`
+ * method for call bindService.
  * @see ApiLauncher
  */
-interface ServiceLauncher {
+interface ServiceLauncher : Launcher {
 
     class Delegate(clazz: Class<*>) {
         private val real by lazy(LazyThreadSafetyMode.NONE) { InternalServiceLauncher(clazz) }
@@ -42,11 +42,10 @@ interface ServiceLauncher {
      * Launch a service for that [Service] class annotated by [ApiLauncher].
      *
      * [launchBlock] is real launch method, that has a created Intent instance
-     * as input param, all other fields (action, data, type) are null,  though
-     * they can be modified later with explicit calls.
-     *
+     * as input param, all other fields (action, data, type) are null, though
+     * they can be modified later in [onFillIntent].
      */
-    fun launchCalling(launchBlock: LaunchServiceBlock)
+    fun launch(launchBlock: LaunchServiceBlock, onFillIntent: OnFillIntent? = null)
 }
 
 /**

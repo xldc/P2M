@@ -24,7 +24,7 @@ package com.p2m.annotation.module.api
  *
  * then launch in `activity` of external module:
  * ```kotlin
- * val fragment = P2M.apiOf(Account)
+ * P2M.apiOf(Account)
  *      .launcher
  *      .activityOfLogin
  *      .launch(this)

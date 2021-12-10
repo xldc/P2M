@@ -211,7 +211,7 @@ Api区是[模块](#Module态)的一部分，它会暴露给外部模块。
 
 P2M限制Api区中只允许提供启动器、服务接口、事件、对外暴露的数据类等内容，它们是根据[Api区相关的注解](#Api区注解)在[编译Api区](#如何编译Api区)后生成。
 
-你无需关注会生成的具体内容，你更需要了解在[编译Api区](#如何编译Api区)后，外部模块可以在代码中访问Api区：
+起初你无需关注会生成的具体内容，你要知道在[编译Api区](#如何编译Api区)后，外部模块可以在代码中访问Api区：
 ```kotlin
 val accountApi = P2M.apiOf(Account::class.java)     // Account的api
 val launcher = accountApi.launcher                  // Account中的启动器

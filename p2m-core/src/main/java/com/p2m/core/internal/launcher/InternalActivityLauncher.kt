@@ -9,6 +9,7 @@ import androidx.activity.result.ActivityResultRegistry
 import androidx.fragment.app.Fragment
 import com.p2m.annotation.module.api.ApiLauncher
 import com.p2m.core.launcher.*
+import kotlin.reflect.full.memberFunctions
 
 internal class InternalActivityLauncher<I, O>(
     private val clazz: Class<*>,
@@ -26,19 +27,23 @@ internal class InternalActivityLauncher<I, O>(
         return InternalSafeIntent(clazz)
     }
 
-    override fun launch(context: Context, onIntercept : OnActivityLaunchIntercept?, onFillIntent: OnFillIntent?) {
+    override fun launch(context: Context, onIntercept : OnLaunchIntercept?, onFillIntent: OnFillIntent?) {
         context.startActivity(createIntent().also {
             onFillIntent?.invoke(it)
         })
     }
 
-    override fun launch(activity: Activity, onIntercept : OnActivityLaunchIntercept?, onFillIntent: OnFillIntent?) {
+    override fun launch(activity: Activity, onIntercept : OnLaunchIntercept?, onFillIntent: OnFillIntent?) {
+        val a = this::class.memberFunctions
+
+        val b = ::createIntent
+
         activity.startActivity(createIntent().also {
             onFillIntent?.invoke(it)
         })
     }
 
-    override fun launch(fragment: Fragment, onIntercept : OnActivityLaunchIntercept?, onFillIntent: OnFillIntent?) {
+    override fun launch(fragment: Fragment, onIntercept : OnLaunchIntercept?, onFillIntent: OnFillIntent?) {
         fragment.startActivity(createIntent().also {
             onFillIntent?.invoke(it)
         })

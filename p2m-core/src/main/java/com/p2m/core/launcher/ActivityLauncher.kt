@@ -29,7 +29,7 @@ import kotlin.reflect.KProperty
  * val fragment = P2M.apiOf(Account)
  *      .launcher
  *      .activityOfLogin
- *      .launch(this)
+ *      .launch(::startActivity)
  * ```
  *
  * @see ApiLauncher
@@ -49,21 +49,7 @@ interface ActivityLauncher<I, O> : Launcher{
      * all other fields (action, data, type) are null, though
      * they can be modified later in [onFillIntent].
      */
-    fun launch(context: Context, onIntercept : OnLaunchIntercept? = null, onFillIntent: OnFillIntent? = null)
-
-    /**
-     * Launch for that [Activity] class annotated by [ApiLauncher],
-     * all other fields (action, data, type) are null, though
-     * they can be modified later in [onFillIntent].
-     */
-    fun launch(activity: Activity, onIntercept : OnLaunchIntercept? = null, onFillIntent: OnFillIntent? = null)
-
-    /**
-     * Launch for that [Activity] class annotated by [ApiLauncher],
-     * all other fields (action, data, type) are null, though
-     * they can be modified later in [onFillIntent].
-     */
-    fun launch(fragment: Fragment, onIntercept : OnLaunchIntercept? = null, onFillIntent: OnFillIntent? = null)
+    fun launch(context: Context)
 
     /**
      * Register a activity result for that [Activity] class annotated by [ApiLauncher].
@@ -135,7 +121,7 @@ class ActivityResultLauncherP2MCompact<I, O>(private val activityLauncher:Activi
      * @see ApiLauncherActivityResultContractFor
      * @see ActivityResultContractP2MCompact
      */
-    fun launch(input: I, options: ActivityOptionsCompat? = null, onIntercept: OnLaunchIntercept? = null) {
+    fun launch(input: I, options: ActivityOptionsCompat? = null) {
         activityResultLauncher.launch(input, options)
     }
 

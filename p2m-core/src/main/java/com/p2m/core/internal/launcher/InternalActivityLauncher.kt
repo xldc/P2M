@@ -9,7 +9,6 @@ import androidx.activity.result.ActivityResultRegistry
 import androidx.fragment.app.Fragment
 import com.p2m.annotation.module.api.ApiLauncher
 import com.p2m.core.launcher.*
-import kotlin.reflect.full.memberFunctions
 
 internal class InternalActivityLauncher<I, O>(
     private val clazz: Class<*>,
@@ -27,23 +26,31 @@ internal class InternalActivityLauncher<I, O>(
         return InternalSafeIntent(clazz)
     }
 
-    override fun launch(context: Context, onIntercept : OnLaunchIntercept?, onFillIntent: OnFillIntent?) {
-        context.startActivity(createIntent().also {
-            onFillIntent?.invoke(it)
-        })
+    override fun launch(context: Context) {
+        val launch = {
+            context.startActivity(createIntent())
+        }
+
+        val relaunch = InternalRelaunch.newBuilder(this)
+            .launchBlock(launch)
+            .build()
+
+
+
+//        if (拦截) {
+//            onIntercept()
+//        }
+
+        launch()
     }
 
-    override fun launch(activity: Activity, onIntercept : OnLaunchIntercept?, onFillIntent: OnFillIntent?) {
-        val a = this::class.memberFunctions
-
-        val b = ::createIntent
-
+    override fun launch(activity: Activity) {
         activity.startActivity(createIntent().also {
             onFillIntent?.invoke(it)
         })
     }
 
-    override fun launch(fragment: Fragment, onIntercept : OnLaunchIntercept?, onFillIntent: OnFillIntent?) {
+    override fun launch(fragment: Fragment) {
         fragment.startActivity(createIntent().also {
             onFillIntent?.invoke(it)
         })
@@ -52,26 +59,26 @@ internal class InternalActivityLauncher<I, O>(
     override fun registerForActivityResult(activity: ComponentActivity, callback: ActivityResultCallbackP2MCompact<O>): ActivityResultLauncherP2MCompact<I, O> {
         return activity.registerForActivityResult(createActivityResultContract()) {
             callback.invoke(it.resultCode, it.output)
-        }.compact()
+        }.compat()
     }
 
     override fun registerForActivityResult(fragment: Fragment, callback: ActivityResultCallbackP2MCompact<O>): ActivityResultLauncherP2MCompact<I, O> {
         return fragment.registerForActivityResult(createActivityResultContract()) {
             callback.invoke(it.resultCode, it.output)
-        }.compact()
+        }.compat()
     }
 
     override fun registerForActivityResult(activityResultRegistry: ActivityResultRegistry, key: String, callback: ActivityResultCallbackP2MCompact<O>): ActivityResultLauncherP2MCompact<I, O> {
         return activityResultRegistry.register(key, createActivityResultContract()) {
             callback.invoke(it.resultCode, it.output)
-        }.compact()
+        }.compat()
     }
 
     private fun createActivityResultContract(): ActivityResultContractP2MCompact<I, O> {
         return createActivityResultContractBlock.invoke().also { it.activityClazz = clazz }
     }
 
-    private fun ActivityResultLauncher<I>.compact(): ActivityResultLauncherP2MCompact<I, O> =
+    private fun ActivityResultLauncher<I>.compat(): ActivityResultLauncherP2MCompact<I, O> =
         ActivityResultLauncherP2MCompact(this@InternalActivityLauncher, this)
 
 }

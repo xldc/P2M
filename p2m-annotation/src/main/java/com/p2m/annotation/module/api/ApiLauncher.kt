@@ -27,7 +27,7 @@ package com.p2m.annotation.module.api
  * P2M.apiOf(Account)
  *      .launcher
  *      .activityOfLogin
- *      .launch(this)
+ *      .launch(::startActivity)
  * ```
  *
  * @property launcherName - used to generate property names, it follows the hump nomenclature.

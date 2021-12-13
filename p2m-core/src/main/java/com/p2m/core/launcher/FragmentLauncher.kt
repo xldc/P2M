@@ -46,7 +46,7 @@ interface FragmentLauncher<T> : Launcher {
      *
      * @return a instance.
      */
-    fun launch()
+    fun launch(launchBlock: LaunchFragmentBlock<T>)
 }
 
 /**

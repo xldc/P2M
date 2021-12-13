@@ -1,109 +1,144 @@
 package com.p2m.core.launcher
 
-import android.app.Activity
-import android.content.Context
-import androidx.fragment.app.Fragment
+import java.lang.Exception
 
-class LaunchInterceptorManager {
-    fun addInterceptor(a:LaunchInterceptor){
+object InterceptorService {
+    fun addInterceptor(a: IInterceptor) {
 
     }
+
+    fun doInterceptions(launchMeta: LaunchMeta, callback: InterceptorCallback) {
+        callback.onInterrupt()
+
+        callback.onContinue(launchMeta)
+    }
+
 }
 
 /**
  * A callback when launch been intercepted.
  */
-interface LaunchInterceptor {
-    fun onLaunch(relaunchCaller: RelaunchCaller): Boolean
+interface InterceptorCallback {
+    fun onContinue(launchMeta: LaunchMeta)
+
+    fun onInterrupt(e: Exception? = null)
+}
+
+interface IInterceptor {
+    fun process(launchMeta: LaunchMeta, callback: InterceptorCallback)
 }
 
 /**
  * A callback when launch been intercepted.
  */
-interface OnLaunchIntercept {
+interface OnIntercept {
     fun onIntercept()
 }
 
-interface RelaunchCaller{
-    fun getLauncher(): Launcher
 
-    fun relaunch()
+interface LaunchInvoker {
+
+    fun launch()
+
+    fun onIntercept(block: () -> Unit): LaunchInvoker
+
+    fun onFailure(block: (e: Exception) -> Unit): LaunchInvoker
 }
 
-enum class LaunchFunctionType{
-    SERVICE,
-    FRAGMENT,
-    ACTIVITY_BY_ACTIVITY,
-    ACTIVITY_BY_FRAGMENT,
-    ACTIVITY_BY_CONTEXT,
-    ACTIVITY_RESULT,
+interface LaunchMeta {
+    val launcher: Launcher
+    val isGreenChannel: Boolean
 }
 
-
-internal class InternalRelaunchCaller(builder: Builder) : RelaunchCaller {
-
+internal class InternalLaunchMeta private constructor(builder: Builder) : LaunchMeta, LaunchInvoker {
     companion object {
-        fun builder(launcher: Launcher, type: LaunchFunctionType) =
-            Builder(launcher, type)
+        internal fun newBuilder(launcher: Launcher, isGreenChannel: Boolean = false) = Builder(launcher, isGreenChannel)
     }
 
-    private var type: LaunchFunctionType = builder.type
+    override val launcher = builder.launcher
+    override val isGreenChannel: Boolean = builder.isGreenChannel
+    private val launchBlock = builder.launchBlock
+
+    override fun launch() {
+        val realLaunch = {
+            launchBlock()
+        }
+
+        if (isGreenChannel) {
+            realLaunch()
+            return
+        }
+
+        InterceptorService.doInterceptions(this, object : InterceptorCallback {
+            override fun onContinue(launchMeta: LaunchMeta) {
+                realLaunch()
+            }
+
+            override fun onInterrupt(e: Exception?) {
+
+            }
+
+        })
+    }
+
+    override fun onIntercept(block: () -> Unit): LaunchInvoker {
+        return this
+    }
+
+    override fun onFailure(block: (e: Exception) -> Unit): LaunchInvoker {
+        return this
+    }
+
+    internal class Builder(val launcher: Launcher, val isGreenChannel: Boolean) {
+        lateinit var launchBlock: () -> Unit
+
+        fun launchBlock(block: () -> Unit): Builder {
+            this.launchBlock = block
+            return this
+        }
+
+        fun build() = InternalLaunchMeta(this)
+    }
+}
+
+interface ReLauncher {
+    fun getLauncher(): Launcher
+
+    fun invoke()
+}
+
+internal class InternalRelaunch(builder: Builder) : ReLauncher {
+
+    companion object {
+        fun newBuilder(launcher: Launcher) = Builder(launcher)
+    }
+
+    private var relaunch: Recall = builder.relaunch
     private var launcher: Launcher = builder.launcher
-    private var params: Map<String, Any?> = builder.params
 
     override fun getLauncher(): Launcher = launcher
 
-    @Suppress("UNCHECKED_CAST")
-    override fun relaunch() {
-        when (type) {
-            LaunchFunctionType.SERVICE -> {
+    override fun invoke() = relaunch.invoke()
 
-            }
-            LaunchFunctionType.FRAGMENT -> {
+    class Builder(val launcher: Launcher) {
+        lateinit var relaunch: Recall
 
-            }
-            LaunchFunctionType.ACTIVITY_BY_ACTIVITY -> {
-                val launcher = launcher as ActivityLauncher<*, *>
-                launcher.launch(
-                    activity = params["activity"] as Activity,
-                    onIntercept = params["onIntercept"] as? OnLaunchIntercept,
-                    onFillIntent = params["onFillIntent"] as? OnFillIntent
-                )
-            }
-            LaunchFunctionType.ACTIVITY_BY_FRAGMENT -> {
-                val launcher = launcher as ActivityLauncher<*, *>
-                launcher.launch(
-                    fragment = params["fragment"] as Fragment,
-                    onIntercept = params["onIntercept"] as? OnLaunchIntercept,
-                    onFillIntent = params["onFillIntent"] as? OnFillIntent
-                )
-            }
-            LaunchFunctionType.ACTIVITY_BY_CONTEXT -> {
-                val launcher = launcher as ActivityLauncher<*, *>
-                launcher.launch(
-                    context = params["context"] as Context,
-                    onIntercept = params["onIntercept"] as? OnLaunchIntercept,
-                    onFillIntent = params["onFillIntent"] as? OnFillIntent
-                )
-            }
-            LaunchFunctionType.ACTIVITY_RESULT -> {
-                val launcher = launcher as ActivityLauncher<*, *>
-                launcher.launch(
-                    activity = params["activity"] as Activity,
-                    onIntercept = params["onIntercept"] as? OnLaunchIntercept,
-                    onFillIntent = params["onFillIntent"] as? OnFillIntent
-                )
-            }
+        fun launchBlock(block: () -> Unit): Builder {
+            this.relaunch = InternalRecall(block)
+            return this
         }
+
+        fun build() = InternalRelaunch(this)
     }
+}
 
-    class Builder(val launcher: Launcher, val type: LaunchFunctionType) {
-        val params = mutableMapOf<String, Any?>()
+interface Recall {
+    fun invoke()
+}
 
-        fun addParam(name: String, value: Any?) {
-            params[name] = value
-        }
+internal class InternalRecall(private val block: () -> Unit) : Recall {
 
-        fun build() = InternalRelaunchCaller(this)
+    override fun invoke() {
+        block()
     }
 }

@@ -45,7 +45,7 @@ interface ServiceLauncher : Launcher {
      * as input param, all other fields (action, data, type) are null, though
      * they can be modified later in [onFillIntent].
      */
-    fun launch(launchBlock: LaunchServiceBlock, onFillIntent: OnFillIntent? = null)
+    fun launchBlock(launchBlock: LaunchServiceBlock)
 }
 
 /**

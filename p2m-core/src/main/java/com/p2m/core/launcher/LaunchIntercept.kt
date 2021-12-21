@@ -1,16 +1,47 @@
 package com.p2m.core.launcher
 
+import com.p2m.annotation.module.api.ApiLauncher
 import java.lang.Exception
+import java.util.*
+import kotlin.collections.ArrayList
 
-object InterceptorService {
-    fun addInterceptor(a: IInterceptor) {
+interface InterceptorService {
+    fun doInterceptions(channel: InterceptableChannel, callback: InterceptorCallback)
+}
 
+@ApiLauncher("")
+object InterceptorServiceDefault:InterceptorService {
+
+    override fun doInterceptions(channel: InterceptableChannel, callback: InterceptorCallback) {
+        // before interceptors -> owner interceptors -> after interceptors
+        @Suppress("UNCHECKED_CAST")
+        val interceptors = channel.interceptors.toArray() as Array<IInterceptor<InterceptableChannel>> + arrayOf()
+        val interceptorIterator = interceptors.iterator()
+        try {
+            doInterception(interceptorIterator, channel)
+            if (interceptorIterator.hasNext()) {
+                callback.onInterrupt(channel.tag as? Throwable)
+            }else {
+                callback.onContinue(channel)
+            }
+        } catch (e : Throwable) {
+            callback.onInterrupt(e)
+        }
     }
 
-    fun doInterceptions(launchMeta: LaunchMeta, callback: InterceptorCallback) {
-        callback.onInterrupt()
+    private fun doInterception(interceptorIterator: Iterator<IInterceptor<InterceptableChannel>>, blockOrigin: InterceptableChannel) {
+        if (interceptorIterator.hasNext()) {
+            val interceptor = interceptorIterator.next()
+            interceptor.process(blockOrigin, object : InterceptorCallback {
+                override fun onContinue(block: InterceptableChannel) {
+                    doInterception(interceptorIterator, block)
+                }
 
-        callback.onContinue(launchMeta)
+                override fun onInterrupt(e: Throwable?) {
+                    blockOrigin.tag = e ?: IllegalStateException("No message.")
+                }
+            })
+        }
     }
 
 }
@@ -19,13 +50,15 @@ object InterceptorService {
  * A callback when launch been intercepted.
  */
 interface InterceptorCallback {
-    fun onContinue(launchMeta: LaunchMeta)
+    fun onContinue(channel: InterceptableChannel)
 
-    fun onInterrupt(e: Exception? = null)
+    fun onInterrupt(e: Throwable? = null)
 }
 
-interface IInterceptor {
-    fun process(launchMeta: LaunchMeta, callback: InterceptorCallback)
+interface LaunchInterceptor : IInterceptor<LaunchChannel>
+
+interface IInterceptor<C : InterceptableChannel> {
+    fun process(channel: C, callback: InterceptorCallback)
 }
 
 /**
@@ -35,69 +68,111 @@ interface OnIntercept {
     fun onIntercept()
 }
 
+typealias Channel = () -> Unit
 
-interface LaunchInvoker {
+open class SafeChannel(private val channel: Channel) {
+    private var onFailure : ((e: Throwable) -> Unit)? = null
 
-    fun launch()
-
-    fun onIntercept(block: () -> Unit): LaunchInvoker
-
-    fun onFailure(block: (e: Exception) -> Unit): LaunchInvoker
-}
-
-interface LaunchMeta {
-    val launcher: Launcher
-    val isGreenChannel: Boolean
-}
-
-internal class InternalLaunchMeta private constructor(builder: Builder) : LaunchMeta, LaunchInvoker {
-    companion object {
-        internal fun newBuilder(launcher: Launcher, isGreenChannel: Boolean = false) = Builder(launcher, isGreenChannel)
+    protected open fun onFailure(failureBlock: (e: Throwable) -> Unit): SafeChannel {
+        this.onFailure = failureBlock
+        return this
     }
 
-    override val launcher = builder.launcher
-    override val isGreenChannel: Boolean = builder.isGreenChannel
-    private val launchBlock = builder.launchBlock
+    protected open fun invoke() {
+        try {
+            channel()
+        } catch (e: Throwable) {
+            val failureBlock = onFailure
+            if (failureBlock != null) {
+                failureBlock(e)
+            } else {
+                // 降级处理
 
-    override fun launch() {
-        val realLaunch = {
-            launchBlock()
+            }
+        }
+    }
+}
+
+open class InterceptableChannel(
+    private val owner: Any,
+    channel: Channel,
+) : SafeChannel(channel) {
+
+    companion object {
+        const val DEFAULT_TIMEOUT = 10_000L
+        const val DEFAULT_CHANNEL_INTERCEPT = true
+    }
+
+    private var interceptBlock : ((block: InterceptableChannel) -> Unit)? = null
+    internal var timeout :Long = DEFAULT_TIMEOUT
+    internal var isGreenChannel: Boolean = !DEFAULT_CHANNEL_INTERCEPT
+    internal var tag : Any? = null
+    internal var interceptors: ArrayList<IInterceptor<InterceptableChannel>> = arrayListOf()
+
+    protected open fun interceptors(interceptors: ArrayList<IInterceptor<InterceptableChannel>>): InterceptableChannel {
+        this.interceptors.clear()
+        this.interceptors += interceptors
+        return this
+    }
+
+    protected open fun timeout(timeout: Long): InterceptableChannel {
+        this.timeout = timeout
+        return this
+    }
+
+    protected open fun greenChannel(): InterceptableChannel{
+        this.isGreenChannel = true
+        return this
+    }
+
+    protected open fun onIntercept(interceptBlock: (block: InterceptableChannel) -> Unit): InterceptableChannel {
+        this.interceptBlock = interceptBlock
+        return this
+    }
+
+    override fun onFailure(failureBlock: (e: Throwable) -> Unit): InterceptableChannel {
+        return super.onFailure(failureBlock) as InterceptableChannel
+    }
+
+    override fun invoke() {
+        val superInvoke = {
+            super.invoke()
         }
 
         if (isGreenChannel) {
-            realLaunch()
+            superInvoke()
             return
         }
 
-        InterceptorService.doInterceptions(this, object : InterceptorCallback {
-            override fun onContinue(launchMeta: LaunchMeta) {
-                realLaunch()
+        InterceptorServiceDefault.doInterceptions(this, object : InterceptorCallback {
+            override fun onContinue(block: InterceptableChannel) {
+                if (block === this@InterceptableChannel) {
+                    superInvoke()
+                } else {
+                    block.invoke()
+                }
             }
 
-            override fun onInterrupt(e: Exception?) {
-
+            override fun onInterrupt(e: Throwable?) {
+                val interceptBlock = interceptBlock
+                if (interceptBlock != null) {
+                    interceptBlock(this@InterceptableChannel)
+                }
             }
 
         })
     }
 
-    override fun onIntercept(block: () -> Unit): LaunchInvoker {
-        return this
+    override fun hashCode(): Int {
+        return owner.hashCode()
     }
 
-    override fun onFailure(block: (e: Exception) -> Unit): LaunchInvoker {
-        return this
+    override fun toString(): String {
+        return owner.toString()
     }
 
-    internal class Builder(val launcher: Launcher, val isGreenChannel: Boolean) {
-        lateinit var launchBlock: () -> Unit
-
-        fun launchBlock(block: () -> Unit): Builder {
-            this.launchBlock = block
-            return this
-        }
-
-        fun build() = InternalLaunchMeta(this)
+    override fun equals(other: Any?): Boolean {
+        return owner == other
     }
 }
 

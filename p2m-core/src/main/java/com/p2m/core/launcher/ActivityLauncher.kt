@@ -49,7 +49,11 @@ interface ActivityLauncher<I, O> : Launcher{
      * all other fields (action, data, type) are null, though
      * they can be modified later in [onFillIntent].
      */
-    fun launch(context: Context)
+    fun launch(
+        isGreenChannel: Boolean = false,
+        interceptTimeoutSecond: Int = 10,
+        launchBlock: LaunchActivityBlock
+    )
 
     /**
      * Register a activity result for that [Activity] class annotated by [ApiLauncher].
@@ -181,3 +185,9 @@ data class ActivityResultP2MCompact<O>(val resultCode: Int, val output: O?)
  * A callback for receive activity result.
  */
 typealias ActivityResultCallbackP2MCompact<O> = (resultCode: Int, output: O?) -> Unit
+
+
+/**
+ * A block for launch service.
+ */
+typealias LaunchActivityBlock = (createdIntent: Intent) -> Unit

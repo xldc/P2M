@@ -46,7 +46,11 @@ interface FragmentLauncher<T> : Launcher {
      *
      * @return a instance.
      */
-    fun launch(launchBlock: LaunchFragmentBlock<T>)
+    fun launch(
+        isGreenChannel: Boolean = false,
+        interceptTimeoutSecond: Int = 10,
+        launchBlock: LaunchFragmentBlock<T>
+    )
 }
 
 /**
